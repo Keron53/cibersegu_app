@@ -1,22 +1,20 @@
-import { useState, useContext } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate, Link } from 'react-router-dom'
-import AuthContext from '../context/AuthContext'
 import InputField from './InputField'
+import { authService } from '../../services/api'
 import LoadingSpinner from './LoadingSpinner'
-import { authService } from '../services/api'
 
-function RegisterForm() {
+function LoginForm() {
   const [formData, setFormData] = useState({
     username: '',
-    password: '',
-    confirmPassword: ''
+    password: ''
   })
   
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
   
-  const { login } = useContext(AuthContext)
   const navigate = useNavigate()
   
   const handleChange = (e) => {
@@ -45,12 +43,6 @@ function RegisterForm() {
       newErrors.password = 'La contraseña es requerida'
     }
     
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'La confirmación de contraseña es requerida'
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Las contraseñas no coinciden'
-    }
-    
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -60,22 +52,27 @@ function RegisterForm() {
     if (!validate()) return
     
     setIsLoading(true)
+    setSuccessMessage('')
+    setErrors({})
     
     try {
-      const { confirmPassword, ...registerData } = formData
-      const response = await authService.register(registerData)
-      setErrors({
-        form: 'Usuario registrado exitosamente. Redirigiendo al inicio de sesión...',
-        type: 'success'
-      })
-      setTimeout(() => {
-        navigate('/login')
-      }, 2000)
+      const response = await authService.login(formData)
+      console.log('Inicio de sesión exitoso:', response)
+      
+      // Guardar el token en localStorage
+      if (response.token) {
+        localStorage.setItem('token', response.token)
+      }
+      
+      setSuccessMessage('¡Inicio de sesión exitoso!')
+      
+      // Navegar inmediatamente a home
+      navigate('/home', { replace: true })
+      
     } catch (error) {
-      console.error('Error en el registro:', error)
+      console.error('Error de inicio de sesión:', error)
       setErrors({
-        form: error.message || 'Error al registrar. Por favor, intenta de nuevo.',
-        type: 'error'
+        form: error.message || 'Error al iniciar sesión. Por favor, intenta de nuevo.'
       })
     } finally {
       setIsLoading(false)
@@ -89,12 +86,14 @@ function RegisterForm() {
       animate={{ opacity: 1 }}
       transition={{ delay: 0.2 }}
     >
+      {successMessage && (
+        <div className="mb-4 p-3 bg-green-500/20 border border-green-500 rounded text-green-500 text-sm">
+          {successMessage}
+        </div>
+      )}
+      
       {errors.form && (
-        <div className={`mb-4 p-3 border rounded text-sm ${
-          errors.type === 'success' 
-            ? 'bg-green-500/20 border-green-500 text-green-500'
-            : 'bg-red-500/20 border-red-500 text-red-500'
-        }`}>
+        <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded text-red-500 text-sm">
           {errors.form}
         </div>
       )}
@@ -117,17 +116,7 @@ function RegisterForm() {
           value={formData.password}
           onChange={handleChange}
           error={errors.password}
-          autoComplete="new-password"
-        />
-        
-        <InputField
-          type="password"
-          name="confirmPassword"
-          label="Confirmar Contraseña"
-          value={formData.confirmPassword}
-          onChange={handleChange}
-          error={errors.confirmPassword}
-          autoComplete="new-password"
+          autoComplete="current-password"
         />
         
         <motion.button
@@ -139,25 +128,25 @@ function RegisterForm() {
           {isLoading ? (
             <span className="flex items-center justify-center">
               <LoadingSpinner className="mr-2" />
-              Registrando...
+              Iniciando sesión...
             </span>
           ) : (
-            'Registrarse'
+            'Iniciar Sesión'
           )}
         </motion.button>
       </div>
       
       <div className="mt-6 text-center text-sm text-gray-400">
-        ¿Ya tienes una cuenta?{' '}
+        ¿No tienes una cuenta?{' '}
         <Link 
-          to="/login"
+          to="/register"
           className="secondary-button font-medium"
         >
-          Volver al inicio de sesión
+          Regístrate ahora
         </Link>
       </div>
     </motion.form>
   )
 }
 
-export default RegisterForm
+export default LoginForm
