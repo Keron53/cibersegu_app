@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { FileText, Upload, CheckCircle, XCircle } from 'lucide-react'
 import Navigation from '../layout/Navigation'
 import DocumentUpload from '../documentos/DocumentUpload'
 import DocumentList from '../documentos/DocumentList'
 import Notification from '../layout/Notification'
 import PDFViewer from '../documentos/PDFViewer'
-import api from '../../services/api' 
-
+import { documentoService } from '../../services/api'
 
 interface Document {
   _id: string
@@ -23,10 +23,11 @@ interface NotificationType {
 
 function HomePage() {
   const navigate = useNavigate()
-  const [pdfs, setPdfs] = useState<Document[]>([])
-  const [isUploading, setIsUploading] = useState(false)
+  const [documents, setDocuments] = useState<Document[]>([])
+  const [selectedDocument, setSelectedDocument] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [notification, setNotification] = useState<NotificationType | null>(null)
-  const [viewingPDF, setViewingPDF] = useState<{ url: string; name: string } | null>(null)
 
   useEffect(() => {
     loadDocuments()
@@ -34,54 +35,34 @@ function HomePage() {
 
   const loadDocuments = async () => {
     try {
-      const res = await api.get('/documentos')
-      setPdfs(res.data as Document[])
-    } catch (err) {
-      showNotification('Error al cargar documentos', 'error')
-    }
-  }
-
-  const handleUpload = async (file: File) => {
-    setIsUploading(true)
-    const formData = new FormData()
-    formData.append('pdf', file)
-    
-    try {
-      await api.post('/documentos/subir', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
-      showNotification('Documento subido correctamente', 'success')
-      loadDocuments()
-    } catch (err) {
-      showNotification('Error al subir el documento', 'error')
+      setLoading(true)
+      const docs = await documentoService.listar()
+      setDocuments(docs)
+      setError(null)
+    } catch (error) {
+      console.error('Error al cargar documentos:', error)
+      setError('Error al cargar los documentos')
     } finally {
-      setIsUploading(false)
+      setLoading(false)
     }
   }
 
-  const handleDelete = async (id: string) => {
-    try {
-      await api.delete(`/documentos/${id}`)
-      showNotification('Documento eliminado', 'success')
-      setPdfs(pdfs.filter(pdf => pdf._id !== id))
-    } catch (err) {
-      showNotification('Error al eliminar documento', 'error')
-    }
+  const handleUploadSuccess = () => {
+    loadDocuments()
+    showNotification('Documento subido correctamente', 'success')
+  }
+
+  const handleDelete = (id: string) => {
+    setDocuments(documents.filter(doc => doc._id !== id))
+    showNotification('Documento eliminado', 'success')
   }
 
   const handleView = (url: string) => {
-    // Usar la URL del documento real proporcionada por el backend
-    const doc = pdfs.find(pdf => url.includes(pdf.ruta))
-    const fileName = doc ? doc.nombre : 'Documento PDF'
-    
-    setViewingPDF({
-      url: url,
-      name: fileName
-    })
+    setSelectedDocument(url)
   }
 
-  const handleClosePDFViewer = () => {
-    setViewingPDF(null)
+  const handleCloseViewer = () => {
+    setSelectedDocument(null)
   }
 
   const handleLogout = () => {
@@ -131,30 +112,47 @@ function HomePage() {
             transition={{ delay: 0.1 }}
             className="lg:col-span-1 bg-white dark:bg-background-light rounded-xl shadow border border-gray-200 dark:border-gray-700"
           >
-            <DocumentUpload onUpload={handleUpload} isUploading={isUploading} />
+            <DocumentUpload onUploadSuccess={handleUploadSuccess} />
           </motion.div>
-          
+
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
             className="lg:col-span-2 bg-white dark:bg-background-light rounded-xl shadow border border-gray-200 dark:border-gray-700"
           >
-            <DocumentList
-              documents={pdfs}
-              onDelete={handleDelete}
-              onView={handleView}
-            />
+            {loading ? (
+              <div className="p-8 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                <p className="mt-4 text-gray-600 dark:text-gray-300">Cargando documentos...</p>
+              </div>
+            ) : error ? (
+              <div className="p-8 text-center">
+                <XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                <p className="text-red-600 dark:text-red-400">{error}</p>
+                <button
+                  onClick={loadDocuments}
+                  className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  Reintentar
+                </button>
+              </div>
+            ) : (
+              <DocumentList
+                documents={documents}
+                onDelete={handleDelete}
+                onView={handleView}
+              />
+            )}
           </motion.div>
         </div>
       </div>
 
       <AnimatePresence>
-        {viewingPDF && (
+        {selectedDocument && (
           <PDFViewer
-            pdfUrl={viewingPDF.url}
-            fileName={viewingPDF.name}
-            onClose={handleClosePDFViewer}
+            url={selectedDocument}
+            onClose={handleCloseViewer}
           />
         )}
       </AnimatePresence>

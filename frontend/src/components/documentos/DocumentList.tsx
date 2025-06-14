@@ -1,6 +1,7 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { FileText, Eye, Trash2, Download, PenTool } from 'lucide-react'
+import { documentoService } from '../../services/api'
 
 interface Document {
   _id: string
@@ -25,19 +26,39 @@ function DocumentList({ documents, onDelete, onView }: DocumentListProps) {
     })
   }
 
-  const handleView = (ruta: string) => {
-    const url = `http://localhost:3001/uploads/${ruta}`
-    onView(url)
+  const handleView = async (id: string) => {
+    try {
+      const blob = await documentoService.ver(id)
+      const url = URL.createObjectURL(blob)
+      onView(url)
+    } catch (error) {
+      console.error('Error al visualizar el documento:', error)
+    }
   }
 
-  const handleDownload = (ruta: string, nombre: string) => {
-    const url = `http://localhost:3001/uploads/${ruta}`
-    const link = document.createElement('a')
-    link.href = url
-    link.download = nombre
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const handleDownload = async (id: string, nombre: string) => {
+    try {
+      const blob = await documentoService.ver(id)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = nombre
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error al descargar el documento:', error)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await documentoService.eliminar(id)
+      onDelete(id)
+    } catch (error) {
+      console.error('Error al eliminar el documento:', error)
+    }
   }
 
   if (documents.length === 0) {
@@ -94,7 +115,7 @@ function DocumentList({ documents, onDelete, onView }: DocumentListProps) {
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => handleView(doc.ruta)}
+                    onClick={() => handleView(doc._id)}
                     className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-800/20 rounded-lg transition-colors group/btn"
                     title="Visualizar documento"
                   >
@@ -104,7 +125,7 @@ function DocumentList({ documents, onDelete, onView }: DocumentListProps) {
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => handleDownload(doc.ruta, doc.nombre)}
+                    onClick={() => handleDownload(doc._id, doc.nombre)}
                     className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-800/20 rounded-lg transition-colors"
                     title="Descargar documento"
                   >
@@ -115,7 +136,7 @@ function DocumentList({ documents, onDelete, onView }: DocumentListProps) {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => onDelete(doc._id)}
+                  onClick={() => handleDelete(doc._id)}
                   className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-800/20 rounded-lg transition-colors"
                   title="Eliminar documento"
                 >
