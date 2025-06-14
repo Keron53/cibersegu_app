@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
-import RegisterForm from './RegisterForm'
-import Logo from './Logo'
+import RegisterForm from '../auth/RegisterForm'
+import Logo from '../layout/Logo'
 
 function RegisterPage() {
   return (
@@ -13,7 +13,7 @@ function RegisterPage() {
           transition={{ duration: 0.5 }}
         >
           <div className="mb-8">
-            <Logo />
+            <Logo className="mb-8 w-24 h-24" />
           </div>
           <h1 className="text-3xl font-semibold text-white mb-2">Crear Cuenta</h1>
           <p className="text-gray-400 mb-8">Únete a nuestra plataforma de firmas electrónicas</p>
