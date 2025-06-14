@@ -16,7 +16,7 @@ Este proyecto es un sistema web diseñado para la gestión y futura implementaci
 
 El sistema sigue una arquitectura de componentes separados para el frontend y el backend, comunicándose a través de una API RESTful.
 
-![Arquitectura de la Aplicación](./docs/Arquitectura de la APP.jpg)
+![Arquitectura de la Aplicación](./docs/arquitectura-app.jpg)
 
 ## Estructura del Backend (Node.js con Express y MongoDB)
 
