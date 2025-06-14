@@ -72,7 +72,7 @@ Para levantar el proyecto, sigue los siguientes pasos:
 3.  Inicia la aplicación React:
     `npm start`
 
-La aplicación estará disponible en `http://localhost:3000` (frontend) y la API en `http://localhost:3001/api` (backend).
+La aplicación estará disponible en `http://localhost:5173` (frontend) y la API en `http://localhost:3001/api` (backend).
 
 ## Notas
 - Asegúrate de tener MongoDB corriendo localmente en el puerto 27017.
