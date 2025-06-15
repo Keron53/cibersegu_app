@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const Usuario = require('../models/Usuario');
+const TokenInvalidado = require('../models/TokenInvalidado');
 
 const SECRET_KEY = 'mi_clave_secreta';
 
@@ -31,6 +32,30 @@ const usuarioController = {
       res.json({ token });
     } catch (err) {
       res.status(500).json({ error: 'Error al iniciar sesión' });
+    }
+  },
+
+  async logout(req, res) {
+    try {
+      const token = req.header('Authorization')?.replace('Bearer ', '');
+      if (!token) {
+        return res.status(400).json({ mensaje: 'No se proporcionó token' });
+      }
+
+      // Decodificar el token para obtener la fecha de expiración
+      const decoded = jwt.verify(token, SECRET_KEY);
+      const fechaExpiracion = new Date(decoded.exp * 1000);
+
+      // Guardar el token en la lista de tokens invalidados
+      const tokenInvalidado = new TokenInvalidado({
+        token,
+        fechaExpiracion
+      });
+      await tokenInvalidado.save();
+
+      res.json({ mensaje: 'Sesión cerrada exitosamente' });
+    } catch (err) {
+      res.status(500).json({ error: 'Error al cerrar sesión' });
     }
   },
 

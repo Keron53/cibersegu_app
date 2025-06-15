@@ -3,6 +3,7 @@ const router = express.Router();
 const documentoController = require('../controllers/documentoController');
 const multer = require('multer');
 const path = require('path');
+const authMiddleware = require('../middleware/auth');
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -13,6 +14,9 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage });
+
+// Todas las rutas de documentos requieren autenticación
+router.use(authMiddleware);
 
 router.post('/subir', upload.single('pdf'), documentoController.subir);
 router.get('/', documentoController.listar);

@@ -4,12 +4,13 @@ Este proyecto es un sistema web diseñado para la gestión y futura implementaci
 
 ## Características Actuales
 
-- **Autenticación de Usuarios:** Registro e inicio de sesión seguro.
+- **Autenticación de Usuarios:** Registro, inicio y cierre de sesión seguro mediante tokens JWT.
 - **Gestión de Documentos:**
   - Subida de documentos PDF.
   - Visualización de documentos en el navegador.
   - Descarga de documentos.
-  - Eliminación de documentos.
+  - Eliminación de documentos (borrado suave).
+  - **Documentos asociados a usuarios:** Cada usuario solo puede gestionar sus propios documentos.
 - **Modo Oscuro/Claro:** Interfaz adaptable a las preferencias del usuario.
 
 ## Arquitectura del Sistema
@@ -24,9 +25,13 @@ El backend está construido con Node.js, utilizando el framework Express para la
 
 -   **`backend/src/app.js`**: Archivo principal de la aplicación. Configura Express, los middlewares y las rutas principales.
 -   **`backend/src/config/db.js`**: Contiene la lógica para establecer la conexión con la base de datos MongoDB utilizando Mongoose.
--   **`backend/src/models/`**: Define los esquemas y modelos de Mongoose para las colecciones de la base de datos, como `Usuario.js` y `Documento.js`.
--   **`backend/src/controllers/`**: Contiene la lógica de negocio para manejar las solicitudes de los clientes. Aquí se procesan las operaciones relacionadas con usuarios (registro, login) y documentos (subir, listar, ver, eliminar).
+-   **`backend/src/models/`**: Define los esquemas y modelos de Mongoose para las colecciones de la base de datos:
+    -   `Usuario.js`: Define el esquema de usuario.
+    -   `Documento.js`: Define el esquema de documento, incluyendo `nombre`, `ruta`, `usuario` (referencia al userId), `hash` (para verificar integridad futura), `estado` (activo/eliminado) y timestamps (`createdAt`, `updatedAt`).
+    -   `TokenInvalidado.js`: Almacena tokens JWT que han sido invalidados (ej. por logout).
+-   **`backend/src/controllers/`**: Contiene la lógica de negocio para manejar las solicitudes de los clientes. Aquí se procesan las operaciones relacionadas con usuarios (registro, login, logout) y documentos (subir, listar, ver, eliminar), asegurando que cada usuario interactúe solo con sus propios documentos y con borrado suave para documentos.
 -   **`backend/src/api/`**: Define las rutas específicas de la API para cada recurso. Por ejemplo, `usuarioRoutes.js` y `documentoRoutes.js` manejan las operaciones CRUD para usuarios y documentos, respectivamente.
+-   **`backend/src/middleware/`**: Contiene middlewares como `auth.js` para la verificación de tokens JWT y la protección de rutas.
 -   **`backend/uploads/`**: Directorio donde se almacenan físicamente los documentos PDF subidos por los usuarios.
 
 ## Estructura del Frontend (React con TypeScript y Tailwind CSS)
@@ -76,5 +81,5 @@ La aplicación estará disponible en `http://localhost:5173` (frontend) y la API
 
 ## Notas
 - Asegúrate de tener MongoDB corriendo localmente en el puerto 27017.
-- El archivo `.gitignore` ya está configurado para ignorar dependencias y archivos sensibles.
+- El archivo `.gitignore` está configurado para ignorar dependencias, archivos sensibles y la carpeta `backend/uploads/` donde se guardan los PDFs.
 

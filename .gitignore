@@ -16,3 +16,6 @@ build/
 
 # Otros
 .DS_Store 
+
+# Archivos subidos
+backend/uploads/ 
