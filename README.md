@@ -66,7 +66,7 @@ Para levantar el proyecto, sigue los siguientes pasos:
 2.  Instala las dependencias:
     `npm install`
 3.  Inicia el servidor (asegúrate de que MongoDB esté corriendo):
-    `npm start`
+    `node src/app.js`
 
 ### Frontend
 
@@ -75,7 +75,7 @@ Para levantar el proyecto, sigue los siguientes pasos:
 2.  Instala las dependencias:
     `npm install`
 3.  Inicia la aplicación React:
-    `npm start`
+    `npm run dev`
 
 La aplicación estará disponible en `http://localhost:5173` (frontend) y la API en `http://localhost:3001/api` (backend).
 
