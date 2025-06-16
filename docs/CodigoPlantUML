@@ -1,0 +1,47 @@
+@startuml
+top to bottom direction
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+
+title Arquitectura Centralizada de Firma y Verificación de PDFs
+
+actor Usuario
+
+rectangle "Frontend (React)\n• Login\n• Subir/Validar PDF\n• Ver Estado\n• Descargar PDF" as FE
+
+package "Backend (Node.js + Express)" {
+  component AuthController       as AuthCtl
+  component DocumentController   as DocCtl
+  component DuplicateCheckerSvc  as DupSvc
+  component CertificateService   as CertSvc
+  component PDFSignerService     as SignSvc
+  component MetadataService      as MetaSvc
+}
+
+database "MongoDB\n• users\n• certificates\n• documentMetadata" as DB
+artifact "Key Store\n(HSM / env vars)" as KEY
+
+Usuario --> FE           : Usa la interfaz
+FE --> AuthCtl           : POST /login
+AuthCtl --> DB           : validar credenciales
+FE --> DocCtl           : solicitudes PDF + JWT
+
+DocCtl --> DupSvc        : computeHash(buffer)
+DupSvc --> DB            : findOne(documentMetadata)
+DupSvc --> DocCtl        : metadata (match/no-match)
+
+DocCtl --> CertSvc       : getCert(certId)
+CertSvc --> DB           : findOne(certificates)
+CertSvc --> DocCtl       : cert data
+
+DocCtl --> SignSvc       : signPDF(buffer, cert data)
+SignSvc --> KEY          : load private key
+KEY --> SignSvc          : private key
+SignSvc --> DocCtl       : signedBuffer
+
+DocCtl --> MetaSvc       : saveMeta({userId, fileHash, status, certId, timestamps})
+MetaSvc --> DB           : insertOne(documentMetadata)
+
+DocCtl --> FE           : {id, status} / PDF firmado
+
+@enduml
