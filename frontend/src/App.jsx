@@ -3,6 +3,7 @@ import LoginPage from './components/login/LoginPage'
 import RegisterPage from './components/register/RegisterPage'
 import HomePage from './components/home/HomePage'
 import { ThemeProvider } from './context/ThemeContext'
+import CertificateUpload from './components/certificados/CertificateUpload'
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/home" element={<HomePage />} />
             <Route path="/" element={<LoginPage />} />
+            <Route path="/certificado" element={<CertificateUpload />} />
           </Routes>
         </div>
       </Router>
