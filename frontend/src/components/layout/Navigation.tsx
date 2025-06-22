@@ -42,7 +42,7 @@ function Navigation({ onLogout }: NavigationProps) {
                 </div>
                 <span className="hidden sm:block text-sm font-medium">Mi Cuenta</span>
               </button>
-              
+
               {isProfileOpen && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}

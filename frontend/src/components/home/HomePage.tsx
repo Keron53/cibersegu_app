@@ -68,7 +68,7 @@ function HomePage() {
   const handleLogout = () => {
     showNotification('¡Sesión cerrada exitosamente!', 'success')
     localStorage.removeItem('token')
-    
+
     setTimeout(() => {
       navigate('/login', { replace: true })
     }, 1500)
@@ -82,7 +82,7 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-background">
       <Navigation onLogout={handleLogout} />
-      
+
       {notification && (
         <Notification
           message={notification.message}
@@ -90,7 +90,7 @@ function HomePage() {
           onClose={() => setNotification(null)}
         />
       )}
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -145,6 +145,13 @@ function HomePage() {
               />
             )}
           </motion.div>
+          <button
+            onClick={() => navigate('/certificado')}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Subir Certificado Digital
+          </button>
+
         </div>
       </div>
 
