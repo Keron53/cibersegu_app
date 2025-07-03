@@ -83,3 +83,30 @@ La aplicación estará disponible en `http://localhost:5173` (frontend) y la API
 - Asegúrate de tener MongoDB corriendo localmente en el puerto 27017.
 - El archivo `.gitignore` está configurado para ignorar dependencias, archivos sensibles y la carpeta `backend/uploads/` donde se guardan los PDFs.
 
+## Generar un certificado de prueba (.p12)
+
+En la carpeta `backend/CrearCertificado` se encuentra el script `crear_certificado_prueba.sh` que permite generar un certificado digital de prueba en formato `.p12`.
+
+### ¿Qué hace el script?
+- Genera una clave privada RSA de 2048 bits.
+- Crea un certificado autofirmado.
+- Empaqueta la clave y el certificado en un archivo `.p12` protegido con contraseña.
+- Muestra los detalles del certificado generado.
+
+### ¿Cómo ejecutarlo?
+
+1. Abre una terminal y navega a la carpeta del script:
+   ```bash
+   cd backend/CrearCertificado
+   ```
+2. Da permisos de ejecución al script (solo la primera vez):
+   ```bash
+   chmod +x crear_certificado_prueba.sh
+   ```
+3. Ejecuta el script:
+   ```bash
+   ./crear_certificado_prueba.sh
+   ```
+
+Esto generará los archivos `Hola.key`, `Hola.crt` y `Hola.p12` en la misma carpeta. La contraseña por defecto del archivo `.p12` es `123456` (puedes modificarla editando el script).
+
