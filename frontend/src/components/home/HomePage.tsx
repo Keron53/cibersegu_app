@@ -145,14 +145,31 @@ function HomePage() {
               />
             )}
           </motion.div>
+        </div>
+
+        {/* Botones de Certificados */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mt-8 flex flex-col sm:flex-row gap-4 justify-center"
+        >
           <button
             onClick={() => navigate('/certificado')}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="flex items-center justify-center px-6 py-3 bg-primary hover:bg-primary-dark dark:bg-primary-light dark:hover:bg-primary text-white font-semibold rounded-lg shadow-lg transition-colors"
           >
+            <Upload className="w-5 h-5 mr-2" />
             Subir Certificado Digital
           </button>
-
-        </div>
+          
+          <button
+            onClick={() => navigate('/generar-certificado')}
+            className="flex items-center justify-center px-6 py-3 bg-secondary hover:bg-secondary-dark dark:bg-secondary-light dark:hover:bg-secondary text-white font-semibold rounded-lg shadow-lg transition-colors"
+          >
+            <FileText className="w-5 h-5 mr-2" />
+            Generar Nuevo Certificado
+          </button>
+        </motion.div>
       </div>
 
       <AnimatePresence>

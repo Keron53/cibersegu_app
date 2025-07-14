@@ -11,6 +11,11 @@ Este proyecto es un sistema web diseñado para la gestión y futura implementaci
   - Descarga de documentos.
   - Eliminación de documentos (borrado suave).
   - **Documentos asociados a usuarios:** Cada usuario solo puede gestionar sus propios documentos.
+- **Gestión de Certificados Digitales:**
+  - Subida de certificados digitales (.p12) con cifrado seguro.
+  - Generación de certificados digitales personalizados desde la interfaz web.
+  - Descarga de certificados generados.
+  - Almacenamiento seguro con cifrado AES-256-CBC.
 - **Modo Oscuro/Claro:** Interfaz adaptable a las preferencias del usuario.
 
 ## Arquitectura del Sistema
@@ -109,4 +114,34 @@ En la carpeta `backend/CrearCertificado` se encuentra el script `crear_certifica
    ```
 
 Esto generará los archivos `Hola.key`, `Hola.crt` y `Hola.p12` en la misma carpeta. La contraseña por defecto del archivo `.p12` es `123456` (puedes modificarla editando el script).
+
+## Generar Certificados desde la Interfaz Web
+
+El sistema incluye una funcionalidad completa para generar certificados digitales directamente desde la interfaz web:
+
+### Características del Generador
+- **Formulario completo** para configurar todos los datos del certificado:
+  - Información personal (nombre común, email)
+  - Información organizacional (empresa, departamento)
+  - Ubicación (ciudad, provincia, país)
+  - Configuración (validez, contraseña)
+- **Generación automática** de certificados autofirmados
+- **Descarga directa** del archivo .p12 generado
+- **Subida automática** al sistema tras la generación
+- **Validaciones** de seguridad y formato
+
+### Cómo usar el Generador
+1. Desde la página principal, haz clic en "Generar Nuevo Certificado"
+2. Completa el formulario con tus datos
+3. Establece una contraseña segura (mínimo 6 caracteres)
+4. Haz clic en "Generar Certificado"
+5. Una vez generado, puedes:
+   - Descargar el certificado directamente
+   - Subirlo automáticamente al sistema
+
+### Seguridad
+- Los certificados generados son autofirmados
+- Se utilizan claves RSA de 2048 bits
+- El archivo .p12 está protegido con la contraseña que elijas
+- Cumple con estándares PKCS#12 para máxima compatibilidad
 

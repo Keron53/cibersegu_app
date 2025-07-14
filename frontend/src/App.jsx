@@ -4,6 +4,7 @@ import RegisterPage from './components/register/RegisterPage'
 import HomePage from './components/home/HomePage'
 import { ThemeProvider } from './context/ThemeContext'
 import CertificateUpload from './components/certificados/CertificateUpload'
+import CertificateGenerator from './components/certificados/CertificateGenerator'
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
             <Route path="/home" element={<HomePage />} />
             <Route path="/" element={<LoginPage />} />
             <Route path="/certificado" element={<CertificateUpload />} />
+            <Route path="/generar-certificado" element={<CertificateGenerator />} />
           </Routes>
         </div>
       </Router>

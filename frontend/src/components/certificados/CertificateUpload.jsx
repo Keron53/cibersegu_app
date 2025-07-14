@@ -110,6 +110,17 @@ function CertificateUpload() {
               Subir Certificado
             </button>
           </form>
+          
+          {/* Botón Cancelar */}
+          <div className="mt-4">
+            <button
+              onClick={() => navigate('/home')}
+              className="w-full py-2 px-4 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded-lg shadow transition duration-200"
+            >
+              Cancelar
+            </button>
+          </div>
+          
           {showAccept && (
             <button
               onClick={handleAccept}
