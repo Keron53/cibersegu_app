@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 const Usuario = require('../models/Usuario');
 const TokenInvalidado = require('../models/TokenInvalidado');
 
@@ -12,8 +13,10 @@ const usuarioController = {
       if (existente) return res.status(400).json({ mensaje: 'El usuario ya está registrado' });
 
       const nuevoUsuario = new Usuario({ username, password });
-      await nuevoUsuario.save();
-      res.status(201).json(nuevoUsuario);
+      await nuevoUsuario.save(); // El hook se encarga de hashear
+      // no devolver el password
+      const { password: _pw, ...userData } = nuevoUsuario.toObject();
+      res.status(201).json(userData);
     } catch (err) {
       console.error('Error real al registrar usuario:', err);
       res.status(500).json({ error: 'Error al registrar usuario' });
@@ -24,9 +27,10 @@ const usuarioController = {
     const { username, password } = req.body;
     try {
       const usuario = await Usuario.findOne({ username });
-      if (!usuario || usuario.password !== password) {
-        return res.status(401).json({ mensaje: 'Credenciales inválidas' });
-      }
+      if (!usuario) return res.status(401).json({ mensaje: 'Credenciales inválidas' });
+
+      const match = await bcrypt.compare(password, usuario.password);
+      if (!match) return res.status(401).json({ mensaje: 'Credenciales inválidas' });
 
       const token = jwt.sign({ id: usuario._id, username: usuario.username }, SECRET_KEY, { expiresIn: '1h' });
       res.json({ token });
@@ -38,19 +42,12 @@ const usuarioController = {
   async logout(req, res) {
     try {
       const token = req.header('Authorization')?.replace('Bearer ', '');
-      if (!token) {
-        return res.status(400).json({ mensaje: 'No se proporcionó token' });
-      }
+      if (!token) return res.status(400).json({ mensaje: 'No se proporcionó token' });
 
-      // Decodificar el token para obtener la fecha de expiración
       const decoded = jwt.verify(token, SECRET_KEY);
       const fechaExpiracion = new Date(decoded.exp * 1000);
 
-      // Guardar el token en la lista de tokens invalidados
-      const tokenInvalidado = new TokenInvalidado({
-        token,
-        fechaExpiracion
-      });
+      const tokenInvalidado = new TokenInvalidado({ token, fechaExpiracion });
       await tokenInvalidado.save();
 
       res.json({ mensaje: 'Sesión cerrada exitosamente' });
@@ -60,9 +57,11 @@ const usuarioController = {
   },
 
   async listarUsuarios(req, res) {
-    const usuarios = await Usuario.find({}, { password: 0 });
+    //const usuarios = await Usuario.find({}, { password: 0 });
+    const usuarios = await Usuario.find({});
     res.json(usuarios);
   }
 };
 
 module.exports = usuarioController;
+
