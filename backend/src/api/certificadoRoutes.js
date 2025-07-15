@@ -4,15 +4,18 @@ const multer = require('multer')
 const path = require('path')
 const fs = require('fs-extra')
 const CertificateManager = require('../utils/CertificateManager');
+const { generateCertificate } = require('../controllers/certificadoController');
+const auth = require('../middleware/auth');
+
 // Configuramos multer para guardar archivos temporalmente en la carpeta /uploads
 const upload = multer({
   dest: path.join(__dirname, '../../uploads/')
 })
 
 // Ruta POST que recibe un archivo .p12 y una contraseña para cifrarlo
-router.post('/upload', upload.single('file'), async (req, res) => {
+router.post('/upload', auth, upload.single('file'), async (req, res) => {
   const { password } = req.body // Extraemos la contraseña desde el cuerpo de la solicitud
-  const userId = '665f55f404b6e719e4489182'  //  ID de usuario quemado; más adelante debe venir desde el JWT
+  const userId = req.usuario.id  // ID de usuario desde el JWT
 
   // Validamos que tanto el archivo como la contraseña estén presentes
   if (!req.file || !password) {
@@ -34,5 +37,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     res.status(statusCode).json({ error: message })
   }
 })
+
+// Ruta POST para generar un nuevo certificado digital
+router.post('/generate', auth, generateCertificate);
 
 module.exports = router

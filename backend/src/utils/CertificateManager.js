@@ -15,9 +15,7 @@ class CertificateManager {
     });
   }
 
-
   static async encryptAndStoreCertificate(filePath, password, userId) {
-
     if (!fs.existsSync(filePath)) {
       throw new Error('El archivo .p12 no existe');
     }
@@ -26,19 +24,16 @@ class CertificateManager {
       throw new Error('El userId proporcionado no es válido');
     }
 
+    // Lee el archivo .p12
+    const p12Buffer = await fs.promises.readFile(filePath);
 
-
-      // Lee el archivo .p12
-  const p12Buffer = await fs.promises.readFile(filePath);
-
-  try {
-    // Intenta parsear el archivo .p12 con la contraseña
-    const p12Asn1 = forge.asn1.fromDer(p12Buffer.toString('binary'));
-    forge.pkcs12.pkcs12FromAsn1(p12Asn1, false, password); // <-- lanza error si la contraseña es incorrecta
-  } catch (err) {
-    throw new Error('La contraseña del certificado es incorrecta');
-  }
-
+    try {
+      // Intenta parsear el archivo .p12 con la contraseña
+      const p12Asn1 = forge.asn1.fromDer(p12Buffer.toString('binary'));
+      forge.pkcs12.pkcs12FromAsn1(p12Asn1, false, password); // <-- lanza error si la contraseña es incorrecta
+    } catch (err) {
+      throw new Error('La contraseña del certificado es incorrecta');
+    }
 
     const salt = crypto.randomBytes(16); // Crear un salt único
     const derivedKey = await this.deriveKey(password, salt.toString('hex')); // Derivar clave
@@ -90,37 +85,4 @@ class CertificateManager {
 }
 
 module.exports = CertificateManager;
-
-
-
-/*
-// Usar la clase CertificateManager para cifrar y almacenar el archivo
-const filePath = '../my_cert.p12';  // Ruta al archivo .p12
-const password = 'usuarioPassword123'; // Contraseña del usuario (se usará para derivar la clave)
-const userId = '677703fc9db105315f75d5b2'; // ID de usuario en la base de datos (suponiendo que es un ObjectId de MongoDB)
-
-
-
-CertificateManager.encryptAndStoreCertificate(filePath, password, userId)
-  .then(() => {
-    console.log('Certificado cifrado y almacenado con éxito');
-  })
-  .catch(err => {
-    console.error('Error al cifrar y almacenar el certificado', err);
-  });
-
-/*/
-
-// Usar la clase CertificateManager para descifrar y guardar el archivo
-const certificateId = '679f9dcaddb246cd2347c6ce';  // ID del certificado en la base de datos
-const outputPath = './myDecryptedCert.p12';  // Ruta para guardar el archivo descifrado
-const password = 'usuarioPassword123'; // Contraseña del usuario (se usará para derivar la clave)
-
-CertificateManager.decryptAndRetrieveCertificate(certificateId, password, outputPath)
-  .then(() => {
-    console.log('Certificado descifrado y guardado con éxito');
-  })
-  .catch(err => {
-    console.error('Error al descifrar y guardar el certificado', err);
-  });
 

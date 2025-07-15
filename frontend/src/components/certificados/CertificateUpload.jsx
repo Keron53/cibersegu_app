@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import Navigation from '../layout/Navigation'
+import { useTheme } from '../../context/ThemeContext'
 
 // Componente para subir un certificado digital .p12
 function CertificateUpload() {
@@ -6,6 +9,9 @@ function CertificateUpload() {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [showAccept, setShowAccept] = useState(false)
+  const navigate = useNavigate()
+  const { theme, toggleTheme } = useTheme()
   
     // Función que se ejecuta cuando el usuario envía el formulario
   const handleSubmit = async (e) => {
@@ -39,6 +45,7 @@ function CertificateUpload() {
       if (res.ok) {
         setMessage(result.message)
         setError('')
+        setShowAccept(true)
       } else {
         setError(result.error || 'Error al subir certificado')
         setMessage('')
@@ -49,38 +56,81 @@ function CertificateUpload() {
     }
   }
 
+  const handleAccept = () => {
+    navigate('/home')
+  }
+
+  // Dummy logout para Navigation
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    navigate('/login', { replace: true })
+  }
+
   return (
-    <div className="max-w-lg mx-auto mt-12 p-6 bg-white shadow rounded">
-      <h2 className="text-2xl font-bold mb-4">Subir Certificado</h2>
-
-      {message && <p className="text-green-600 mb-3">{message}</p>}
-      {error && <p className="text-red-600 mb-3">{error}</p>}
-
-      <form onSubmit={handleSubmit}>
-        <div className="mb-4">
-          <label className="block mb-1 font-semibold">Archivo .p12</label>
-          <input
-            type="file"
-            accept=".p12"
-            onChange={(e) => setFile(e.target.files[0])}
-            className="w-full border px-3 py-2 rounded"
-          />
+    <div className="min-h-screen bg-gray-50 dark:bg-background">
+      <Navigation onLogout={handleLogout} />
+      <div className="flex items-center justify-center min-h-[80vh]">
+        <div className="w-full max-w-md p-8 rounded-2xl shadow-2xl bg-white dark:bg-background-light border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col items-center mb-6">
+            <div className="bg-primary/10 dark:bg-primary/20 rounded-full p-4 mb-2">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="#3B4CCA" className="w-10 h-10 dark:stroke-primary-light">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 17v-6m0 0V7m0 4h4m-4 0H8m12 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-3xl font-extrabold text-primary dark:text-primary-light mb-1">Subir Certificado</h2>
+            <p className="text-gray-600 dark:text-gray-300 text-sm">Carga tu archivo .p12 y tu contraseña para proteger tu identidad digital.</p>
+          </div>
+          {message && <p className="text-green-600 dark:text-green-400 mb-3 text-center font-semibold animate-fade-in-up">{message}</p>}
+          {error && <p className="text-red-600 dark:text-red-400 mb-3 text-center font-semibold animate-fade-in-up">{error}</p>}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block mb-2 text-sm font-medium text-primary dark:text-primary-light">Archivo .p12</label>
+              <input
+                type="file"
+                accept=".p12"
+                onChange={(e) => setFile(e.target.files[0])}
+                className="block w-full text-sm text-gray-700 dark:text-gray-200 border border-primary/30 dark:border-primary/40 rounded-lg cursor-pointer bg-indigo-50 dark:bg-background-light focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="block mb-2 text-sm font-medium text-primary dark:text-primary-light">Contraseña</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="block w-full px-4 py-2 text-gray-700 dark:text-gray-200 bg-indigo-50 dark:bg-background-light border border-primary/30 dark:border-primary/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Introduce tu contraseña"
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full py-2 px-4 bg-primary hover:bg-primary-dark dark:bg-primary-light dark:hover:bg-primary text-white font-bold rounded-lg shadow transition duration-200"
+              disabled={showAccept}
+            >
+              Subir Certificado
+            </button>
+          </form>
+          
+          {/* Botón Cancelar */}
+          <div className="mt-4">
+            <button
+              onClick={() => navigate('/home')}
+              className="w-full py-2 px-4 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded-lg shadow transition duration-200"
+            >
+              Cancelar
+            </button>
+          </div>
+          
+          {showAccept && (
+            <button
+              onClick={handleAccept}
+              className="w-full mt-6 py-2 px-4 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg shadow transition duration-200 animate-fade-in-up"
+            >
+              Aceptar
+            </button>
+          )}
         </div>
-
-        <div className="mb-4">
-          <label className="block mb-1 font-semibold">Contraseña</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full border px-3 py-2 rounded"
-          />
-        </div>
-
-        <button type="submit" className="primary-button">
-          Subir Certificado
-        </button>
-      </form>
+      </div>
     </div>
   )
 }
