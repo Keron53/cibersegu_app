@@ -15,6 +15,9 @@ Este proyecto es un sistema web diseñado para la gestión y futura implementaci
   - Subida de certificados digitales (.p12) con cifrado seguro.
   - Generación de certificados digitales personalizados desde la interfaz web.
   - Descarga de certificados generados.
+  - **Lista de certificados:** Visualización de todos los certificados del usuario.
+  - **Descarga segura:** Descarga de certificados almacenados con validación de contraseña.
+  - **Eliminación de certificados:** Gestión completa del ciclo de vida de certificados.
   - Almacenamiento seguro con cifrado AES-256-CBC.
 - **Modo Oscuro/Claro:** Interfaz adaptable a las preferencias del usuario.
 
@@ -34,10 +37,12 @@ El backend está construido con Node.js, utilizando el framework Express para la
     -   `Usuario.js`: Define el esquema de usuario.
     -   `Documento.js`: Define el esquema de documento, incluyendo `nombre`, `ruta`, `usuario` (referencia al userId), `hash` (para verificar integridad futura), `estado` (activo/eliminado) y timestamps (`createdAt`, `updatedAt`).
     -   `TokenInvalidado.js`: Almacena tokens JWT que han sido invalidados (ej. por logout).
--   **`backend/src/controllers/`**: Contiene la lógica de negocio para manejar las solicitudes de los clientes. Aquí se procesan las operaciones relacionadas con usuarios (registro, login, logout) y documentos (subir, listar, ver, eliminar), asegurando que cada usuario interactúe solo con sus propios documentos y con borrado suave para documentos.
--   **`backend/src/api/`**: Define las rutas específicas de la API para cada recurso. Por ejemplo, `usuarioRoutes.js` y `documentoRoutes.js` manejan las operaciones CRUD para usuarios y documentos, respectivamente.
+-   **`backend/src/controllers/`**: Contiene la lógica de negocio para manejar las solicitudes de los clientes. Aquí se procesan las operaciones relacionadas con usuarios (registro, login, logout), documentos (subir, listar, ver, eliminar) y certificados (subir, generar, listar, descargar, eliminar), asegurando que cada usuario interactúe solo con sus propios recursos y con borrado suave para documentos.
+-   **`backend/src/api/`**: Define las rutas específicas de la API para cada recurso. Por ejemplo, `usuarioRoutes.js`, `documentoRoutes.js` y `certificadoRoutes.js` manejan las operaciones CRUD para usuarios, documentos y certificados, respectivamente.
 -   **`backend/src/middleware/`**: Contiene middlewares como `auth.js` para la verificación de tokens JWT y la protección de rutas.
+-   **`backend/src/utils/`**: Contiene utilidades como `CertificateManager.js` para el manejo seguro de certificados digitales (cifrado, descifrado, almacenamiento).
 -   **`backend/uploads/`**: Directorio donde se almacenan físicamente los documentos PDF subidos por los usuarios.
+-   **`backend/CrearCertificado/`**: Scripts para generar certificados de prueba desde la línea de comandos.
 
 ## Estructura del Frontend (React con TypeScript y Tailwind CSS)
 
@@ -46,9 +51,12 @@ El frontend es una aplicación de React construida con TypeScript y estilizada c
 -   **`frontend/src/App.tsx`**: Componente raíz de la aplicación. Configura el enrutamiento (`react-router-dom`), provee el contexto del tema y la autenticación a toda la aplicación.
 -   **`frontend/src/pages/`**: Contiene los componentes de página de nivel superior que corresponden a las rutas de la aplicación (ej. `LoginPage.tsx`, `RegisterPage.tsx`).
 -   **`frontend/src/components/`**: Almacena componentes UI reutilizables. Esto incluye subcarpetas para:
-    -   **`components/home/`**: Contiene `HomePage.tsx`, la página principal para la gestión de documentos.
+    -   **`components/home/`**: Contiene `HomePage.tsx`, la página principal para la gestión de documentos y certificados.
     -   **`components/layout/`**: Componentes relacionados con el diseño general de la aplicación, como la barra de navegación (`Navigation.tsx`) y notificaciones (`Notification.tsx`).
     -   **`components/documentos/`**: Componentes específicos para la interacción con documentos, como `DocumentUpload.tsx` (subida), `DocumentList.tsx` (listado) y `PDFViewer.tsx` (visor).
+    -   **`components/certificados/`**: Componentes específicos para la gestión de certificados digitales, como `CertificateUpload.jsx` (subida), `CertificateGenerator.jsx` (generación), y `CertificateList.jsx` (listado y gestión).
+    -   **`components/auth/`**: Componentes de autenticación como formularios de login y registro.
+    -   **`components/login/`** y **`components/register/`**: Páginas específicas para autenticación.
 -   **`frontend/src/context/ThemeContext.tsx`**: Provee un contexto React para gestionar el estado del tema (claro/oscuro) a través de la aplicación.
 -   **`frontend/src/services/api.ts`**: Contiene los servicios para interactuar con la API del backend, incluyendo `authService` para la autenticación y `documentoService` para las operaciones de documentos. Utiliza Axios para las peticiones HTTP.
 -   **`tailwind.config.js`**: Archivo de configuración de Tailwind CSS, donde se definen las rutas de los archivos que Tailwind debe escanear para generar los estilos, y se pueden personalizar colores, tipografías, etc.
@@ -83,6 +91,22 @@ Para levantar el proyecto, sigue los siguientes pasos:
     `npm run dev`
 
 La aplicación estará disponible en `http://localhost:5173` (frontend) y la API en `http://localhost:3001/api` (backend).
+
+### Rutas Disponibles
+
+#### Frontend
+- **`/`** - Página de login (redirige desde la raíz)
+- **`/login`** - Página de inicio de sesión
+- **`/register`** - Página de registro
+- **`/home`** - Página principal con gestión de documentos y certificados
+- **`/certificado`** - Subida de certificados digitales
+- **`/generar-certificado`** - Generación de certificados personalizados
+- **`/mis-certificados`** - Gestión de certificados almacenados
+
+#### Backend API
+- **`/api/usuarios/*`** - Gestión de usuarios (login, registro, logout)
+- **`/api/documentos/*`** - Gestión de documentos PDF
+- **`/api/certificados/*`** - Gestión de certificados digitales
 
 ## Notas
 - Asegúrate de tener MongoDB corriendo localmente en el puerto 27017.
@@ -144,4 +168,29 @@ El sistema incluye una funcionalidad completa para generar certificados digitale
 - Se utilizan claves RSA de 2048 bits
 - El archivo .p12 está protegido con la contraseña que elijas
 - Cumple con estándares PKCS#12 para máxima compatibilidad
+
+## Gestión de Certificados Almacenados
+
+El sistema incluye una funcionalidad completa para gestionar todos los certificados digitales almacenados:
+
+### Características de la Gestión
+- **Lista de Certificados:** Visualiza todos tus certificados subidos y generados
+- **Descarga Segura:** Descarga certificados almacenados con validación de contraseña
+- **Eliminación:** Elimina certificados que ya no necesites
+- **Información Detallada:** Fecha de creación, nombre del archivo
+- **Interfaz Intuitiva:** Diseño moderno con modo oscuro/claro
+
+### Cómo Gestionar Certificados
+1. Desde la página principal, haz clic en "Ver Mis Certificados"
+2. En la lista verás todos tus certificados con fecha de creación
+3. Para cada certificado puedes:
+   - **Descargar:** Haz clic en "Descargar" e ingresa la contraseña
+   - **Eliminar:** Haz clic en "Eliminar" y confirma la acción
+4. Los certificados se muestran ordenados por fecha de creación (más recientes primero)
+
+### Seguridad en la Gestión
+- **Autenticación requerida:** Solo puedes ver tus propios certificados
+- **Validación de contraseña:** Se requiere la contraseña original para descargar
+- **Confirmación de eliminación:** Previene eliminaciones accidentales
+- **Cifrado mantenido:** Los certificados permanecen cifrados en la base de datos
 
