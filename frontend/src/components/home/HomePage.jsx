@@ -9,25 +9,13 @@ import Notification from '../layout/Notification'
 import PDFViewer from '../documentos/PDFViewer'
 import { documentoService } from '../../services/api'
 
-interface Document {
-  _id: string
-  nombre: string
-  ruta: string
-  fechaSubida?: string
-}
-
-interface NotificationType {
-  message: string
-  type: 'success' | 'error' | 'warning'
-}
-
 function HomePage() {
   const navigate = useNavigate()
-  const [documents, setDocuments] = useState<Document[]>([])
-  const [selectedDocument, setSelectedDocument] = useState<string | null>(null)
+  const [documents, setDocuments] = useState([])
+  const [selectedDocument, setSelectedDocument] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [notification, setNotification] = useState<NotificationType | null>(null)
+  const [error, setError] = useState(null)
+  const [notification, setNotification] = useState(null)
 
   useEffect(() => {
     loadDocuments()
@@ -52,12 +40,12 @@ function HomePage() {
     showNotification('Documento subido correctamente', 'success')
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (id) => {
     setDocuments(documents.filter(doc => doc._id !== id))
     showNotification('Documento eliminado', 'success')
   }
 
-  const handleView = (url: string) => {
+  const handleView = (url) => {
     setSelectedDocument(url)
   }
 
@@ -74,7 +62,7 @@ function HomePage() {
     }, 1500)
   }
 
-  const showNotification = (message: string, type: 'success' | 'error' | 'warning') => {
+  const showNotification = (message, type) => {
     setNotification({ message, type })
     setTimeout(() => setNotification(null), 4000)
   }
@@ -192,4 +180,4 @@ function HomePage() {
   )
 }
 
-export default HomePage
+export default HomePage 
