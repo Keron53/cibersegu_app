@@ -1,6 +1,6 @@
 # Sistema de Firmas Electrónicas
 
-Este proyecto es un sistema web diseñado para la gestión y futura implementación de firmas electrónicas en documentos PDF. Cuenta con una arquitectura de cliente-servidor (frontend y backend) que permite a los usuarios subir, visualizar, descargar y eliminar documentos, con una base sólida para expandirse a funcionalidades de firma digital.
+Este proyecto es un sistema web completo para la gestión y aplicación de firmas electrónicas en documentos PDF. Cuenta con una arquitectura de cliente-servidor (frontend y backend) que permite a los usuarios subir, visualizar, descargar, eliminar y **firmar digitalmente** documentos PDF con certificados digitales.
 
 ## Características Actuales
 
@@ -11,6 +11,7 @@ Este proyecto es un sistema web diseñado para la gestión y futura implementaci
   - Descarga de documentos.
   - Eliminación de documentos (borrado suave).
   - **Documentos asociados a usuarios:** Cada usuario solo puede gestionar sus propios documentos.
+  - **Estado de firma visual:** Los documentos muestran claramente si están firmados o listos para firmar.
 - **Gestión de Certificados Digitales:**
   - Subida de certificados digitales (.p12) con cifrado seguro.
   - Generación de certificados digitales personalizados desde la interfaz web.
@@ -19,6 +20,14 @@ Este proyecto es un sistema web diseñado para la gestión y futura implementaci
   - **Descarga segura:** Descarga de certificados almacenados con validación de contraseña.
   - **Eliminación de certificados:** Gestión completa del ciclo de vida de certificados.
   - Almacenamiento seguro con cifrado AES-256-CBC.
+- **🆕 Firma Digital Completa:**
+  - **Posicionamiento visual:** Interfaz intuitiva para seleccionar la posición exacta de la firma en el PDF.
+  - **Vista previa en tiempo real:** Caja arrastrable que muestra cómo se verá la firma.
+  - **Selección de certificado:** Elección del certificado digital a utilizar para la firma.
+  - **Validación de contraseña:** Verificación segura de la contraseña del certificado.
+  - **Generación de QR:** Código QR con toda la información de la firma para validación.
+  - **Firma visual:** Aplicación de la firma digital directamente en el PDF.
+  - **Información detallada:** Modal con todos los detalles de la firma aplicada.
 - **Modo Oscuro/Claro:** Interfaz adaptable a las preferencias del usuario.
 
 ## Arquitectura del Sistema
@@ -54,6 +63,9 @@ El frontend es una aplicación de React construida con TypeScript y estilizada c
     -   **`components/home/`**: Contiene `HomePage.tsx`, la página principal para la gestión de documentos y certificados.
     -   **`components/layout/`**: Componentes relacionados con el diseño general de la aplicación, como la barra de navegación (`Navigation.tsx`) y notificaciones (`Notification.tsx`).
     -   **`components/documentos/`**: Componentes específicos para la interacción con documentos, como `DocumentUpload.tsx` (subida), `DocumentList.tsx` (listado) y `PDFViewer.tsx` (visor).
+        - **`PDFSignatureViewer.jsx`**: Visor modal para posicionar firmas digitales en PDFs con interfaz horizontal
+        - **`SignatureConfirmationModal.jsx`**: Modal de confirmación con detalles de firma y validación de contraseña
+        - **`QRCodeGenerator.jsx`**: Generador de códigos QR para validación de firmas
     -   **`components/certificados/`**: Componentes específicos para la gestión de certificados digitales, como `CertificateUpload.jsx` (subida), `CertificateGenerator.jsx` (generación), y `CertificateList.jsx` (listado y gestión).
     -   **`components/auth/`**: Componentes de autenticación como formularios de login y registro.
     -   **`components/login/`** y **`components/register/`**: Páginas específicas para autenticación.
@@ -61,12 +73,82 @@ El frontend es una aplicación de React construida con TypeScript y estilizada c
 -   **`frontend/src/services/api.ts`**: Contiene los servicios para interactuar con la API del backend, incluyendo `authService` para la autenticación y `documentoService` para las operaciones de documentos. Utiliza Axios para las peticiones HTTP.
 -   **`tailwind.config.js`**: Archivo de configuración de Tailwind CSS, donde se definen las rutas de los archivos que Tailwind debe escanear para generar los estilos, y se pueden personalizar colores, tipografías, etc.
 
-## Próximos Pasos (Firma Electrónica)
+## Funcionalidades de Firma Digital Implementadas ✅
 
-La base actual está diseñada para facilitar la futura integración de funcionalidades de firma electrónica, que incluirán:
-- Generación y gestión de firmas digitales.
-- Aplicación de firmas a documentos PDF.
-- Verificación de la autenticidad de los documentos firmados.
+El sistema ya cuenta con funcionalidades completas de firma electrónica:
+
+### **Proceso de Firma Digital:**
+
+1. **Selección de Documento:** El usuario selecciona un documento PDF de su lista.
+2. **Posicionamiento de Firma:** 
+   - Interfaz modal horizontal con visor de PDF y panel de información
+   - Selección visual de la posición exacta donde se aplicará la firma
+   - Vista previa arrastrable de la firma con QR code
+   - Navegación entre páginas del PDF
+3. **Selección de Certificado:** Elección del certificado digital a utilizar.
+4. **Validación de Contraseña:** Verificación segura de la contraseña del certificado.
+5. **Aplicación de Firma:** 
+   - Generación de código QR con información de la firma
+   - Aplicación visual de la firma en el PDF
+   - Almacenamiento de metadatos de firma en la base de datos
+6. **Confirmación:** Modal con detalles completos de la firma aplicada.
+
+### **Características Técnicas:**
+
+- **Posicionamiento preciso:** Coordenadas exactas en el PDF
+- **QR Code de validación:** Contiene toda la información de la firma
+- **Metadatos completos:** Firmante, fecha, certificado, validador, etc.
+- **Validación de integridad:** Verificación de la contraseña del certificado
+- **Interfaz responsiva:** Modales compactos y adaptables
+- **Estado visual:** Los documentos muestran claramente si están firmados
+
+## Flujo Completo de Firma Digital
+
+### **1. Preparación:**
+- Usuario sube un documento PDF
+- Usuario sube o genera un certificado digital (.p12)
+
+### **2. Proceso de Firma:**
+1. **Selección:** Usuario hace clic en "Firmar" en un documento
+2. **Posicionamiento:** Modal horizontal se abre con:
+   - Visor de PDF a la izquierda
+   - Panel de información a la derecha
+   - Botón "Seleccionar Posición" para activar el modo de posicionamiento
+3. **Selección de Posición:** 
+   - Usuario hace clic en el PDF donde quiere la firma
+   - Aparece una caja arrastrable con vista previa de la firma
+   - Botón "Confirmar Posición" para continuar
+4. **Selección de Certificado:**
+   - Si hay múltiples certificados, se muestra selector
+   - Si hay solo uno, se selecciona automáticamente
+5. **Validación de Contraseña:**
+   - Modal de confirmación con detalles de la firma
+   - Campo para ingresar contraseña del certificado
+   - Validación en tiempo real con el backend
+6. **Aplicación de Firma:**
+   - Se aplica la firma visual al PDF
+   - Se genera código QR con metadatos
+   - Se guarda información en la base de datos
+7. **Confirmación:**
+   - Modal con detalles completos de la firma
+   - Código QR para validación
+   - Información del certificado utilizado
+
+### **3. Resultado:**
+- Documento PDF firmado digitalmente
+- Estado visual actualizado: "Documento firmado" en lugar de "Listo para firmar"
+- Código QR para validación de la firma
+- Metadatos completos almacenados
+
+## Próximos Pasos (Mejoras Futuras)
+
+Con la base actual completamente funcional, las siguientes mejoras podrían implementarse:
+
+- **Verificación de firmas:** Validación de documentos firmados por otros usuarios
+- **Múltiples firmantes:** Soporte para firmas múltiples en un mismo documento
+- **Plantillas de firma:** Posiciones predefinidas para tipos de documentos
+- **Auditoría avanzada:** Historial detallado de todas las operaciones de firma
+- **Integración con servicios externos:** Validación con autoridades certificadoras
 
 ## Configuración y Ejecución
 
@@ -106,7 +188,10 @@ La aplicación estará disponible en `http://localhost:5173` (frontend) y la API
 #### Backend API
 - **`/api/usuarios/*`** - Gestión de usuarios (login, registro, logout)
 - **`/api/documentos/*`** - Gestión de documentos PDF
+  - **`/api/documentos/:id/firmar`** - Aplicar firma digital a un documento
+  - **`/api/documentos/:id/info-pdf`** - Obtener información del PDF (páginas, dimensiones)
 - **`/api/certificados/*`** - Gestión de certificados digitales
+  - **`/api/certificados/:id/validate-password`** - Validar contraseña de certificado
 
 ## Notas
 - Asegúrate de tener MongoDB corriendo localmente en el puerto 27017.
@@ -193,4 +278,3 @@ El sistema incluye una funcionalidad completa para gestionar todos los certifica
 - **Validación de contraseña:** Se requiere la contraseña original para descargar
 - **Confirmación de eliminación:** Previene eliminaciones accidentales
 - **Cifrado mantenido:** Los certificados permanecen cifrados en la base de datos
-
