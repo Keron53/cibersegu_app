@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navigation from '../layout/Navigation'
 import { useTheme } from '../../context/ThemeContext'
+import { certificadoService } from '../../services/api'
 
 // Componente para subir un certificado digital .p12
 function CertificateUpload() {
@@ -24,35 +25,20 @@ function CertificateUpload() {
     }
 
     try {
-            // Creamos un objeto FormData para enviar el archivo y la contraseña al backend
+      // Creamos un objeto FormData para enviar el archivo y la contraseña al backend
       const formData = new FormData()
       formData.append('file', file)
       formData.append('password', password)
 
-      const token = localStorage.getItem('token')
+      // Usamos el servicio configurado en lugar de fetch directo
+      const result = await certificadoService.subir(formData)
 
-            // Enviamos la solicitud POST al backend con el archivo y la contraseña
-      const res = await fetch('http://localhost:3001/api/certificados/upload', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
-
-      //Procesamos la respuesta
-      const result = await res.json()
-      if (res.ok) {
-        setMessage(result.message)
-        setError('')
-        setShowAccept(true)
-      } else {
-        setError(result.error || 'Error al subir certificado')
-        setMessage('')
-      }
+      setMessage(result.message)
+      setError('')
+      setShowAccept(true)
     } catch (err) {
-      setError('Error al conectar con el servidor')
-      console.error(err)
+      setError(err.response?.data?.error || 'Error al conectar con el servidor')
+      setMessage('')
     }
   }
 

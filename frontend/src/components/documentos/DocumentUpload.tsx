@@ -61,7 +61,10 @@ function DocumentUpload({ onUploadSuccess }: DocumentUploadProps) {
     setError(null)
 
     try {
-      await documentoService.subir(selectedFile)
+      const formData = new FormData()
+      formData.append('documento', selectedFile)
+      
+      await documentoService.subir(formData)
       setSelectedFile(null)
       onUploadSuccess()
     } catch (error) {

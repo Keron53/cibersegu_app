@@ -38,10 +38,7 @@ export const documentoService = {
     return response.data
   },
 
-  subir: async (file: File) => {
-    const formData = new FormData()
-    formData.append('pdf', file)
-    
+  subir: async (formData: FormData) => {
     const response = await api.post('/documentos/subir', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
@@ -59,6 +56,11 @@ export const documentoService = {
 
   eliminar: async (id: string) => {
     const response = await api.delete(`/documentos/${id}`)
+    return response.data
+  },
+
+  firmar: async (id: string, signatureInfo: any) => {
+    const response = await api.post(`/documentos/${id}/firmar`, signatureInfo)
     return response.data
   }
 }

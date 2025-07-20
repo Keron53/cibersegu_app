@@ -1,26 +1,56 @@
-const express = require('express');
-const router = express.Router();
-const documentoController = require('../controllers/documentoController');
-const multer = require('multer');
-const path = require('path');
-const authMiddleware = require('../middleware/auth');
+const express = require('express')
+const multer = require('multer')
+const path = require('path')
+const fs = require('fs')
+const documentoController = require('../controllers/documentoController')
+const auth = require('../middleware/auth')
 
+const router = express.Router()
+
+// Debug: verificar que el controlador se importe correctamente
+
+
+// Configuración de multer para subir archivos
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../../uploads'));
+    const uploadDir = path.join(__dirname, '../../uploads')
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true })
+    }
+    cb(null, uploadDir)
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + '-' + file.originalname);
+    // Generar nombre único para el archivo
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
   }
-});
-const upload = multer({ storage });
+})
 
-// Todas las rutas de documentos requieren autenticación
-router.use(authMiddleware);
+const upload = multer({ 
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    // Solo permitir PDFs
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true)
+    } else {
+      cb(new Error('Solo se permiten archivos PDF'), false)
+    }
+  },
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB máximo
+  }
+})
 
-router.post('/subir', upload.single('pdf'), documentoController.subir);
-router.get('/', documentoController.listar);
-router.get('/:id', documentoController.ver);
-router.delete('/:id', documentoController.eliminar);
+// Rutas para documentos
+router.post('/subir', auth, upload.single('documento'), documentoController.subir)
+router.get('/', auth, documentoController.listar)
+router.get('/:id', auth, documentoController.ver)
+router.delete('/:id', auth, documentoController.eliminar)
 
-module.exports = router; 
+// Nueva ruta para procesar firmas digitales
+router.post('/:id/firmar', auth, documentoController.firmarDocumento)
+
+// Nueva ruta para obtener información del PDF
+router.get('/:id/info', auth, documentoController.obtenerInfoPDF)
+
+module.exports = router 

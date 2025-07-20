@@ -10,6 +10,11 @@ const path = require('path');
 app.use(express.json());
 app.use(cors());
 
+// Ruta de prueba para verificar que el servidor esté funcionando
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'Servidor funcionando correctamente', timestamp: new Date().toISOString() });
+});
+
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/documentos', documentoRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

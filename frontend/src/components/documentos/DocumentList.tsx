@@ -1,23 +1,41 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import { FileText, Eye, Trash2, Download, PenTool } from 'lucide-react'
+import { FileText, Eye, Trash2, Download, PenTool, Signature, CheckCircle } from 'lucide-react'
 import { documentoService } from '../../services/api'
+import PDFSignatureViewer from './PDFSignatureViewer'
+import SignatureConfirmationModal from './SignatureConfirmationModal'
+import NotificationContainer from '../layout/NotificationContainer'
+import { useNotification } from '../../hooks/useNotification'
 
 interface Document {
   _id: string
   nombre: string
   ruta: string
-  fechaSubida?: string
+  usuario: string
+  hash: string
+  estado: string
+  fechaSubida: string
+  firmaDigital?: any
 }
 
-interface DocumentListProps {
-  documents: Document[]
-  onDelete: (id: string) => void
-  onView: (url: string) => void
+interface SignatureInfo {
+  position: any
+  qrData: string
+  signatureData: any
+  userData: any
+  certificateData?: any
+  certificatePassword?: string
+  documentId: string
 }
 
-function DocumentList({ documents, onDelete, onView }: DocumentListProps) {
-  const formatDate = (dateString?: string) => {
+function DocumentList({ documents, onDelete, onView }: { documents: Document[], onDelete: (id: string) => void, onView: (id: string) => void }) {
+  const [showSignatureViewer, setShowSignatureViewer] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false)
+  const [signatureInfo, setSignatureInfo] = useState<SignatureInfo | null>(null)
+  const { notifications, showNotification, removeNotification } = useNotification()
+
+  const formatDate = (dateString) => {
     if (!dateString) return 'Fecha no disponible'
     return new Date(dateString).toLocaleDateString('es-ES', {
       year: 'numeric',
@@ -26,7 +44,24 @@ function DocumentList({ documents, onDelete, onView }: DocumentListProps) {
     })
   }
 
-  const handleView = async (id: string) => {
+  const getDocumentStatus = (document) => {
+    if (document.firmaDigital) {
+      return {
+        text: 'Documento firmado',
+        icon: 'CheckCircle',
+        className: 'bg-blue-100 dark:bg-blue-800/20 text-blue-700 dark:text-blue-400',
+        iconClassName: 'text-blue-600 dark:text-blue-400'
+      }
+    }
+    return {
+      text: 'Listo para firmar',
+      icon: 'PenTool',
+      className: 'bg-green-100 dark:bg-green-800/20 text-green-700 dark:text-green-400',
+      iconClassName: 'text-green-600 dark:text-green-400'
+    }
+  }
+
+  const handleView = async (id) => {
     try {
       const blob = await documentoService.ver(id)
       const url = URL.createObjectURL(blob)
@@ -36,7 +71,7 @@ function DocumentList({ documents, onDelete, onView }: DocumentListProps) {
     }
   }
 
-  const handleDownload = async (id: string, nombre: string) => {
+  const handleDownload = async (id, nombre) => {
     try {
       const blob = await documentoService.ver(id)
       const url = URL.createObjectURL(blob)
@@ -52,12 +87,107 @@ function DocumentList({ documents, onDelete, onView }: DocumentListProps) {
     }
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id) => {
     try {
       await documentoService.eliminar(id)
       onDelete(id)
     } catch (error) {
       console.error('Error al eliminar el documento:', error)
+    }
+  }
+
+  const handleSignDocument = (document) => {
+    setSelectedDocument(document)
+    setShowSignatureViewer(true)
+  }
+
+  const handlePositionSelected = (signatureInfo) => {
+    console.log('Información de firma digital:', signatureInfo)
+    console.log('Documento:', selectedDocument)
+    console.log('CertificateData recibido:', signatureInfo.certificateData)
+    
+    // Agregar el nombre del documento a la información de firma
+    const completeSignatureInfo = {
+      ...signatureInfo,
+      documentName: selectedDocument?.nombre
+    }
+    
+    console.log('Información completa a enviar al modal:', completeSignatureInfo)
+    setSignatureInfo(completeSignatureInfo)
+    setShowConfirmationModal(true)
+  }
+
+  const handleCloseSignatureViewer = () => {
+    setShowSignatureViewer(false)
+    setSelectedDocument(null)
+  }
+
+  const handleCloseConfirmationModal = () => {
+    setShowConfirmationModal(false)
+    setSignatureInfo(null)
+    // No limpiar selectedDocument aquí para mantener la referencia
+  }
+
+  const handleConfirmSignature = async (certificatePassword) => {
+    try {
+      if (!signatureInfo) {
+        showNotification('Error: Información de firma incompleta', 'error')
+        return
+      }
+
+      // Usar documentId de signatureInfo en lugar de selectedDocument
+      const documentId = signatureInfo.documentId
+      
+      // Asegurar que el certificado tenga el ID correcto
+      const certificateData = signatureInfo.certificateData ? {
+        ...signatureInfo.certificateData,
+        id: signatureInfo.certificateData._id || signatureInfo.certificateData.id
+      } : null
+
+      // Enviar la información al backend para procesar la firma
+      const response = await documentoService.firmar(documentId, {
+        position: signatureInfo.position,
+        qrData: signatureInfo.qrData,
+        signatureData: signatureInfo.signatureData,
+        userData: signatureInfo.userData,
+        certificateData: certificateData,
+        certificatePassword: certificatePassword
+      })
+      
+      console.log('Firma procesada:', response)
+      
+      // Cerrar el modal
+      setShowConfirmationModal(false)
+      setSignatureInfo(null)
+      
+      // Mostrar mensaje de éxito con notificación personalizada
+      showNotification(
+        response.mensaje || '✅ Firma digital aplicada correctamente al documento', 
+        'success',
+        8000 // Mostrar por 8 segundos
+      )
+      
+      // Actualizar el documento en la lista local para reflejar el cambio
+      // Buscar el documento en la lista y actualizar su estado
+      const updatedDocuments = documents.map(doc => {
+        if (doc._id === documentId) {
+          return {
+            ...doc,
+            firmaDigital: response.firmaInfo || true // Marcar como firmado
+          }
+        }
+        return doc
+      })
+      
+      // Forzar la actualización de la lista
+      // Por ahora usamos reload como fallback
+      window.location.reload()
+      
+    } catch (error) {
+      console.error('Error al firmar documento:', error)
+      // Mostrar el mensaje específico del backend si está disponible
+      const errorMessage = error.response?.data?.mensaje || 'Error al firmar el documento'
+      showNotification(errorMessage, 'error', 10000) // Mostrar error por 10 segundos
     }
   }
 
@@ -102,10 +232,16 @@ function DocumentList({ documents, onDelete, onView }: DocumentListProps) {
                     {formatDate(doc.fechaSubida)}
                   </p>
                   <div className="mt-2">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-800/20 text-green-700 dark:text-green-400">
-                      <PenTool className="w-3 h-3 mr-1" />
-                      Listo para firmar
-                    </span>
+                    {(() => {
+                      const status = getDocumentStatus(doc)
+                      const IconComponent = status.icon === 'CheckCircle' ? CheckCircle : PenTool
+                      return (
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${status.className}`}>
+                          <IconComponent className={`w-3 h-3 mr-1 ${status.iconClassName}`} />
+                          {status.text}
+                        </span>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>
@@ -131,6 +267,21 @@ function DocumentList({ documents, onDelete, onView }: DocumentListProps) {
                   >
                     <Download className="w-4 h-4" />
                   </motion.button>
+
+                  <motion.button
+                    whileHover={{ scale: doc.firmaDigital ? 1 : 1.05 }}
+                    whileTap={{ scale: doc.firmaDigital ? 1 : 0.95 }}
+                    onClick={() => !doc.firmaDigital && handleSignDocument(doc)}
+                    className={`p-2 rounded-lg transition-colors ${
+                      doc.firmaDigital 
+                        ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed' 
+                        : 'text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-800/20'
+                    }`}
+                    title={doc.firmaDigital ? 'Documento ya firmado' : 'Firmar documento'}
+                    disabled={doc.firmaDigital}
+                  >
+                    <Signature className="w-4 h-4" />
+                  </motion.button>
                 </div>
                 
                 <motion.button
@@ -147,6 +298,31 @@ function DocumentList({ documents, onDelete, onView }: DocumentListProps) {
           ))}
         </div>
       </div>
+
+      {/* Visor de selección de posición de firma */}
+      {showSignatureViewer && selectedDocument && (
+        <PDFSignatureViewer
+          documentId={selectedDocument._id}
+          documentName={selectedDocument.nombre}
+          onClose={handleCloseSignatureViewer}
+          onPositionSelected={handlePositionSelected}
+        />
+      )}
+
+      {/* Modal de confirmación de firma */}
+      {showConfirmationModal && signatureInfo && (
+        <SignatureConfirmationModal
+          signatureInfo={signatureInfo}
+          onClose={handleCloseConfirmationModal}
+          onConfirm={handleConfirmSignature}
+        />
+      )}
+
+      {/* Contenedor de notificaciones */}
+      <NotificationContainer
+        notifications={notifications}
+        onRemove={removeNotification}
+      />
     </div>
   )
 }

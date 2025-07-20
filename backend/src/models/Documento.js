@@ -9,6 +9,10 @@ const documentoSchema = new mongoose.Schema({
     type: String,
     enum: ['activo', 'eliminado'],
     default: 'activo'
+  },
+  firmaDigital: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null
   }
 }, { timestamps: true });
 

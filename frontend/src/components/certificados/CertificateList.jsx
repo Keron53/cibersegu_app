@@ -149,6 +149,21 @@ function CertificateList() {
     })
   }
 
+  const generateCertificateDisplayName = (cert) => {
+    if (cert.originalFilename) {
+      return cert.originalFilename;
+    }
+    if (cert.nombreComun) {
+      return cert.nombreComun;
+    }
+    
+    // Generar nombre descriptivo basado en fecha e ID
+    const date = new Date(cert.createdAt);
+    const dateStr = date.toISOString().split('T')[0];
+    const shortId = cert.id?.slice(-6) || 'N/A';
+    return `Certificado_${dateStr}_${shortId}`;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-background">
       <Navigation onLogout={handleLogout} />
@@ -222,7 +237,7 @@ function CertificateList() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-white">
-                        {certificate.filename}
+                        {generateCertificateDisplayName(certificate)}
                       </h3>
                       <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
                         <Calendar className="w-4 h-4 mr-1" />
@@ -267,7 +282,7 @@ function CertificateList() {
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
               Para descargar{' '}
               <span className="font-semibold text-primary dark:text-primary-light">
-                {selectedCertificate?.filename}
+                {selectedCertificate ? generateCertificateDisplayName(selectedCertificate) : 'Certificado'}
               </span>
             </p>
             

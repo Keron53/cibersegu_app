@@ -1,22 +1,24 @@
 import axios from 'axios'
 
-// Crear una instancia de axios con la configuración base
-const api = axios.create({
-  baseURL: 'http://localhost:3001/api',
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
+const API_BASE_URL = 'http://localhost:3001/api'
 
-// Interceptor para agregar el token a las peticiones
-api.interceptors.request.use(
+// Función para verificar si el token está activo
+const checkToken = () => {
+  const token = localStorage.getItem('token')
+  if (!token) {
+    console.log('🔐 No hay token, redirigiendo al login...')
+    window.location.href = '/login'
+    return false
+  }
+  return true
+}
+
+// Configurar axios con interceptores para manejar tokens
+axios.interceptors.request.use(
   (config) => {
-    // No añadir token a las rutas de autenticación
-    if (!config.url.includes('/auth/login') && !config.url.includes('/auth/register')) {
-      const token = localStorage.getItem('token')
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`
-      }
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
     }
     return config
   },
@@ -25,106 +27,125 @@ api.interceptors.request.use(
   }
 )
 
+// Interceptor de respuesta para manejar errores de autenticación
+axios.interceptors.response.use(
+  (response) => {
+    return response
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      console.log('🔐 Token expirado, redirigiendo al login...')
+      
+      // Mostrar mensaje al usuario
+      alert('🔐 Tu sesión ha expirado. Serás redirigido al login.')
+      
+      // Limpiar datos de sesión
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      
+      // Redirigir al login
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
+
 // Servicios de autenticación
 export const authService = {
-  // Registro de usuario
-  register: async (userData) => {
-    try {
-      const response = await api.post('/usuarios/registro', userData)
-      return response.data
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Error al registrar usuario'
-      throw { message: errorMessage }
-    }
+  async login(credentials) {
+    const response = await axios.post(`${API_BASE_URL}/usuarios/login`, credentials)
+    return response.data
   },
 
-  // Inicio de sesión
-  login: async (credentials) => {
-    try {
-      const response = await api.post('/usuarios/login', credentials)
-      return response.data
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Error al iniciar sesión'
-      throw { message: errorMessage }
-    }
+  async register(userData) {
+    const response = await axios.post(`${API_BASE_URL}/usuarios/registro`, userData)
+    return response.data
   },
 
-  // Cerrar sesión
-  logout: () => {
-    localStorage.removeItem('token')
-  },
-
-  // Obtener perfil del usuario
-  getProfile: async () => {
-    try {
-      const response = await api.get('/usuarios')
-      return response.data
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Error al obtener perfil'
-      throw { message: errorMessage }
-    }
-  },
-
-  // Verificar si el usuario está autenticado
-  isAuthenticated: () => {
-    return !!localStorage.getItem('token')
+  async logout() {
+    const response = await axios.post(`${API_BASE_URL}/usuarios/logout`)
+    return response.data
   }
 }
 
 // Servicios de documentos
 export const documentoService = {
-  // Subir documento
-  subir: async (file) => {
-    try {
-      const formData = new FormData()
-      formData.append('pdf', file)
-      
-      const response = await api.post('/documentos/subir', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      })
-      return response.data
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Error al subir el documento'
-      throw { message: errorMessage }
-    }
+  async subir(formData) {
+    if (!checkToken()) return
+    const response = await axios.post(`${API_BASE_URL}/documentos/subir`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    return response.data
   },
 
-  // Listar documentos
-  listar: async () => {
-    try {
-      const response = await api.get('/documentos')
-      return response.data
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Error al obtener documentos'
-      throw { message: errorMessage }
-    }
+  async listar() {
+    if (!checkToken()) return
+    const response = await axios.get(`${API_BASE_URL}/documentos`)
+    return response.data
   },
 
-  // Ver documento
-  ver: async (id) => {
-    try {
-      const response = await api.get(`/documentos/${id}`, {
-        responseType: 'blob'
-      })
-      return response.data
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Error al visualizar el documento'
-      throw { message: errorMessage }
-    }
+  async ver(id) {
+    if (!checkToken()) return
+    const response = await axios.get(`${API_BASE_URL}/documentos/${id}`, {
+      responseType: 'blob'
+    })
+    return response.data
   },
 
-  // Eliminar documento
-  eliminar: async (id) => {
-    try {
-      const response = await api.delete(`/documentos/${id}`)
-      return response.data
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Error al eliminar el documento'
-      throw { message: errorMessage }
-    }
+  async eliminar(id) {
+    if (!checkToken()) return
+    const response = await axios.delete(`${API_BASE_URL}/documentos/${id}`)
+    return response.data
+  },
+
+  async firmar(id, signatureInfo) {
+    if (!checkToken()) return
+    const response = await axios.post(`${API_BASE_URL}/documentos/${id}/firmar`, signatureInfo)
+    return response.data
+  },
+
+  async obtenerInfo(id) {
+    if (!checkToken()) return
+    const response = await axios.get(`${API_BASE_URL}/documentos/${id}/info`)
+    return response.data
   }
 }
 
-export default api 
+// Servicios de certificados
+export const certificadoService = {
+  async subir(formData) {
+    const token = localStorage.getItem('token')
+    
+    const response = await axios.post(`${API_BASE_URL}/certificados/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    return response.data
+  },
+
+  async generar(certificateData) {
+    const response = await axios.post(`${API_BASE_URL}/certificados/generar`, certificateData)
+    return response.data
+  },
+
+  async listar() {
+    const response = await axios.get(`${API_BASE_URL}/certificados`)
+    return response.data
+  },
+
+  async descargar(id, password) {
+    const response = await axios.post(`${API_BASE_URL}/certificados/${id}/descargar`, { password }, {
+      responseType: 'blob'
+    })
+    return response.data
+  },
+
+  async eliminar(id) {
+    const response = await axios.delete(`${API_BASE_URL}/certificados/${id}`)
+    return response.data
+  }
+} 

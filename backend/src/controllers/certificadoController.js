@@ -1,8 +1,8 @@
 const CertificateManager = require('../utils/CertificateManager');
 const forge = require('node-forge');
-const Certificate = require('../models/Certificate'); // Added missing import
-const fs = require('fs-extra'); // Added missing import
-const path = require('path'); // Added missing import
+const Certificate = require('../models/Certificate');
+const fs = require('fs-extra');
+const path = require('path');
 const os = require('os');
 
 // Controlador para manejar la subida y cifrado de certificados .p12
@@ -12,11 +12,16 @@ const uploadCertificate = async (req, res) => {
   const userId = req.usuario.id; // ID de usuario desde el JWT
   // Obtenemos la ruta temporal del archivo subido (multer la añade como req.file.path)
   const filePath = req.file.path;
+  const originalFilename = req.file.originalname; // Nombre original del archivo
+
+
 
   try {
     // Usamos la clase CertificateManager para cifrar el certificado con la contraseña del usuario
     // y almacenarlo en la base de datos junto con el IV y el salt
-    await CertificateManager.encryptAndStoreCertificate(filePath, password, userId);
+    await CertificateManager.encryptAndStoreCertificate(filePath, password, userId, originalFilename);
+
+
 
     // Respondemos al cliente con un mensaje de éxito
     res.status(200).json({ message: 'Certificado almacenado exitosamente' });
@@ -139,16 +144,30 @@ const listCertificates = async (req, res) => {
     const userId = req.usuario.id;
     
     const certificates = await Certificate.find({ userId })
-      .select('filename createdAt updatedAt')
+      .select('filename originalFilename nombreComun organizacion email fechaCreacion numeroSerie createdAt updatedAt')
       .sort({ createdAt: -1 });
+
+
     
+
+    
+    const certificatesResponse = certificates.map(cert => ({
+      id: cert._id,
+      filename: cert.filename,
+      originalFilename: cert.originalFilename,
+      nombreComun: cert.nombreComun,
+      organizacion: cert.organizacion,
+      email: cert.email,
+      fechaCreacion: cert.fechaCreacion,
+      numeroSerie: cert.numeroSerie,
+      createdAt: cert.createdAt,
+      updatedAt: cert.updatedAt
+    }));
+
+
+
     res.json({
-      certificates: certificates.map(cert => ({
-        id: cert._id,
-        filename: cert.filename,
-        createdAt: cert.createdAt,
-        updatedAt: cert.updatedAt
-      }))
+      certificates: certificatesResponse
     });
   } catch (error) {
     console.error('Error al listar certificados:', error);
@@ -215,10 +234,65 @@ const deleteCertificate = async (req, res) => {
   }
 };
 
+// Validar contraseña de un certificado
+const validateCertificatePassword = async (req, res) => {
+  try {
+    const { certificateId } = req.params;
+    const { password } = req.body;
+    const userId = req.usuario.id;
+
+    if (!password) {
+      return res.status(400).json({ mensaje: '❌ La contraseña del certificado es obligatoria' });
+    }
+
+    // Verificar que el certificado pertenece al usuario
+    const certificate = await Certificate.findOne({ _id: certificateId, userId });
+    if (!certificate) {
+      return res.status(404).json({ mensaje: '❌ Certificado no encontrado' });
+    }
+
+    // Crear archivo temporal para validar la contraseña
+    const tempPath = path.join(os.tmpdir(), `validate_${Date.now()}.p12`);
+    
+    try {
+      // Intentar descifrar el certificado con la contraseña
+      await CertificateManager.decryptAndRetrieveCertificate(certificateId, password, tempPath);
+      
+      // Si llegamos aquí, la contraseña es correcta
+      fs.remove(tempPath).catch(console.error); // Limpiar archivo temporal
+      
+      res.json({ 
+        mensaje: '✅ Contraseña válida',
+        isValid: true 
+      });
+    } catch (error) {
+      // Limpiar archivo temporal si existe
+      fs.remove(tempPath).catch(console.error);
+      
+      if (error.message.includes('contraseña') || error.message.includes('bad decrypt')) {
+        return res.status(401).json({ 
+          mensaje: '❌ Contraseña del certificado incorrecta. Verifica la contraseña e intenta nuevamente.',
+          isValid: false 
+        });
+      } else {
+        throw error;
+      }
+    }
+
+  } catch (error) {
+    console.error('Error al validar contraseña del certificado:', error);
+    res.status(500).json({ 
+      mensaje: '❌ Error interno del servidor al validar la contraseña',
+      isValid: false 
+    });
+  }
+};
+
 module.exports = {
   uploadCertificate,
   listCertificates,
   downloadCertificate,
   generateCertificate,
-  deleteCertificate
+  deleteCertificate,
+  validateCertificatePassword
 };
