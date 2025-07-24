@@ -6,6 +6,7 @@ import PDFSignatureViewer from './PDFSignatureViewer'
 import SignatureConfirmationModal from './SignatureConfirmationModal'
 import NotificationContainer from '../layout/NotificationContainer'
 import { useNotification } from '../../hooks/useNotification'
+import QRCode from 'qrcode';
 
 interface Document {
   _id: string
@@ -26,6 +27,7 @@ interface SignatureInfo {
   certificateData?: any
   certificatePassword?: string
   documentId: string
+  documentName?: string // <-- Añadido para evitar error de linter
 }
 
 function DocumentList({ documents, onDelete, onView }: { documents: Document[], onDelete: (id: string) => void, onView: (id: string) => void }) {
@@ -135,59 +137,69 @@ function DocumentList({ documents, onDelete, onView }: { documents: Document[], 
         return
       }
 
-      // Usar documentId de signatureInfo en lugar de selectedDocument
       const documentId = signatureInfo.documentId
-      
-      // Asegurar que el certificado tenga el ID correcto
       const certificateData = signatureInfo.certificateData ? {
         ...signatureInfo.certificateData,
         id: signatureInfo.certificateData._id || signatureInfo.certificateData.id
       } : null
 
-      // Enviar la información al backend para procesar la firma
-      const response = await documentoService.firmar(documentId, {
-        position: signatureInfo.position,
-        qrData: signatureInfo.qrData,
-        signatureData: signatureInfo.signatureData,
-        userData: signatureInfo.userData,
-        certificateData: certificateData,
-        certificatePassword: certificatePassword
+      // Descargar el PDF original
+      const pdfBlob = await documentoService.ver(documentId)
+
+      // Descargar el certificado .p12 como Blob
+      const certResponse = await fetch(`http://localhost:3001/api/certificados/download/${certificateData.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ password: certificatePassword })
       })
-      
-      console.log('Firma procesada:', response)
-      
-      // Cerrar el modal
+      if (!certResponse.ok) {
+        const errorData = await certResponse.json()
+        showNotification(errorData.error || 'Error al descargar el certificado', 'error', 10000)
+        return
+      }
+      const certBlob = await certResponse.blob()
+
+      // Generar el JSON de datos del QR
+      const qrData = signatureInfo.qrData || JSON.stringify({});
+
+      // Crear FormData para la firma visible
+      const formData = new FormData()
+      formData.append('pdf', pdfBlob, signatureInfo.documentName ?? 'documento.pdf')
+      formData.append('cert', certBlob, (certificateData.nombreComun || 'certificado') + '.p12')
+      formData.append('password', certificatePassword)
+      formData.append('qrdata', qrData)
+
+      // Enviar al backend para firmar con pyHanko (firma visible)
+      const response = await fetch('http://localhost:3001/api/documentos/firmar-visible', {
+        method: 'POST',
+        body: formData
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        showNotification(errorData.error || 'Error al firmar el documento', 'error', 10000)
+        return
+      }
+      const signedPdfBlob = await response.blob()
+      // Descargar el PDF firmado
+      const url = window.URL.createObjectURL(signedPdfBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'firmado_visible.pdf'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
       setShowConfirmationModal(false)
       setSignatureInfo(null)
-      
-      // Mostrar mensaje de éxito con notificación personalizada
-      showNotification(
-        response.mensaje || '✅ Firma digital aplicada correctamente al documento', 
-        'success',
-        8000 // Mostrar por 8 segundos
-      )
-      
-      // Actualizar el documento en la lista local para reflejar el cambio
-      // Buscar el documento en la lista y actualizar su estado
-      const updatedDocuments = documents.map(doc => {
-        if (doc._id === documentId) {
-          return {
-            ...doc,
-            firmaDigital: response.firmaInfo || true // Marcar como firmado
-          }
-        }
-        return doc
-      })
-      
-      // Forzar la actualización de la lista
-      // Por ahora usamos reload como fallback
+      showNotification('✅ Firma digital visible aplicada correctamente al documento', 'success', 8000)
       window.location.reload()
-      
     } catch (error) {
       console.error('Error al firmar documento:', error)
-      // Mostrar el mensaje específico del backend si está disponible
-      const errorMessage = error.response?.data?.mensaje || 'Error al firmar el documento'
-      showNotification(errorMessage, 'error', 10000) // Mostrar error por 10 segundos
+      showNotification('Error al firmar el documento', 'error', 10000)
     }
   }
 

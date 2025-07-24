@@ -3,12 +3,8 @@ const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
 const documentoController = require('../controllers/documentoController')
-const auth = require('../middleware/auth')
 
 const router = express.Router()
-
-// Debug: verificar que el controlador se importe correctamente
-
 
 // Configuración de multer para subir archivos
 const storage = multer.diskStorage({
@@ -20,7 +16,6 @@ const storage = multer.diskStorage({
     cb(null, uploadDir)
   },
   filename: function (req, file, cb) {
-    // Generar nombre único para el archivo
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
   }
@@ -29,11 +24,15 @@ const storage = multer.diskStorage({
 const upload = multer({ 
   storage: storage,
   fileFilter: function (req, file, cb) {
-    // Solo permitir PDFs
-    if (file.mimetype === 'application/pdf') {
+    if (
+      file.mimetype === 'application/pdf' ||
+      file.mimetype === 'application/x-pkcs12' ||
+      file.mimetype === 'application/octet-stream' ||
+      file.originalname.endsWith('.p12')
+    ) {
       cb(null, true)
     } else {
-      cb(new Error('Solo se permiten archivos PDF'), false)
+      cb(new Error('Solo se permiten archivos PDF o .p12'), false)
     }
   },
   limits: {
@@ -41,16 +40,10 @@ const upload = multer({
   }
 })
 
-// Rutas para documentos
-router.post('/subir', auth, upload.single('documento'), documentoController.subir)
-router.get('/', auth, documentoController.listar)
-router.get('/:id', auth, documentoController.ver)
-router.delete('/:id', auth, documentoController.eliminar)
-
-// Nueva ruta para procesar firmas digitales
-router.post('/:id/firmar', auth, documentoController.firmarDocumento)
-
-// Nueva ruta para obtener información del PDF
-router.get('/:id/info', auth, documentoController.obtenerInfoPDF)
+// Solo la ruta para firma visual con QR y pyHanko
+router.post('/firmar-visible', upload.fields([
+    { name: 'pdf', maxCount: 1 },
+    { name: 'cert', maxCount: 1 }
+]), documentoController.firmarDocumentoVisible);
 
 module.exports = router 

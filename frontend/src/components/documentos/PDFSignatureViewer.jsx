@@ -10,6 +10,20 @@ import * as pdfjsLib from 'pdfjs-dist'
 // Configurar el worker de PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
 
+// Función utilitaria para generar los datos del QR a partir del certificado y el documento
+export function generateQRCodeData(certificateData, documentInfo, userData) {
+  return {
+    signer: certificateData.nombreComun || `${userData?.nombre || 'Usuario'} ${userData?.apellido || ''}`,
+    organization: certificateData.organizacion || '',
+    email: certificateData.email || userData?.email || '',
+    serialNumber: certificateData.numeroSerie || '',
+    document: documentInfo?.name || '',
+    documentId: documentInfo?.id || '',
+    date: new Date().toISOString(),
+    validator: 'Digital Sign PUCESE'
+  };
+}
+
 function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelected }) {
   const [pdfUrl, setPdfUrl] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -113,22 +127,6 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
     return 'Certificado sin nombre'
   }
 
-  const generateQRCode = (certificateData, documentInfo) => {
-    const qrData = {
-      signer: certificateData.nombreComun || `${userData?.nombre || 'Usuario'} ${userData?.apellido || ''}`,
-      organization: certificateData.organizacion || 'PUCESE',
-      email: certificateData.email || userData?.email || 'usuario@pucese.edu.ec',
-      document: documentName,
-      date: new Date().toISOString(),
-      serialNumber: certificateData.numeroSerie || Math.floor(Math.random() * 100000000).toString(),
-      validator: 'Digital Sign PUCESE'
-    }
-    
-    console.log('Datos de firma generados:', qrData)
-    setQrData(JSON.stringify(qrData))
-    return qrData
-  }
-
   const handleStartPositionSelection = () => {
     if (!Array.isArray(certificates) || certificates.length === 0) {
       alert('No tienes certificados disponibles.\n\nPara firmar documentos necesitas:\n1. Subir un certificado .p12, o\n2. Generar un nuevo certificado\n\nVe a la sección "Mis Certificados" para agregar uno.')
@@ -144,16 +142,15 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
   const handleCertificateSelect = (certificate) => {
     setSelectedCertificate(certificate)
     setShowCertificateSelector(false)
-    
-    // Generar QR code con los datos del certificado
+    // Generar QR code con los datos del certificado y documento
     const documentInfo = {
       name: documentName,
       id: documentId,
       page: signaturePosition?.page || currentPage
     }
-    
-    const signatureInfo = generateQRCode(certificate, documentInfo)
-    console.log('Información completa de firma digital:', signatureInfo)
+    const qrObj = generateQRCodeData(certificate, documentInfo, userData)
+    setQrData(JSON.stringify(qrObj))
+    console.log('Información completa de firma digital (QR):', qrObj)
   }
 
   const handleCanvasClick = (event) => {
@@ -202,14 +199,15 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
     }
 
     try {
-      // Generar datos de firma si no existen
+      // Si no hay datos QR, generarlos
       if (!qrData) {
         const documentInfo = {
           name: documentName,
           id: documentId,
           page: signaturePosition?.page || currentPage
         }
-        generateQRCode(selectedCertificate, documentInfo)
+        const qrObj = generateQRCodeData(selectedCertificate, documentInfo, userData)
+        setQrData(JSON.stringify(qrObj))
       }
 
       // Parsear los datos QR para obtener la información de firma

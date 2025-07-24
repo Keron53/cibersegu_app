@@ -72,9 +72,10 @@ function RegisterForm() {
         navigate('/login')
       }, 2000)
     } catch (error) {
-      console.error('Error en el registro:', error)
+      // Mostrar mensaje real del backend si existe
+      const backendMsg = error.response?.data?.mensaje || error.response?.data?.error || error.message || 'Error al registrar. Por favor, intenta de nuevo.'
       setErrors({
-        form: error.message || 'Error al registrar. Por favor, intenta de nuevo.',
+        form: backendMsg,
         type: 'error'
       })
     } finally {

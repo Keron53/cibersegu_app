@@ -57,11 +57,6 @@ export const documentoService = {
   eliminar: async (id: string) => {
     const response = await api.delete(`/documentos/${id}`)
     return response.data
-  },
-
-  firmar: async (id: string, signatureInfo: any) => {
-    const response = await api.post(`/documentos/${id}/firmar`, signatureInfo)
-    return response.data
   }
 }
 
