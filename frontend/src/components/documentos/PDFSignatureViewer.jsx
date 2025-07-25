@@ -5,13 +5,10 @@ import { documentoService } from '../../services/api'
 import { certificadoService } from '../../services/api'
 import QRCodeGenerator from './QRCodeGenerator'
 
-import * as pdfjsLib from 'pdfjs-dist'
-
-// Configurar el worker de PDF.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+import * as pdfjsLib from 'pdfjs-dist/webpack';
 
 // Función utilitaria para generar los datos del QR a partir del certificado y el documento
-export function generateQRCodeData(certificateData, documentInfo, userData) {
+function generateQRCodeData(certificateData, documentInfo, userData) {
   return {
     signer: certificateData.nombreComun || `${userData?.nombre || 'Usuario'} ${userData?.apellido || ''}`,
     organization: certificateData.organizacion || '',
@@ -44,6 +41,14 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [previewPosition, setPreviewPosition] = useState(null)
+
+  // Estado para la firma con node-signpdf
+  const [certPassword, setCertPassword] = useState('')
+  const [signing, setSigning] = useState(false)
+  const [message, setMessage] = useState('')
+  const [qrNombre, setQrNombre] = useState('')
+  const [qrCorreo, setQrCorreo] = useState('')
+  const [qrOrganizacion, setQrOrganizacion] = useState('')
 
   useEffect(() => {
     loadDocument()
@@ -305,6 +310,94 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
       handleCertificateSelect(certificates[0])
     } else {
       setShowCertificateSelector(true)
+    }
+  }
+
+  const handleSignWithNode = async () => {
+    if (!selectedCertificate) {
+      alert('Selecciona un certificado')
+      return
+    }
+    if (!certPassword) {
+      alert('Ingresa la contraseña del certificado')
+      return
+    }
+    if (!pdfUrl) {
+      alert('No se ha cargado el PDF')
+      return
+    }
+    setSigning(true)
+    setMessage('')
+    setError('')
+    try {
+      // Descargar el PDF como blob
+      const pdfBlob = await fetch(pdfUrl).then(r => r.blob())
+      // Descargar el certificado .p12 del backend
+      const certBlob = await certificadoService.descargar(selectedCertificate.id, certPassword)
+      // Crear archivos para enviar
+      const pdfFile = new File([pdfBlob], documentName || 'documento.pdf', { type: 'application/pdf' })
+      const certFile = new File([certBlob], selectedCertificate.filename || 'certificado.p12', { type: 'application/x-pkcs12' })
+      // Firmar usando node-signpdf
+      const signedPdfBlob = await documentoService.firmarNode(pdfFile, certFile, certPassword)
+      // Descargar el PDF firmado
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(signedPdfBlob)
+      link.download = `firmado_${documentName || 'documento'}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      setMessage('Documento firmado y descargado exitosamente')
+    } catch (err) {
+      setError('Error al firmar el documento: ' + (err?.response?.data?.error || err.message))
+      console.error(err)
+    } finally {
+      setSigning(false)
+    }
+  }
+
+  const handleSignWithQRNode = async () => {
+    if (!selectedCertificate) {
+      alert('Selecciona un certificado')
+      return
+    }
+    if (!certPassword) {
+      alert('Ingresa la contraseña del certificado')
+      return
+    }
+    if (!pdfUrl) {
+      alert('No se ha cargado el PDF')
+      return
+    }
+    if (!qrNombre || !qrCorreo || !qrOrganizacion) {
+      alert('Completa los datos para el QR')
+      return
+    }
+    setSigning(true)
+    setMessage('')
+    setError('')
+    try {
+      // Descargar el PDF como blob
+      const pdfBlob = await fetch(pdfUrl).then(r => r.blob())
+      // Descargar el certificado .p12 del backend
+      const certBlob = await certificadoService.descargar(selectedCertificate.id, certPassword)
+      // Crear archivos para enviar
+      const pdfFile = new File([pdfBlob], documentName || 'documento.pdf', { type: 'application/pdf' })
+      const certFile = new File([certBlob], selectedCertificate.filename || 'certificado.p12', { type: 'application/x-pkcs12' })
+      // Firmar usando el endpoint QR
+      const signedPdfBlob = await documentoService.firmarQRNode(pdfFile, certFile, certPassword, qrNombre, qrCorreo, qrOrganizacion)
+      // Descargar el PDF firmado
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(signedPdfBlob)
+      link.download = `firmado_qr_${documentName || 'documento'}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      setMessage('Documento firmado con QR y descargado exitosamente')
+    } catch (err) {
+      setError('Error al firmar el documento: ' + (err?.response?.data?.error || err.message))
+      console.error(err)
+    } finally {
+      setSigning(false)
     }
   }
 
@@ -630,6 +723,59 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
                         La firma está lista para ser procesada
                       </p>
                     </div>
+                  )}
+                  {selectedCertificate && (
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                      <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                        Contraseña del certificado:
+                      </h4>
+                      <input
+                        type="password"
+                        value={certPassword}
+                        onChange={e => setCertPassword(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        placeholder="Contraseña .p12"
+                      />
+                    </div>
+                  )}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                      Datos para el QR visual:
+                    </h4>
+                    <input
+                      type="text"
+                      value={qrNombre}
+                      onChange={e => setQrNombre(e.target.value)}
+                      className="w-full mb-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      placeholder="Nombre para QR"
+                    />
+                    <input
+                      type="email"
+                      value={qrCorreo}
+                      onChange={e => setQrCorreo(e.target.value)}
+                      className="w-full mb-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      placeholder="Correo para QR"
+                    />
+                    <input
+                      type="text"
+                      value={qrOrganizacion}
+                      onChange={e => setQrOrganizacion(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      placeholder="Organización para QR"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSignWithQRNode}
+                    disabled={signing || !selectedCertificate || !certPassword || !qrNombre || !qrCorreo || !qrOrganizacion}
+                    className="w-full mt-4 px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {signing ? 'Firmando QR...' : 'Firmar PDF con QR visual'}
+                  </button>
+                  {message && (
+                    <div className="mt-2 p-2 bg-green-100 text-green-800 rounded">{message}</div>
+                  )}
+                  {error && (
+                    <div className="mt-2 p-2 bg-red-100 text-red-800 rounded">{error}</div>
                   )}
                 </div>
               ) : (

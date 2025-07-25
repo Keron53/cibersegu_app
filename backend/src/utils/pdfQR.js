@@ -1,7 +1,4 @@
 const { PDFDocument } = require('pdf-lib');
-const { execSync } = require('child_process');
-const fs = require('fs');
-const tmp = require('tmp');
 
 async function addQRToPDF(pdfBuffer, qrBase64, x = 50, y = 50, width = 100, height = 100) {
   const pdfDoc = await PDFDocument.load(pdfBuffer);
@@ -13,19 +10,7 @@ async function addQRToPDF(pdfBuffer, qrBase64, x = 50, y = 50, width = 100, heig
   // Convierte el Uint8Array a Buffer antes de devolver
   const uint8Array = await pdfDoc.save();
   const buffer = Buffer.from(uint8Array);
-  // Reparar el PDF con qpdf para asegurar compatibilidad con node-signpdf
-  return repairPdfWithQpdf(buffer);
-}
-
-function repairPdfWithQpdf(pdfBuffer) {
-  const input = tmp.tmpNameSync({ postfix: '.pdf' });
-  const output = tmp.tmpNameSync({ postfix: '.pdf' });
-  fs.writeFileSync(input, pdfBuffer);
-  execSync(`qpdf --linearize "${input}" "${output}"`);
-  const repairedBuffer = fs.readFileSync(output);
-  fs.unlinkSync(input);
-  fs.unlinkSync(output);
-  return repairedBuffer;
+  return buffer;
 }
 
 module.exports = { addQRToPDF }; 

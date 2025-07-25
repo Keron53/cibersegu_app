@@ -4,6 +4,10 @@ const fs = require('fs-extra');
 const Certificate = require('../models/Certificate');
 const forge = require('node-forge');
 
+const CA_DIR = require('path').join(__dirname, '../../CrearCACentral');
+const CA_KEY_PATH = require('path').join(CA_DIR, 'ca.key');
+const CA_CERT_PATH = require('path').join(CA_DIR, 'ca.crt');
+
 class CertificateManager {
 
   static deriveKey(password, salt) {
@@ -153,6 +157,42 @@ class CertificateManager {
     console.log('Archivo .p12 recuperado y descifrado con éxito');
   }
 }
+
+CertificateManager.ensureCAExists = function() {
+  fs.ensureDirSync(CA_DIR);
+  if (!fs.existsSync(CA_KEY_PATH) || !fs.existsSync(CA_CERT_PATH)) {
+    // Generar clave privada de la CA
+    const keys = forge.pki.rsa.generateKeyPair(2048);
+    const cert = forge.pki.createCertificate();
+    cert.publicKey = keys.publicKey;
+    cert.serialNumber = (new Date().getTime()).toString();
+    cert.validity.notBefore = new Date();
+    cert.validity.notAfter = new Date();
+    cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 10);
+    const attrs = [
+      { name: 'commonName', value: 'CA CiberseguApp' },
+      { name: 'countryName', value: 'EC' },
+      { shortName: 'ST', value: 'Esmeraldas' },
+      { name: 'localityName', value: 'Esmeraldas' },
+      { name: 'organizationName', value: 'CiberseguApp' },
+      { shortName: 'OU', value: 'Autoridad Certificadora' }
+    ];
+    cert.setSubject(attrs);
+    cert.setIssuer(attrs);
+    cert.setExtensions([
+      { name: 'basicConstraints', cA: true },
+      { name: 'keyUsage', keyCertSign: true, digitalSignature: true, cRLSign: true },
+      { name: 'subjectKeyIdentifier' }
+    ]);
+    cert.sign(keys.privateKey, forge.md.sha256.create());
+    // Guardar clave privada y certificado en disco
+    fs.writeFileSync(CA_KEY_PATH, forge.pki.privateKeyToPem(keys.privateKey));
+    fs.writeFileSync(CA_CERT_PATH, forge.pki.certificateToPem(cert));
+    console.log('CA generada y guardada en disco.');
+  } else {
+    console.log('CA ya existe en disco.');
+  }
+};
 
 module.exports = CertificateManager;
 

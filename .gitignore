@@ -19,3 +19,4 @@ build/
 
 # Archivos subidos
 backend/uploads/ 
+/backend/CrearCACentral/ 

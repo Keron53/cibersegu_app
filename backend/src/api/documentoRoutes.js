@@ -3,6 +3,7 @@ const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
 const documentoController = require('../controllers/documentoController')
+const auth = require('../middleware/auth');
 
 const router = express.Router()
 
@@ -40,10 +41,27 @@ const upload = multer({
   }
 })
 
-// Solo la ruta para firma visual con QR y pyHanko
+// Ruta deprecada para firma visual con pyHanko (ahora usa /firmar-qr-node)
 router.post('/firmar-visible', upload.fields([
     { name: 'pdf', maxCount: 1 },
     { name: 'cert', maxCount: 1 }
 ]), documentoController.firmarDocumentoVisible);
+
+router.post('/firmar-node', upload.fields([
+    { name: 'pdf', maxCount: 1 },
+    { name: 'cert', maxCount: 1 }
+]), documentoController.firmarDocumentoNode);
+
+router.post('/firmar-qr-node', upload.fields([
+    { name: 'pdf', maxCount: 1 },
+    { name: 'cert', maxCount: 1 }
+]), documentoController.firmarDocumentoQRNode);
+
+router.post('/subir', auth, upload.any(), documentoController.subirDocumento);
+
+router.get('/', documentoController.listarDocumentos);
+router.get('/:id', auth, documentoController.obtenerDocumento);
+router.get('/:id/info', auth, documentoController.infoDocumento);
+router.delete('/:id', documentoController.eliminarDocumento);
 
 module.exports = router 

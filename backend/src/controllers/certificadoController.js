@@ -73,7 +73,13 @@ const generateCertificate = async (req, res) => {
     cert.validity.notAfter = new Date();
     cert.validity.notAfter.setDate(now.getDate() + (validityDays || 365));
     
-    // Crear subject y issuer (autofirmado)
+    // Cargar clave privada y certificado de la CA
+    const caKeyPem = fs.readFileSync(path.join(__dirname, '../../CrearCACentral/ca.key'), 'utf8');
+    const caCertPem = fs.readFileSync(path.join(__dirname, '../../CrearCACentral/ca.crt'), 'utf8');
+    const caKey = forge.pki.privateKeyFromPem(caKeyPem);
+    const caCert = forge.pki.certificateFromPem(caCertPem);
+    
+    // Crear subject para el usuario
     const subject = [{
       name: 'commonName',
       value: commonName
@@ -99,10 +105,10 @@ const generateCertificate = async (req, res) => {
     }
     
     cert.setSubject(subject);
-    cert.setIssuer(subject); // Autofirmado
-    
-    // Firmar el certificado
-    cert.sign(keys.privateKey, forge.md.sha256.create());
+    // El issuer ahora es la CA
+    cert.setIssuer(caCert.subject.attributes);
+    // Firmar el certificado con la clave privada de la CA
+    cert.sign(caKey, forge.md.sha256.create());
     
     // Crear archivo PKCS#12
     const p12Asn1 = forge.pkcs12.toPkcs12Asn1(

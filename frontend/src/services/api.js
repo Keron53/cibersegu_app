@@ -6,8 +6,7 @@ const API_BASE_URL = 'http://localhost:3001/api'
 const checkToken = () => {
   const token = localStorage.getItem('token')
   if (!token) {
-    console.log('🔐 No hay token, redirigiendo al login...')
-    window.location.href = '/login'
+    console.log('🔐 No hay token, abortando petición protegida...')
     return false
   }
   return true
@@ -103,6 +102,39 @@ export const documentoService = {
   async firmar(id, signatureInfo) {
     if (!checkToken()) return
     const response = await axios.post(`${API_BASE_URL}/documentos/${id}/firmar`, signatureInfo)
+    return response.data
+  },
+
+  async firmarNode(pdfFile, certFile, password) {
+    if (!checkToken()) return
+    const formData = new FormData()
+    formData.append('pdf', pdfFile)
+    formData.append('cert', certFile)
+    formData.append('password', password)
+    const response = await axios.post(`${API_BASE_URL}/documentos/firmar-node`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      responseType: 'blob'
+    })
+    return response.data
+  },
+
+  async firmarQRNode(pdfFile, certFile, password, nombre, correo, organizacion) {
+    if (!checkToken()) return
+    const formData = new FormData()
+    formData.append('pdf', pdfFile)
+    formData.append('cert', certFile)
+    formData.append('password', password)
+    formData.append('nombre', nombre)
+    formData.append('correo', correo)
+    formData.append('organizacion', organizacion)
+    const response = await axios.post(`${API_BASE_URL}/documentos/firmar-qr-node`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      responseType: 'blob'
+    })
     return response.data
   },
 

@@ -172,8 +172,8 @@ function DocumentList({ documents, onDelete, onView }: { documents: Document[], 
       formData.append('password', certificatePassword)
       formData.append('qrdata', qrData)
 
-      // Enviar al backend para firmar con pyHanko (firma visible)
-      const response = await fetch('http://localhost:3001/api/documentos/firmar-visible', {
+      // Enviar al backend para firmar con QR visual usando Node.js
+      const response = await fetch('http://localhost:3001/api/documentos/firmar-qr-node', {
         method: 'POST',
         body: formData
       })
@@ -187,7 +187,7 @@ function DocumentList({ documents, onDelete, onView }: { documents: Document[], 
       const url = window.URL.createObjectURL(signedPdfBlob)
       const link = document.createElement('a')
       link.href = url
-      link.download = 'firmado_visible.pdf'
+      link.download = 'firmado_qr.pdf'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -195,7 +195,7 @@ function DocumentList({ documents, onDelete, onView }: { documents: Document[], 
 
       setShowConfirmationModal(false)
       setSignatureInfo(null)
-      showNotification('✅ Firma digital visible aplicada correctamente al documento', 'success', 8000)
+      showNotification('✅ Firma digital con QR aplicada correctamente al documento', 'success', 8000)
       window.location.reload()
     } catch (error) {
       console.error('Error al firmar documento:', error)

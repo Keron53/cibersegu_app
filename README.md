@@ -278,3 +278,53 @@ El sistema incluye una funcionalidad completa para gestionar todos los certifica
 - **Validación de contraseña:** Se requiere la contraseña original para descargar
 - **Confirmación de eliminación:** Previene eliminaciones accidentales
 - **Cifrado mantenido:** Los certificados permanecen cifrados en la base de datos
+
+---
+
+## 🆕 Flujo y Limitaciones de la Firma Digital (2024)
+
+### Flujo real del sistema
+1. El usuario sube un PDF y selecciona su certificado .p12.
+2. El backend firma el PDF con `node-signpdf` usando el certificado y contraseña del usuario.
+3. El backend extrae el nombre y la organización directamente del certificado .p12 (no del frontend).
+4. Se genera un QR y un sello visual con esos datos y se insertan en el PDF usando `pdf-lib`.
+5. El usuario descarga el PDF firmado y sellado. El QR y el texto visual muestran los datos reales del certificado.
+
+### Estructura del sello visual
+- QR a la izquierda
+- A la derecha:
+  - "Firmado electrónicamente por:"
+  - NOMBRE DEL USUARIO (mayúsculas y negrita)
+  - ORGANIZACIÓN (mayúsculas)
+  - "Validar únicamente con Digital Sign PUCESE"
+
+### Dependencias principales
+- `node-signpdf` (firma digital de PDFs)
+- `pdf-lib` (manipulación visual de PDFs)
+- `qrcode` (generación de QR visual)
+- `node-forge` (extracción de datos del certificado)
+- `qpdf` (reparación de PDFs para compatibilidad, requiere instalación en el sistema)
+
+### Seguridad y .gitignore
+- La carpeta `/backend/CrearCACentral/` (CA interna del sistema) está en `.gitignore` y **no se sube al repositorio**.
+
+### Explicación del error de validez de la firma
+- **Motivo:** La firma digital aparece como "NO VÁLIDA" en Adobe y otros lectores porque, tras firmar el PDF, se modifica el archivo para agregar el QR y el sello visual. Cualquier modificación posterior a la firma invalida la firma digital.
+- **Limitación técnica:** Las librerías de Node.js actuales no permiten agregar un sello visual y firmar en un solo paso. Si se firma después de modificar, la firma puede fallar o el PDF puede quedar corrupto.
+- **Solución profesional:** Usar una librería como PyHanko (Python) para firmas visibles y digitales válidas en un solo paso. En este sistema, se priorizó la compatibilidad Node.js puro.
+
+### Resumen visual del flujo
+```mermaid
+graph TD;
+  A[Usuario sube PDF] --> B[Selecciona certificado .p12]
+  B --> C[Firma digital con node-signpdf]
+  C --> D[Extrae nombre/org. del certificado]
+  D --> E[Genera QR y sello visual con pdf-lib]
+  E --> F[Descarga PDF firmado y sellado]
+```
+
+### Notas finales
+- El nombre y la organización en el sello visual **siempre se extraen del certificado** y no del frontend.
+- El QR contiene los mismos datos que el sello visual.
+- El sistema es 100% Node.js, sin dependencias de Python.
+- Si necesitas una firma digital "válida" y un sello visual protegido, considera migrar a PyHanko o similar.
