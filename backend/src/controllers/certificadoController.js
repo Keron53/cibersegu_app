@@ -1,304 +1,320 @@
-const CertificateManager = require('../utils/CertificateManager');
-const forge = require('node-forge');
-const Certificate = require('../models/Certificate');
-const fs = require('fs-extra');
+const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const { execSync } = require('child_process');
+const CertificateManager = require('../utils/CertificateManager');
+const Usuario = require('../models/Usuario');
+const Certificate = require('../models/Certificate');
 const os = require('os');
 
-// Controlador para manejar la subida y cifrado de certificados .p12
-const uploadCertificate = async (req, res) => {
-  // Extraemos la contraseña y el ID del usuario desde el cuerpo de la solicitud
-  const { password } = req.body;
-  const userId = req.usuario.id; // ID de usuario desde el JWT
-  // Obtenemos la ruta temporal del archivo subido (multer la añade como req.file.path)
-  const filePath = req.file.path;
-  const originalFilename = req.file.originalname; // Nombre original del archivo
-
-
-
-  try {
-    // Usamos la clase CertificateManager para cifrar el certificado con la contraseña del usuario
-    // y almacenarlo en la base de datos junto con el IV y el salt
-    await CertificateManager.encryptAndStoreCertificate(filePath, password, userId, originalFilename);
-
-
-
-    // Respondemos al cliente con un mensaje de éxito
-    res.status(200).json({ message: 'Certificado almacenado exitosamente' });
-  } catch (error) {
-    // Si ocurre un error durante el cifrado o almacenamiento, devolvemos un error 500
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// Generar un nuevo certificado digital
-const generateCertificate = async (req, res) => {
-  try {
-    const {
-      commonName,
-      organization,
-      organizationalUnit,
-      locality,
-      state,
-      country,
-      email,
-      password,
-      validityDays
-    } = req.body;
-
-    // Validaciones
-    if (!commonName || !password) {
-      return res.status(400).json({ error: 'Nombre común y contraseña son obligatorios' });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
-    }
-
-    // Generar clave privada RSA
-    const keys = forge.pki.rsa.generateKeyPair(2048);
-    
-    // Crear certificado
-    const cert = forge.pki.createCertificate();
-    
-    // Establecer clave pública
-    cert.publicKey = keys.publicKey;
-    
-    // Establecer número de serie
-    cert.serialNumber = '01';
-    
-    // Establecer fechas de validez
-    const now = new Date();
-    cert.validity.notBefore = now;
-    cert.validity.notAfter = new Date();
-    cert.validity.notAfter.setDate(now.getDate() + (validityDays || 365));
-    
-    // Cargar clave privada y certificado de la CA
-    const caKeyPem = fs.readFileSync(path.join(__dirname, '../../CrearCACentral/ca.key'), 'utf8');
-    const caCertPem = fs.readFileSync(path.join(__dirname, '../../CrearCACentral/ca.crt'), 'utf8');
-    const caKey = forge.pki.privateKeyFromPem(caKeyPem);
-    const caCert = forge.pki.certificateFromPem(caCertPem);
-    
-    // Crear subject para el usuario
-    const subject = [{
-      name: 'commonName',
-      value: commonName
-    }];
-    
-    if (organization) {
-      subject.push({ name: 'organizationName', value: organization });
-    }
-    if (organizationalUnit) {
-      subject.push({ name: 'organizationalUnitName', value: organizationalUnit });
-    }
-    if (locality) {
-      subject.push({ name: 'localityName', value: locality });
-    }
-    if (state) {
-      subject.push({ name: 'stateOrProvinceName', value: state });
-    }
-    if (country) {
-      subject.push({ name: 'countryName', value: country });
-    }
-    if (email) {
-      subject.push({ name: 'emailAddress', value: email });
-    }
-    
-    cert.setSubject(subject);
-    // El issuer ahora es la CA
-    cert.setIssuer(caCert.subject.attributes);
-    // Firmar el certificado con la clave privada de la CA
-    cert.sign(caKey, forge.md.sha256.create());
-    
-    // Crear archivo PKCS#12
-    const p12Asn1 = forge.pkcs12.toPkcs12Asn1(
-      keys.privateKey,
-      [cert],
-      password,
-      {
-        algorithm: '3des'
-      }
-    );
-    
-    // Convertir a buffer
-    const p12Der = forge.asn1.toDer(p12Asn1).getBytes();
-    const p12Buffer = Buffer.from(p12Der, 'binary');
-    
-    // Convertir a base64 para enviar al frontend
-    const p12Base64 = p12Buffer.toString('base64');
-    
-    res.json({
-      message: 'Certificado generado exitosamente',
-      certificate: {
-        data: p12Base64,
-        filename: `${commonName}.p12`,
-        subject: cert.subject.attributes.map(attr => `${attr.name}=${attr.value}`).join(', '),
-        validFrom: cert.validity.notBefore,
-        validTo: cert.validity.notAfter
-      }
-    });
-    
-  } catch (error) {
-    console.error('Error al generar certificado:', error);
-    res.status(500).json({ error: 'Error interno del servidor al generar el certificado' });
-  }
-};
-
-// Listar todos los certificados del usuario
-const listCertificates = async (req, res) => {
-  try {
-    const userId = req.usuario.id;
-    
-    const certificates = await Certificate.find({ userId })
-      .select('filename originalFilename nombreComun organizacion email fechaCreacion numeroSerie createdAt updatedAt')
-      .sort({ createdAt: -1 });
-
-
-    
-
-    
-    const certificatesResponse = certificates.map(cert => ({
-      id: cert._id,
-      filename: cert.filename,
-      originalFilename: cert.originalFilename,
-      nombreComun: cert.nombreComun,
-      organizacion: cert.organizacion,
-      email: cert.email,
-      fechaCreacion: cert.fechaCreacion,
-      numeroSerie: cert.numeroSerie,
-      createdAt: cert.createdAt,
-      updatedAt: cert.updatedAt
-    }));
-
-
-
-    res.json({
-      certificates: certificatesResponse
-    });
-  } catch (error) {
-    console.error('Error al listar certificados:', error);
-    res.status(500).json({ error: 'Error interno del servidor al listar certificados' });
-  }
-};
-
-// Descargar un certificado específico
-const downloadCertificate = async (req, res) => {
-  try {
-    const { certificateId } = req.params;
-    const { password } = req.body;
-    const userId = req.usuario.id;
-
-    if (!password) {
-      return res.status(400).json({ error: 'La contraseña es obligatoria' });
-    }
-
-    // Verificar que el certificado pertenece al usuario
-    const certificate = await Certificate.findOne({ _id: certificateId, userId });
-    if (!certificate) {
-      return res.status(404).json({ error: 'Certificado no encontrado' });
-    }
-
-    // Crear archivo temporal para descifrar usando el directorio temporal del sistema
-    const tempPath = path.join(os.tmpdir(), `cert_${Date.now()}.p12`);
-    
-    // Descifrar el certificado
-    await CertificateManager.decryptAndRetrieveCertificate(certificateId, password, tempPath);
-    
-    // Enviar el archivo
-    res.download(tempPath, certificate.filename, (err) => {
-      // Limpiar archivo temporal
-      fs.remove(tempPath).catch(console.error);
-    });
-
-  } catch (error) {
-    console.error('Error al descargar certificado:', error);
-    if (error.message.includes('contraseña') || error.message.includes('Certificado no encontrado')) {
-      res.status(400).json({ error: error.message });
-    } else {
-      res.status(500).json({ error: 'Error interno del servidor al descargar el certificado' });
-    }
-  }
-};
-
-// Eliminar un certificado
-const deleteCertificate = async (req, res) => {
-  try {
-    const { certificateId } = req.params;
-    const userId = req.usuario.id;
-
-    // Verificar que el certificado pertenece al usuario
-    const certificate = await Certificate.findOneAndDelete({ _id: certificateId, userId });
-    
-    if (!certificate) {
-      return res.status(404).json({ error: 'Certificado no encontrado' });
-    }
-
-    res.json({ message: 'Certificado eliminado exitosamente' });
-  } catch (error) {
-    console.error('Error al eliminar certificado:', error);
-    res.status(500).json({ error: 'Error interno del servidor al eliminar el certificado' });
-  }
-};
-
-// Validar contraseña de un certificado
-const validateCertificatePassword = async (req, res) => {
-  try {
-    const { certificateId } = req.params;
-    const { password } = req.body;
-    const userId = req.usuario.id;
-
-    if (!password) {
-      return res.status(400).json({ mensaje: '❌ La contraseña del certificado es obligatoria' });
-    }
-
-    // Verificar que el certificado pertenece al usuario
-    const certificate = await Certificate.findOne({ _id: certificateId, userId });
-    if (!certificate) {
-      return res.status(404).json({ mensaje: '❌ Certificado no encontrado' });
-    }
-
-    // Crear archivo temporal para validar la contraseña
-    const tempPath = path.join(os.tmpdir(), `validate_${Date.now()}.p12`);
-    
+const certificadoController = {
+  // Subir certificado existente
+  uploadCertificate: async (req, res) => {
     try {
-      // Intentar descifrar el certificado con la contraseña
-      await CertificateManager.decryptAndRetrieveCertificate(certificateId, password, tempPath);
-      
-      // Si llegamos aquí, la contraseña es correcta
-      fs.remove(tempPath).catch(console.error); // Limpiar archivo temporal
-      
-      res.json({ 
-        mensaje: '✅ Contraseña válida',
-        isValid: true 
+      if (!req.file) {
+        return res.status(400).json({ error: 'No se subió ningún archivo' });
+      }
+
+      const { password } = req.body;
+      if (!password) {
+        return res.status(400).json({ error: 'La contraseña es requerida' });
+      }
+
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const encryptedData = CertificateManager.encryptCertificate(fileBuffer, password);
+
+      const certificate = new Certificate({
+        usuario: req.usuario.id,
+        nombreComun: req.file.originalname.replace('.p12', ''),
+        organizacion: '',
+        email: '',
+        datosCifrados: encryptedData,
+        originalFilename: req.file.originalname
+      });
+
+      await certificate.save();
+
+      // Limpiar archivo temporal
+      fs.unlinkSync(req.file.path);
+
+      res.json({
+        message: 'Certificado subido exitosamente',
+        certificate: {
+          id: certificate._id,
+          nombreComun: certificate.nombreComun,
+          organizacion: certificate.organizacion,
+          email: certificate.email,
+          originalFilename: certificate.originalFilename
+        }
       });
     } catch (error) {
-      // Limpiar archivo temporal si existe
-      fs.remove(tempPath).catch(console.error);
-      
-      if (error.message.includes('contraseña') || error.message.includes('bad decrypt')) {
-        return res.status(401).json({ 
-          mensaje: '❌ Contraseña del certificado incorrecta. Verifica la contraseña e intenta nuevamente.',
-          isValid: false 
-        });
-      } else {
-        throw error;
-      }
+      console.error('Error al subir certificado:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
+  },
 
-  } catch (error) {
-    console.error('Error al validar contraseña del certificado:', error);
-    res.status(500).json({ 
-      mensaje: '❌ Error interno del servidor al validar la contraseña',
-      isValid: false 
-    });
+  // Generar certificado compatible con pyHanko usando OpenSSL
+  generateCertificate: async (req, res) => {
+    try {
+      const {
+        commonName,
+        organization,
+        organizationalUnit,
+        locality,
+        state,
+        country,
+        email,
+        password
+      } = req.body;
+
+      // Validar campos requeridos
+      if (!commonName || !password) {
+        return res.status(400).json({ error: 'Nombre común y contraseña son requeridos' });
+      }
+
+      // Limpiar y limitar longitud de los campos
+      const cleanName = (commonName || 'User').replace(/[^a-zA-Z0-9\s]/g, '').trim().substring(0, 64);
+      const cleanOrg = (organization || 'Test Organization').replace(/[^a-zA-Z0-9\s]/g, '').trim().substring(0, 64);
+      const cleanOU = (organizationalUnit || 'IT').replace(/[^a-zA-Z0-9\s]/g, '').trim().substring(0, 64);
+      const cleanEmail = (email || 'test@example.com').replace(/[^a-zA-Z0-9@.-]/g, '').trim().substring(0, 64);
+      const cleanLocality = (locality || 'Guayaquil').replace(/[^a-zA-Z0-9\s]/g, '').trim().substring(0, 64);
+      const cleanState = (state || 'Guayas').replace(/[^a-zA-Z0-9\s]/g, '').trim().substring(0, 64);
+      const cleanCountry = (country || 'EC').replace(/[^a-zA-Z]/g, '').trim().substring(0, 2);
+
+      // Crear directorio temporal
+      const tempDir = path.join(__dirname, '../../temp-certs');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+
+      const keyFile = path.join(tempDir, 'user.key');
+      const certFile = path.join(tempDir, 'user.crt');
+      const p12File = path.join(tempDir, 'user.p12');
+
+      try {
+        // Generar clave privada RSA 2048 bits
+        console.log('🔑 Generando clave privada RSA...');
+        execSync(`openssl genrsa -out "${keyFile}" 2048`, { 
+          stdio: 'pipe',
+          cwd: tempDir 
+        });
+
+        // Crear archivo de configuración para el certificado
+        const configContent = `[req]
+distinguished_name = req_distinguished_name
+prompt = no
+req_extensions = v3_req
+string_mask = utf8only
+
+[req_distinguished_name]
+C = ${cleanCountry}
+ST = ${cleanState}
+L = ${cleanLocality}
+O = ${cleanOrg}
+OU = ${cleanOU}
+CN = ${cleanName}
+emailAddress = ${cleanEmail}
+
+[v3_req]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = localhost
+DNS.2 = 127.0.0.1
+`;
+
+        const configFile = path.join(tempDir, 'openssl.conf');
+        fs.writeFileSync(configFile, configContent);
+
+        // Generar certificado firmado por la CA
+        const caKeyPath = path.join(__dirname, '../../CrearCACentral/ca.key');
+        const caCertPath = path.join(__dirname, '../../CrearCACentral/ca.crt');
+
+        console.log('📝 Generando solicitud de certificado...');
+        execSync(`openssl req -new -key "${keyFile}" -out "${tempDir}/user.csr" -config "${configFile}"`, { 
+          stdio: 'pipe',
+          cwd: tempDir 
+        });
+
+        console.log('🔐 Firmando certificado con CA...');
+        execSync(`openssl x509 -req -in "${tempDir}/user.csr" -CA "${caCertPath}" -CAkey "${caKeyPath}" -CAcreateserial -out "${certFile}" -days 365 -extensions v3_req -extfile "${configFile}"`, { 
+          stdio: 'pipe',
+          cwd: tempDir 
+        });
+
+        // Convertir a PKCS#12
+        console.log('📦 Convirtiendo a formato PKCS#12...');
+        execSync(`openssl pkcs12 -export -out "${p12File}" -inkey "${keyFile}" -in "${certFile}" -passout pass:"${password}"`, { 
+          stdio: 'pipe',
+          cwd: tempDir 
+        });
+
+        // Leer el archivo .p12
+        const p12Buffer = fs.readFileSync(p12File);
+
+        // Cifrar y guardar en la base de datos
+        const encryptedData = CertificateManager.encryptCertificate(p12Buffer, password);
+        
+        const certificate = new Certificate({
+          userId: req.usuario.id,
+          nombreComun: cleanName,
+          organizacion: cleanOrg,
+          email: cleanEmail,
+          datosCifrados: encryptedData.encryptedData,
+          encryptionSalt: encryptedData.salt,
+          encryptionKey: encryptedData.iv,
+          originalFilename: `${cleanName}.p12`
+        });
+
+        await certificate.save();
+
+        // Limpiar archivos temporales
+        const filesToClean = [
+          keyFile, 
+          certFile, 
+          p12File, 
+          configFile, 
+          path.join(tempDir, 'user.csr'),
+          path.join(tempDir, 'ca.srl')
+        ];
+        
+        filesToClean.forEach(file => {
+          if (fs.existsSync(file)) {
+            try {
+              fs.unlinkSync(file);
+            } catch (e) {
+              console.error('Error eliminando archivo temporal:', e);
+            }
+          }
+        });
+
+        console.log('✅ Certificado generado exitosamente');
+
+        res.json({
+          message: 'Certificado generado exitosamente',
+          certificate: {
+            id: certificate._id,
+            nombreComun: certificate.nombreComun,
+            organizacion: certificate.organizacion,
+            email: certificate.email,
+            originalFilename: certificate.originalFilename
+          }
+        });
+
+      } catch (opensslError) {
+        console.error('❌ Error generando certificado con OpenSSL:', opensslError);
+        res.status(500).json({ 
+          error: 'Error generando certificado con OpenSSL',
+          details: opensslError.message 
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ Error en generateCertificate:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  },
+
+  // Listar todos los certificados del usuario
+  listCertificates: async (req, res) => {
+    try {
+      const certificates = await Certificate.find({ userId: req.usuario.id }).sort({ createdAt: -1 });
+      res.json(certificates);
+    } catch (error) {
+      console.error('Error al listar certificados:', error);
+      res.status(500).json({ error: 'Error al listar certificados' });
+    }
+  },
+
+  // Descargar certificado
+  downloadCertificate: async (req, res) => {
+    try {
+      const { certificateId } = req.params;
+      const { password } = req.body;
+
+      if (!password) {
+        return res.status(400).json({ error: 'La contraseña es requerida' });
+      }
+
+      const certificate = await Certificate.findOne({ 
+        _id: certificateId, 
+        userId: req.usuario.id 
+      });
+
+      if (!certificate) {
+        return res.status(404).json({ error: 'Certificado no encontrado' });
+      }
+
+      const decryptedData = CertificateManager.decryptCertificate(
+        certificate.datosCifrados, 
+        certificate.encryptionSalt, 
+        certificate.encryptionKey, 
+        password
+      );
+      
+      res.setHeader('Content-Type', 'application/x-pkcs12');
+      res.setHeader('Content-Disposition', `attachment; filename="${certificate.originalFilename}"`);
+      res.send(decryptedData);
+
+    } catch (error) {
+      console.error('Error al descargar certificado:', error);
+      res.status(500).json({ error: 'Error al descargar certificado' });
+    }
+  },
+
+  // Eliminar certificado
+  deleteCertificate: async (req, res) => {
+    try {
+      const { certificateId } = req.params;
+      const certificate = await Certificate.findOneAndDelete({ 
+        _id: certificateId, 
+        userId: req.usuario.id 
+      });
+
+      if (!certificate) {
+        return res.status(404).json({ error: 'Certificado no encontrado' });
+      }
+
+      res.json({ message: 'Certificado eliminado correctamente' });
+    } catch (error) {
+      console.error('Error al eliminar certificado:', error);
+      res.status(500).json({ error: 'Error al eliminar certificado' });
+    }
+  },
+
+  // Validar contraseña de certificado
+  validateCertificatePassword: async (req, res) => {
+    try {
+      const { certificateId } = req.params;
+      const { password } = req.body;
+
+      if (!password) {
+        return res.status(400).json({ error: 'La contraseña es requerida' });
+      }
+
+      const certificate = await Certificate.findOne({ 
+        _id: certificateId, 
+        userId: req.usuario.id 
+      });
+
+      if (!certificate) {
+        return res.status(404).json({ error: 'Certificado no encontrado' });
+      }
+
+      try {
+        CertificateManager.decryptCertificate(certificate.datosCifrados, password);
+        res.json({ valid: true, message: 'Contraseña válida' });
+      } catch (decryptError) {
+        res.json({ valid: false, message: 'Contraseña incorrecta' });
+      }
+
+    } catch (error) {
+      console.error('Error al validar contraseña:', error);
+      res.status(500).json({ error: 'Error al validar contraseña' });
+    }
   }
 };
 
-module.exports = {
-  uploadCertificate,
-  listCertificates,
-  downloadCertificate,
-  generateCertificate,
-  deleteCertificate,
-  validateCertificatePassword
-};
+module.exports = certificadoController;

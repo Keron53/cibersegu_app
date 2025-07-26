@@ -2,14 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react'
 
-interface NotificationProps {
-  message: string
-  type: 'success' | 'error' | 'warning' | 'info'
-  onClose: () => void
-  duration?: number
-}
-
-const Notification: React.FC<NotificationProps> = ({ 
+const Notification = ({ 
   message, 
   type, 
   onClose, 
@@ -74,13 +67,13 @@ const Notification: React.FC<NotificationProps> = ({
   return (
     <AnimatePresence>
       {isVisible && (
-      <motion.div
+        <motion.div
           initial={{ opacity: 0, y: -50, scale: 0.9 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -50, scale: 0.9 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
           className={`fixed top-4 right-4 z-50 max-w-sm w-full ${getBgColor()} border rounded-lg shadow-lg p-4`}
-      >
+        >
           <div className="flex items-start space-x-3">
             <div className="flex-shrink-0">
               {getIcon()}
@@ -89,23 +82,23 @@ const Notification: React.FC<NotificationProps> = ({
               <p className={`text-sm font-medium ${getTextColor()}`}>
                 {message}
               </p>
-          </div>
+            </div>
             <div className="flex-shrink-0">
-          <button
+              <button
                 onClick={() => {
                   setIsVisible(false)
                   setTimeout(onClose, 300)
                 }}
                 className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-        </div>
-      </motion.div>
+          </div>
+        </motion.div>
       )}
     </AnimatePresence>
   )
 }
 
-export default Notification
+export default Notification 

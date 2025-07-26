@@ -1,18 +1,8 @@
 import React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import Notification from './Notification'
+import Notification from './Notification.jsx'
 
-interface NotificationContainerProps {
-  notifications: Array<{
-    id: string
-    message: string
-    type: 'success' | 'error' | 'warning' | 'info'
-    duration?: number
-  }>
-  onRemove: (id: string) => void
-}
-
-const NotificationContainer: React.FC<NotificationContainerProps> = ({ 
+const NotificationContainer = ({ 
   notifications, 
   onRemove 
 }) => {

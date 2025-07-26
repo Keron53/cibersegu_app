@@ -80,7 +80,7 @@ function CertificateGenerator() {
 
       if (response.ok) {
         setGeneratedCertificate(result.certificate)
-        setMessage('Certificado generado exitosamente')
+        setMessage('✅ Certificado generado exitosamente y compatible con pyHanko')
       } else {
         setError(result.error || 'Error al generar el certificado')
       }
@@ -92,15 +92,44 @@ function CertificateGenerator() {
     }
   }
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!generatedCertificate) return
 
-    const link = document.createElement('a')
-    link.href = `data:application/x-pkcs12;base64,${generatedCertificate.data}`
-    link.download = `${formData.commonName}.p12`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    try {
+      setLoading(true)
+      
+      // Descargar el certificado usando el endpoint de descarga
+      const token = localStorage.getItem('token')
+      const response = await fetch(`http://localhost:3001/api/certificados/download/${generatedCertificate.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ password: formData.password })
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `${formData.commonName}.p12`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+        setMessage('✅ Certificado descargado exitosamente')
+      } else {
+        const errorData = await response.json()
+        setError(errorData.error || 'Error al descargar el certificado')
+      }
+    } catch (err) {
+      setError('Error al descargar el certificado')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleUploadToSystem = async () => {
@@ -108,42 +137,16 @@ function CertificateGenerator() {
 
     setLoading(true)
     setError('')
+    setMessage('')
 
     try {
-      const token = localStorage.getItem('token')
-      const formDataUpload = new FormData()
-      
-      // Convertir base64 a blob
-      const binaryString = atob(generatedCertificate.data)
-      const bytes = new Uint8Array(binaryString.length)
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i)
-      }
-      const blob = new Blob([bytes], { type: 'application/x-pkcs12' })
-      
-      formDataUpload.append('file', blob, `${formData.commonName}.p12`)
-      formDataUpload.append('password', formData.password)
-
-      const response = await fetch('http://localhost:3001/api/certificados/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formDataUpload
-      })
-
-      const result = await response.json()
-
-      if (response.ok) {
-        setMessage('Certificado subido al sistema exitosamente')
-        setTimeout(() => {
-          navigate('/home')
-        }, 2000)
-      } else {
-        setError(result.error || 'Error al subir el certificado')
-      }
+      // El certificado ya está guardado en el sistema, solo mostrar mensaje de éxito
+      setMessage('✅ Certificado ya está guardado en el sistema y listo para usar')
+      setTimeout(() => {
+        navigate('/home')
+      }, 2000)
     } catch (err) {
-      setError('Error al conectar con el servidor')
+      setError('Error al procesar el certificado')
       console.error(err)
     } finally {
       setLoading(false)
@@ -186,6 +189,12 @@ function CertificateGenerator() {
                   Información Personal
                 </h3>
                 
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>💡 Nota:</strong> Los certificados generados son compatibles con pyHanko y permiten crear firmas digitales válidas que Adobe reconoce como auténticas.
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Nombre Común *
@@ -396,7 +405,7 @@ function CertificateGenerator() {
                   className="flex items-center justify-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
                 >
                   <Upload className="w-5 h-5 mr-2" />
-                  {loading ? 'Subiendo...' : 'Subir al Sistema'}
+                  {loading ? 'Procesando...' : 'Ir a Mis Certificados'}
                 </button>
               </div>
             </div>

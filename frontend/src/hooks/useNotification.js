@@ -1,22 +1,15 @@
 import { useState, useCallback } from 'react'
 
-interface Notification {
-  id: string
-  message: string
-  type: 'success' | 'error' | 'warning' | 'info'
-  duration?: number
-}
-
 export const useNotification = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [notifications, setNotifications] = useState([])
 
   const showNotification = useCallback((
-    message: string, 
-    type: 'success' | 'error' | 'warning' | 'info' = 'info',
-    duration: number = 5000
+    message, 
+    type = 'info',
+    duration = 5000
   ) => {
     const id = Date.now().toString()
-    const newNotification: Notification = {
+    const newNotification = {
       id,
       message,
       type,
@@ -31,7 +24,7 @@ export const useNotification = () => {
     }, duration)
   }, [])
 
-  const removeNotification = useCallback((id: string) => {
+  const removeNotification = useCallback((id) => {
     setNotifications(prev => prev.filter(notification => notification.id !== id))
   }, [])
 

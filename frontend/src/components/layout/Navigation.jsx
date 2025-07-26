@@ -2,13 +2,9 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { LogOut, FileText, User, Sun, Moon } from 'lucide-react'
-import { useTheme } from '../../context/ThemeContext'
+import { useTheme } from '../../context/ThemeContext.jsx'
 
-interface NavigationProps {
-  onLogout: () => void
-}
-
-function Navigation({ onLogout }: NavigationProps) {
+function Navigation({ onLogout }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
 
@@ -69,4 +65,4 @@ function Navigation({ onLogout }: NavigationProps) {
   )
 }
 
-export default Navigation
+export default Navigation 

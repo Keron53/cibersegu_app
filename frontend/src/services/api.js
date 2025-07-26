@@ -120,7 +120,7 @@ export const documentoService = {
     return response.data
   },
 
-  async firmarQRNode(pdfFile, certFile, password, nombre, correo, organizacion) {
+  async firmarQRNode(pdfFile, certFile, password, nombre, correo, organizacion, x, y, page, canvasWidth, canvasHeight, qrSize) {
     if (!checkToken()) return
     const formData = new FormData()
     formData.append('pdf', pdfFile)
@@ -129,6 +129,12 @@ export const documentoService = {
     formData.append('nombre', nombre)
     formData.append('correo', correo)
     formData.append('organizacion', organizacion)
+    formData.append('x', x)
+    formData.append('y', y)
+    formData.append('page', page)
+    formData.append('canvasWidth', canvasWidth)
+    formData.append('canvasHeight', canvasHeight)
+    formData.append('qrSize', qrSize)
     const response = await axios.post(`${API_BASE_URL}/documentos/firmar-qr-node`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
@@ -138,7 +144,7 @@ export const documentoService = {
     return response.data
   },
 
-  async obtenerInfo(id) {
+  async infoDocumento(id) {
     if (!checkToken()) return
     const response = await axios.get(`${API_BASE_URL}/documentos/${id}/info`)
     return response.data

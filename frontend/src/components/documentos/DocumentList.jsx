@@ -1,41 +1,20 @@
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import { FileText, Eye, Trash2, Download, PenTool, Signature, CheckCircle } from 'lucide-react'
+import { Eye, Download, Signature, Trash2, CheckCircle, PenTool, FileText } from 'lucide-react'
 import { documentoService } from '../../services/api'
-import PDFSignatureViewer from './PDFSignatureViewer'
-import SignatureConfirmationModal from './SignatureConfirmationModal'
-import NotificationContainer from '../layout/NotificationContainer'
-import { useNotification } from '../../hooks/useNotification'
+import PDFViewer from './PDFViewer.jsx'
+import PDFSignatureViewer from './PDFSignatureViewer.jsx'
+import SignatureConfirmationModal from './SignatureConfirmationModal.jsx'
+import NotificationContainer from '../layout/NotificationContainer.jsx'
 import QRCode from 'qrcode';
 
-interface Document {
-  _id: string
-  nombre: string
-  ruta: string
-  usuario: string
-  hash: string
-  estado: string
-  fechaSubida: string
-  firmaDigital?: any
-}
-
-interface SignatureInfo {
-  position: any
-  qrData: string
-  signatureData: any
-  userData: any
-  certificateData?: any
-  certificatePassword?: string
-  documentId: string
-  documentName?: string // <-- Añadido para evitar error de linter
-}
-
-function DocumentList({ documents, onDelete, onView }: { documents: Document[], onDelete: (id: string) => void, onView: (id: string) => void }) {
+function DocumentList({ documents, onDelete }) {
   const [showSignatureViewer, setShowSignatureViewer] = useState(false)
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
+  const [showViewer, setShowViewer] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState(null)
+  const [signatureInfo, setSignatureInfo] = useState(null)
   const [showConfirmationModal, setShowConfirmationModal] = useState(false)
-  const [signatureInfo, setSignatureInfo] = useState<SignatureInfo | null>(null)
-  const { notifications, showNotification, removeNotification } = useNotification()
+  const [notifications, setNotifications] = useState([])
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Fecha no disponible'
@@ -65,12 +44,31 @@ function DocumentList({ documents, onDelete, onView }: { documents: Document[], 
 
   const handleView = async (id) => {
     try {
-      const blob = await documentoService.ver(id)
-      const url = URL.createObjectURL(blob)
-      onView(url)
+      // Buscar el documento completo en la lista
+      const document = documents.find(doc => doc._id === id)
+      if (document) {
+        setSelectedDocument(document)
+        setShowViewer(true)
+      } else {
+        console.error('Documento no encontrado en la lista:', id)
+      }
     } catch (error) {
       console.error('Error al visualizar el documento:', error)
     }
+  }
+
+  const showNotification = (message, type = 'info', duration = 4000) => {
+    const id = Date.now()
+    const notification = { id, message, type }
+    setNotifications(prev => [...prev, notification])
+    
+    setTimeout(() => {
+      removeNotification(id)
+    }, duration)
+  }
+
+  const removeNotification = (id) => {
+    setNotifications(prev => prev.filter(notification => notification.id !== id))
   }
 
   const handleDownload = async (id, nombre) => {
@@ -117,6 +115,11 @@ function DocumentList({ documents, onDelete, onView }: { documents: Document[], 
     console.log('Información completa a enviar al modal:', completeSignatureInfo)
     setSignatureInfo(completeSignatureInfo)
     setShowConfirmationModal(true)
+  }
+
+  const handleCloseViewer = () => {
+    setShowViewer(false)
+    setSelectedDocument(null)
   }
 
   const handleCloseSignatureViewer = () => {
@@ -311,6 +314,15 @@ function DocumentList({ documents, onDelete, onView }: { documents: Document[], 
         </div>
       </div>
 
+      {/* Visor simple para visualizar documentos */}
+      {showViewer && selectedDocument && (
+        <PDFViewer
+          documentId={selectedDocument._id}
+          documentName={selectedDocument.nombre}
+          onClose={handleCloseViewer}
+        />
+      )}
+
       {/* Visor de selección de posición de firma */}
       {showSignatureViewer && selectedDocument && (
         <PDFSignatureViewer
@@ -339,4 +351,4 @@ function DocumentList({ documents, onDelete, onView }: { documents: Document[], 
   )
 }
 
-export default DocumentList
+export default DocumentList 

@@ -14,6 +14,8 @@ function CertificateList() {
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [selectedCertificate, setSelectedCertificate] = useState(null)
   const [password, setPassword] = useState('')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [certificateToDelete, setCertificateToDelete] = useState(null)
   const navigate = useNavigate()
   const { theme } = useTheme()
 
@@ -41,13 +43,16 @@ function CertificateList() {
       const result = await response.json()
 
       if (response.ok) {
-        setCertificates(result.certificates)
+        // El nuevo backend devuelve directamente el array de certificados
+        setCertificates(Array.isArray(result) ? result : [])
       } else {
         setError(result.error || 'Error al cargar certificados')
+        setCertificates([]) // Asegurar que siempre sea un array
       }
     } catch (err) {
       setError('Error al conectar con el servidor')
       console.error(err)
+      setCertificates([]) // Asegurar que siempre sea un array
     } finally {
       setLoading(false)
     }
@@ -69,7 +74,7 @@ function CertificateList() {
       setError('')
 
       const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:3001/api/certificados/download/${selectedCertificate.id}`, {
+      const response = await fetch(`http://localhost:3001/api/certificados/download/${selectedCertificate._id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -84,7 +89,7 @@ function CertificateList() {
         const url = window.URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
-        link.download = selectedCertificate.filename
+        link.download = selectedCertificate.originalFilename || `${selectedCertificate.nombreComun || 'certificado'}.p12`
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
@@ -106,17 +111,20 @@ function CertificateList() {
     }
   }
 
-  const handleDelete = async (certificateId) => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar este certificado? Esta acción no se puede deshacer.')) {
-      return
-    }
+  const handleDelete = (certificate) => {
+    setCertificateToDelete(certificate)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!certificateToDelete) return
 
     try {
-      setDeletingId(certificateId)
+      setDeletingId(certificateToDelete._id)
       setError('')
 
       const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:3001/api/certificados/${certificateId}`, {
+      const response = await fetch(`http://localhost:3001/api/certificados/${certificateToDelete._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -126,8 +134,10 @@ function CertificateList() {
       const result = await response.json()
 
       if (response.ok) {
-        setCertificates(certificates.filter(cert => cert.id !== certificateId))
+        setCertificates(certificates.filter(cert => cert._id !== certificateToDelete._id))
         setMessage('Certificado eliminado exitosamente')
+        setShowDeleteModal(false)
+        setCertificateToDelete(null)
       } else {
         setError(result.error || 'Error al eliminar el certificado')
       }
@@ -137,6 +147,11 @@ function CertificateList() {
     } finally {
       setDeletingId(null)
     }
+  }
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false)
+    setCertificateToDelete(null)
   }
 
   const formatDate = (dateString) => {
@@ -160,7 +175,7 @@ function CertificateList() {
     // Generar nombre descriptivo basado en fecha e ID
     const date = new Date(cert.createdAt);
     const dateStr = date.toISOString().split('T')[0];
-    const shortId = cert.id?.slice(-6) || 'N/A';
+    const shortId = cert._id?.slice(-6) || 'N/A';
     return `Certificado_${dateStr}_${shortId}`;
   };
 
@@ -249,20 +264,20 @@ function CertificateList() {
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => handleDownload(certificate)}
-                      disabled={downloadingId === certificate.id}
+                      disabled={downloadingId === certificate._id}
                       className="flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
                     >
                       <Download className="w-4 h-4 mr-1" />
-                      {downloadingId === certificate.id ? 'Descargando...' : 'Descargar'}
+                      {downloadingId === certificate._id ? 'Descargando...' : 'Descargar'}
                     </button>
                     
                     <button
-                      onClick={() => handleDelete(certificate.id)}
-                      disabled={deletingId === certificate.id}
+                      onClick={() => handleDelete(certificate)}
+                      disabled={deletingId === certificate._id}
                       className="flex items-center px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
                     >
                       <Trash2 className="w-4 h-4 mr-1" />
-                      {deletingId === certificate.id ? 'Eliminando...' : 'Eliminar'}
+                      {deletingId === certificate._id ? 'Eliminando...' : 'Eliminar'}
                     </button>
                   </div>
                 </div>
@@ -307,10 +322,65 @@ function CertificateList() {
               </button>
               <button
                 onClick={confirmDownload}
-                disabled={downloadingId === selectedCertificate?.id}
+                disabled={downloadingId === selectedCertificate?._id}
                 className="px-4 py-2 bg-primary hover:bg-primary-dark dark:bg-primary-light dark:hover:bg-primary text-white font-medium rounded-lg transition-colors disabled:opacity-50"
               >
-                {downloadingId === selectedCertificate?.id ? 'Descargando...' : 'Descargar'}
+                {downloadingId === selectedCertificate?._id ? 'Descargando...' : 'Descargar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación de eliminación */}
+      {showDeleteModal && certificateToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center mb-4">
+              <div className="bg-red-100 dark:bg-red-900/20 rounded-full p-2 mr-3">
+                <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Eliminar Certificado
+              </h3>
+            </div>
+            
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+              ¿Estás seguro de que quieres eliminar el certificado{' '}
+              <span className="font-semibold text-red-600 dark:text-red-400">
+                "{generateCertificateDisplayName(certificateToDelete)}"
+              </span>?
+            </p>
+            
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4">
+              <p className="text-xs text-gray-600 dark:text-gray-300">
+                <strong>Organización:</strong> {certificateToDelete.organizacion || 'N/A'}
+              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-300">
+                <strong>Email:</strong> {certificateToDelete.email || 'N/A'}
+              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-300">
+                <strong>Creado:</strong> {formatDate(certificateToDelete.createdAt)}
+              </p>
+            </div>
+            
+            <p className="text-xs text-red-600 dark:text-red-400 mb-4">
+              ⚠️ Esta acción no se puede deshacer. El certificado será eliminado permanentemente.
+            </p>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deletingId === certificateToDelete._id}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+              >
+                {deletingId === certificateToDelete._id ? 'Eliminando...' : 'Eliminar'}
               </button>
             </div>
           </div>

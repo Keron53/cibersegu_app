@@ -156,6 +156,32 @@ class CertificateManager {
     fs.writeFileSync(outputPath, decrypted); // Guardar el archivo descifrado
     console.log('Archivo .p12 recuperado y descifrado con éxito');
   }
+
+  // Cifrar un buffer de certificado
+  static encryptCertificate(p12Buffer, password) {
+    const salt = crypto.randomBytes(16);
+    const derivedKey = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-cbc', derivedKey, iv);
+    
+    const encrypted = Buffer.concat([cipher.update(p12Buffer), cipher.final()]);
+    
+    return {
+      encryptedData: encrypted,
+      salt: salt.toString('hex'),
+      iv: iv.toString('hex')
+    };
+  }
+
+  // Descifrar un buffer de certificado
+  static decryptCertificate(encryptedData, salt, iv, password) {
+    const saltBuffer = Buffer.from(salt, 'hex');
+    const ivBuffer = Buffer.from(iv, 'hex');
+    const derivedKey = crypto.pbkdf2Sync(password, saltBuffer, 100000, 32, 'sha256');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', derivedKey, ivBuffer);
+    
+    return Buffer.concat([decipher.update(encryptedData), decipher.final()]);
+  }
 }
 
 CertificateManager.ensureCAExists = function() {

@@ -2,17 +2,15 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FileText, Upload, CheckCircle, XCircle } from 'lucide-react'
-import Navigation from '../layout/Navigation'
-import DocumentUpload from '../documentos/DocumentUpload'
-import DocumentList from '../documentos/DocumentList'
-import Notification from '../layout/Notification'
-import PDFViewer from '../documentos/PDFViewer'
+import Navigation from '../layout/Navigation.jsx'
+import DocumentUpload from '../documentos/DocumentUpload.jsx'
+import DocumentList from '../documentos/DocumentList.jsx'
+import Notification from '../layout/Notification.jsx'
 import { documentoService } from '../../services/api'
 
 function HomePage() {
   const navigate = useNavigate()
   const [documents, setDocuments] = useState([])
-  const [selectedDocument, setSelectedDocument] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [notification, setNotification] = useState(null)
@@ -43,14 +41,6 @@ function HomePage() {
   const handleDelete = (id) => {
     setDocuments(documents.filter(doc => doc._id !== id))
     showNotification('Documento eliminado', 'success')
-  }
-
-  const handleView = (url) => {
-    setSelectedDocument(url)
-  }
-
-  const handleCloseViewer = () => {
-    setSelectedDocument(null)
   }
 
   const handleLogout = () => {
@@ -129,7 +119,6 @@ function HomePage() {
               <DocumentList
                 documents={documents}
                 onDelete={handleDelete}
-                onView={handleView}
               />
             )}
           </motion.div>
@@ -167,15 +156,6 @@ function HomePage() {
           </button>
         </motion.div>
       </div>
-
-      <AnimatePresence>
-        {selectedDocument && (
-          <PDFViewer
-            url={selectedDocument}
-            onClose={handleCloseViewer}
-          />
-        )}
-      </AnimatePresence>
     </div>
   )
 }

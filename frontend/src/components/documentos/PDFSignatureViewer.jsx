@@ -5,8 +5,6 @@ import { documentoService } from '../../services/api'
 import { certificadoService } from '../../services/api'
 import QRCodeGenerator from './QRCodeGenerator'
 
-import * as pdfjsLib from 'pdfjs-dist/webpack';
-
 // Función utilitaria para generar los datos del QR a partir del certificado y el documento
 function generateQRCodeData(certificateData, documentInfo, userData) {
   return {
@@ -36,6 +34,7 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
   const [showCertificateSelector, setShowCertificateSelector] = useState(false)
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
+  const iframeRef = useRef(null)
 
   // Estado para el posicionamiento visual interactivo
   const [isDragging, setIsDragging] = useState(false)
@@ -49,11 +48,19 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
   const [qrNombre, setQrNombre] = useState('')
   const [qrCorreo, setQrCorreo] = useState('')
   const [qrOrganizacion, setQrOrganizacion] = useState('')
+  const [qrSize, setQrSize] = useState(100)
 
   useEffect(() => {
     loadDocument()
     loadUserData()
     loadCertificates()
+    
+    // Cleanup function para liberar la URL del blob
+    return () => {
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl)
+      }
+    }
   }, [documentId])
 
   // Event listeners para el arrastre
@@ -73,55 +80,51 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
     try {
       setLoading(true)
       setError(null)
+      console.log('📥 Cargando documento:', documentId)
       
       const blob = await documentoService.ver(documentId)
-      const url = URL.createObjectURL(blob)
-      setPdfUrl(url)
+      console.log('📦 Blob recibido:', blob)
+      console.log('📏 Tamaño del blob:', blob.size, 'bytes')
+      console.log('📋 Tipo del blob:', blob.type)
+      
+      // Crear un objeto URL para el blob y establecerlo en el iframe
+      const pdfUrl = URL.createObjectURL(blob)
+      setPdfUrl(pdfUrl)
+      console.log('✅ PDF URL establecido en estado')
       
       // Obtener información del PDF desde el backend
       try {
         console.log('🔍 Obteniendo información del PDF desde el backend...')
-        const pdfInfo = await documentoService.obtenerInfo(documentId)
-        console.log('📄 Información del PDF obtenida:', pdfInfo)
-        setTotalPages(pdfInfo.numPages)
+        const info = await documentoService.infoDocumento(documentId)
+        console.log('📄 Información del PDF obtenida:', info)
+        setTotalPages(info.numPages || 1)
       } catch (error) {
         console.error('❌ Error al obtener información del PDF:', error)
-        await detectPagesLocally(blob)
+        // Si no se puede obtener info, usar valor por defecto
+        setTotalPages(1)
       }
     } catch (err) {
-      console.error('Error al cargar el documento:', err)
-      setError('Error al cargar el documento')
+      console.error('❌ Error al cargar el documento:', err)
+      setError('Error al cargar el documento: ' + err.message)
     } finally {
       setLoading(false)
     }
   }
 
-  const detectPagesLocally = async (blob) => {
-    try {
-      const arrayBuffer = await blob.arrayBuffer()
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-      const numPages = pdf.numPages
-      console.log('📄 PDF detectado localmente con', numPages, 'páginas')
-      setTotalPages(numPages)
-    } catch (pdfError) {
-      console.error('❌ Error en detección local:', pdfError)
-      setTotalPages(1)
-    }
-  }
-
   const loadUserData = () => {
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
-    setUserData(user)
+    const userData = JSON.parse(localStorage.getItem('userData') || '{}')
+    setUserData(userData)
   }
 
   const loadCertificates = async () => {
     try {
-      const certificatesData = await certificadoService.listar()
-      const certificatesArray = certificatesData.certificates || certificatesData || []
-      setCertificates(certificatesArray)
+      const certs = await certificadoService.listar()
+      setCertificates(certs)
+      if (certs.length > 0) {
+        setSelectedCertificate(certs[0])
+      }
     } catch (error) {
       console.error('Error al cargar certificados:', error)
-      setCertificates([])
     }
   }
 
@@ -158,37 +161,31 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
     console.log('Información completa de firma digital (QR):', qrObj)
   }
 
+  // Modificar handleCanvasClick para usar el canvas PDF.js
   const handleCanvasClick = (event) => {
     if (!isSelectingPosition) return
-
-    const rect = event.currentTarget.getBoundingClientRect()
+    
+    const rect = iframeRef.current.getBoundingClientRect()
     const x = event.clientX - rect.left
     const y = event.clientY - rect.top
-
-    console.log('🎯 Clic detectado en:', { x, y })
-
-    // Obtener información de scroll del contenedor
-    const container = containerRef.current
-    const scrollInfo = {
-      scrollTop: container?.scrollTop || 0,
-      scrollLeft: container?.scrollLeft || 0
-    }
-
-    // Crear posición de firma con coordenadas del iframe
+    
+    console.log('🎯 Click detectado en:', { x, y })
+    console.log('📏 Dimensiones del iframe:', rect.width, 'x', rect.height)
+    
     const position = {
       x: x,
       y: y,
       page: currentPage,
-      width: 200,
+      width: 80,
       height: 80,
       originalCoords: { x, y },
-      scrollInfo,
-      manualPage: currentPage !== 1
+      canvasWidth: rect.width,
+      canvasHeight: rect.height
     }
-
-    console.log('📍 Posición de firma creada:', position)
     setSignaturePosition(position)
     setIsSelectingPosition(false)
+    
+    console.log('📍 Posición de firma establecida:', position)
   }
 
   const handleReposition = () => {
@@ -372,6 +369,10 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
       alert('Completa los datos para el QR')
       return
     }
+    if (!signaturePosition) {
+      alert('Selecciona la posición en el PDF')
+      return
+    }
     setSigning(true)
     setMessage('')
     setError('')
@@ -383,8 +384,24 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
       // Crear archivos para enviar
       const pdfFile = new File([pdfBlob], documentName || 'documento.pdf', { type: 'application/pdf' })
       const certFile = new File([certBlob], selectedCertificate.filename || 'certificado.p12', { type: 'application/x-pkcs12' })
-      // Firmar usando el endpoint QR
-      const signedPdfBlob = await documentoService.firmarQRNode(pdfFile, certFile, certPassword, qrNombre, qrCorreo, qrOrganizacion)
+      // Firmar usando el endpoint QR, enviando posición y tamaño del canvas
+      const canvasRect = containerRef.current?.getBoundingClientRect();
+      const canvasWidth = canvasRect?.width || 1;
+      const canvasHeight = canvasRect?.height || 1;
+      const signedPdfBlob = await documentoService.firmarQRNode(
+        pdfFile,
+        certFile,
+        certPassword,
+        qrNombre,
+        qrCorreo,
+        qrOrganizacion,
+        signaturePosition.x,
+        signaturePosition.y,
+        signaturePosition.page,
+        canvasWidth,
+        canvasHeight,
+        qrSize
+      )
       // Descargar el PDF firmado
       const link = document.createElement('a')
       link.href = URL.createObjectURL(signedPdfBlob)
@@ -440,8 +457,8 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="relative w-full h-full max-w-[80vw] max-h-[75vh] bg-white dark:bg-gray-800 rounded-lg shadow-xl flex flex-col"
-          style={{ maxHeight: '600px', maxWidth: '1200px' }}
+          className="relative w-full h-full max-w-[90vw] max-h-[85vh] bg-white dark:bg-gray-800 rounded-lg shadow-xl flex flex-col"
+          style={{ maxHeight: '800px', maxWidth: '1400px', minHeight: '600px' }}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
@@ -552,23 +569,29 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
           </div>
 
           {/* Contenido Principal - Horizontal */}
-          <div className="flex-1 flex flex-row min-h-0" style={{ height: '400px' }}>
+          <div className="flex-1 flex flex-row min-h-0">
             {/* PDF Viewer - Lado Izquierdo */}
             <div 
               ref={containerRef}
-              className="flex-1 relative"
-              style={{ height: '400px', width: '100%' }}
+              className="flex-1 relative bg-gray-100 dark:bg-gray-700 overflow-hidden"
+              style={{ 
+                minHeight: '600px',
+                maxHeight: '600px',
+                width: '100%'
+              }}
             >
               {pdfUrl && (
                 <iframe
+                  ref={iframeRef}
                   src={pdfUrl}
                   className="w-full h-full border-0"
-                  title="PDF Viewer"
-                  style={{
-                    height: '400px',
-                    width: '100%',
-                    display: 'block'
+                  style={{ 
+                    cursor: isSelectingPosition ? 'crosshair' : 'default',
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    objectFit: 'contain'
                   }}
+                  onClick={handleCanvasClick}
                 />
               )}
 
@@ -603,10 +626,10 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
                   <div
                     className="absolute border-2 border-primary bg-white dark:bg-gray-800 rounded-lg cursor-move z-10 shadow-lg"
                     style={{
-                      left: previewPosition ? previewPosition.x : (signaturePosition.originalCoords ? signaturePosition.originalCoords.x - 100 : signaturePosition.x),
-                      top: previewPosition ? previewPosition.y : (signaturePosition.originalCoords ? signaturePosition.originalCoords.y - 50 : signaturePosition.y),
-                      width: signaturePosition.width,
-                      height: signaturePosition.height
+                      left: signaturePosition.x - qrSize / 2,
+                      top: signaturePosition.y - qrSize / 2,
+                      width: qrSize,
+                      height: qrSize
                     }}
                     onMouseDown={handleMouseDown}
                   >
@@ -762,6 +785,19 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
                       onChange={e => setQrOrganizacion(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                       placeholder="Organización para QR"
+                    />
+                  </div>
+                  <div className="mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Tamaño del QR (puntos PDF): {qrSize}
+                    </label>
+                    <input
+                      type="range"
+                      min={40}
+                      max={200}
+                      value={qrSize}
+                      onChange={e => setQrSize(Number(e.target.value))}
+                      className="w-full"
                     />
                   </div>
                   <button

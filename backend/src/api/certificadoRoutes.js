@@ -4,7 +4,7 @@ const multer = require('multer')
 const path = require('path')
 const fs = require('fs-extra')
 const CertificateManager = require('../utils/CertificateManager');
-const { uploadCertificate, generateCertificate, listCertificates, downloadCertificate, deleteCertificate, validateCertificatePassword } = require('../controllers/certificadoController');
+const certificadoController = require('../controllers/certificadoController');
 const auth = require('../middleware/auth');
 
 // Configuramos multer para guardar archivos temporalmente en la carpeta /uploads
@@ -18,21 +18,21 @@ router.get('/test', (req, res) => {
 });
 
 // Ruta GET para listar todos los certificados del usuario
-router.get('/', auth, listCertificates);
+router.get('/', auth, certificadoController.listCertificates);
 
 // Ruta POST que recibe un archivo .p12 y una contraseña para cifrarlo
-router.post('/upload', auth, upload.single('file'), uploadCertificate);
+router.post('/upload', auth, upload.single('file'), certificadoController.uploadCertificate);
 
-// Ruta POST para generar un nuevo certificado digital
-router.post('/generate', auth, generateCertificate);
+// Ruta POST para generar un nuevo certificado digital (compatible con pyHanko)
+router.post('/generate', auth, certificadoController.generateCertificate);
 
 // Ruta POST para descargar un certificado específico
-router.post('/download/:certificateId', auth, downloadCertificate);
+router.post('/download/:certificateId', auth, certificadoController.downloadCertificate);
 
 // Ruta DELETE para eliminar un certificado
-router.delete('/:certificateId', auth, deleteCertificate);
+router.delete('/:certificateId', auth, certificadoController.deleteCertificate);
 
 // Ruta POST para validar la contraseña de un certificado
-router.post('/:certificateId/validate-password', auth, validateCertificatePassword);
+router.post('/:certificateId/validate-password', auth, certificadoController.validateCertificatePassword);
 
 module.exports = router

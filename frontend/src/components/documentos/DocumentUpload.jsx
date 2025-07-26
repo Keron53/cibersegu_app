@@ -3,27 +3,23 @@ import { motion } from 'framer-motion'
 import { Upload, FileText, X } from 'lucide-react'
 import { documentoService } from '../../services/api'
 
-interface DocumentUploadProps {
-  onUploadSuccess: () => void
-}
-
-function DocumentUpload({ onUploadSuccess }: DocumentUploadProps) {
+function DocumentUpload({ onUploadSuccess }) {
   const [isDragging, setIsDragging] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [error, setError] = useState(null)
   const [isUploading, setIsUploading] = useState(false)
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragOver = useCallback((e) => {
     e.preventDefault()
     setIsDragging(true)
   }, [])
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
+  const handleDragLeave = useCallback((e) => {
     e.preventDefault()
     setIsDragging(false)
   }, [])
 
-  const validateFile = (file: File): boolean => {
+  const validateFile = (file) => {
     if (file.type !== 'application/pdf') {
       setError('Solo se permiten archivos PDF')
       return false
@@ -35,7 +31,7 @@ function DocumentUpload({ onUploadSuccess }: DocumentUploadProps) {
     return true
   }
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback((e) => {
     e.preventDefault()
     setIsDragging(false)
     setError(null)
@@ -46,7 +42,7 @@ function DocumentUpload({ onUploadSuccess }: DocumentUploadProps) {
     }
   }, [])
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = useCallback((e) => {
     setError(null)
     const file = e.target.files?.[0]
     if (file && validateFile(file)) {
@@ -169,4 +165,4 @@ function DocumentUpload({ onUploadSuccess }: DocumentUploadProps) {
   )
 }
 
-export default DocumentUpload
+export default DocumentUpload 

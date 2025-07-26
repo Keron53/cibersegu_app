@@ -8,6 +8,7 @@ const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 const QRCode = require('qrcode');
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 const { execSync } = require('child_process');
+const path = require('path');
 
 function repairPdfWithQpdf(pdfBuffer) {
   const input = tmp.tmpNameSync({ postfix: '.pdf' });
@@ -57,14 +58,11 @@ const documentoController = {
       const p12Path = req.files['cert'][0].path;
       const passphrase = req.body.password;
 
-      // 1. Leer el PDF original y el certificado
-      const pdfBuffer = fs.readFileSync(pdfPath);
-      const p12Buffer = fs.readFileSync(p12Path);
-
       // Extraer nombre y organización del certificado .p12
       let nombre = '';
       let organizacion = '';
       try {
+        const p12Buffer = fs.readFileSync(p12Path);
         const p12Asn1 = forge.asn1.fromDer(p12Buffer.toString('binary'));
         const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, false, passphrase);
         const certBags = p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag];
@@ -77,68 +75,121 @@ const documentoController = {
         console.error('No se pudo extraer nombre/organización del certificado:', e);
       }
 
-      // 2. Firmar el PDF original con node-signpdf
-      const signedPdfBuffer = signPDF(pdfBuffer, p12Buffer, passphrase);
+      // Leer coordenadas y página del body
+      const x = req.body.x ? parseFloat(req.body.x) : 40;
+      const y = req.body.y ? parseFloat(req.body.y) : 40;
+      const page = req.body.page ? parseInt(req.body.page) : 1;
+      const canvasWidth = req.body.canvasWidth ? parseFloat(req.body.canvasWidth) : 1;
+      const canvasHeight = req.body.canvasHeight ? parseFloat(req.body.canvasHeight) : 1;
+      const qrSize = req.body.qrSize ? parseFloat(req.body.qrSize) : 100;
 
-      // 3. Insertar el QR y el texto en el PDF firmado usando pdf-lib
-      const pdfDoc = await PDFDocument.load(signedPdfBuffer);
+      // Crear archivos temporales para pyHanko
+      const tempPdfInput = tmp.tmpNameSync({ postfix: '.pdf' });
+      const tempPdfOutput = tmp.tmpNameSync({ postfix: '.pdf' });
+      const tempCert = tmp.tmpNameSync({ postfix: '.p12' });
+      const tempCaCert = tmp.tmpNameSync({ postfix: '.pem' });
+
+      // Copiar archivos a ubicaciones temporales
+      fs.copyFileSync(pdfPath, tempPdfInput);
+      fs.copyFileSync(p12Path, tempCert);
+      
+      console.log('📁 Archivos temporales creados:');
+      console.log('  - PDF input:', tempPdfInput);
+      console.log('  - Cert temp:', tempCert);
+      console.log('  - PDF size:', fs.statSync(tempPdfInput).size, 'bytes');
+      console.log('  - Cert size:', fs.statSync(tempCert).size, 'bytes');
+      
+      // Copiar el certificado CA al directorio temporal
+      const caCertPath = path.join(__dirname, '../../CrearCACentral/ca.crt');
+      if (fs.existsSync(caCertPath)) {
+        fs.copyFileSync(caCertPath, tempCaCert);
+        console.log('  - CA cert:', tempCaCert);
+      } else {
+        console.error('No se encontró el certificado CA en:', caCertPath);
+        throw new Error('Certificado CA no encontrado');
+      }
+
+      // Calcular coordenadas PDF (convertir de canvas a PDF)
+      const pdfDoc = await PDFDocument.load(fs.readFileSync(tempPdfInput));
       const pages = pdfDoc.getPages();
-      const firstPage = pages[0];
-      const qrData = JSON.stringify({ nombre, organizacion });
-      const qrImageBuffer = await QRCode.toBuffer(qrData, { type: 'png', width: 120 });
-      const qrImage = await pdfDoc.embedPng(qrImageBuffer);
-      const { width, height } = firstPage.getSize();
-      // Posición: QR a la izquierda, texto a la derecha
-      const qrX = 40;
-      const qrY = 40;
-      const qrSize = 120;
-      firstPage.drawImage(qrImage, {
-        x: qrX,
-        y: qrY,
-        width: qrSize,
-        height: qrSize,
-      });
-      // Texto a la derecha del QR
-      const textX = qrX + qrSize + 20;
-      const textY = qrY + qrSize - 10;
-      const nombreMayus = (nombre || '').toUpperCase();
-      const organizacionMayus = (organizacion || '').toUpperCase();
-      const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-      firstPage.drawText('Firmado electrónicamente por:', {
-        x: textX,
-        y: textY,
-        size: 12,
-        color: rgb(0, 0, 0),
-      });
-      firstPage.drawText(nombreMayus, {
-        x: textX,
-        y: textY - 18,
-        size: 16,
-        color: rgb(0, 0, 0),
-        font: helveticaBold,
-      });
-      firstPage.drawText(organizacionMayus, {
-        x: textX,
-        y: textY - 38,
-        size: 12,
-        color: rgb(0, 0, 0),
-      });
-      firstPage.drawText('Validar únicamente con Digital Sign PUCESE', {
-        x: textX,
-        y: textY - 58,
-        size: 10,
-        color: rgb(0, 0, 0),
-      });
-      const finalPdfBuffer = await pdfDoc.save();
+      const targetPage = pages[(page - 1) >= 0 ? (page - 1) : 0];
+      const { width: pageWidth, height: pageHeight } = targetPage.getSize();
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="firmado_qr.pdf"');
-      res.send(Buffer.from(finalPdfBuffer));
+      // Conversión de coordenadas del canvas (frontend) a PDF (backend)
+      const realX = (x / canvasWidth) * pageWidth;
+      const realY = ((canvasHeight - y) / canvasHeight) * pageHeight;
 
-      // Limpieza
-      [pdfPath, p12Path].forEach(f => fs.existsSync(f) && fs.unlinkSync(f));
+      // Clamp para que el QR nunca se salga del margen
+      const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+      const clampedX = clamp(realX, 0, pageWidth - qrSize);
+      const clampedY = clamp(realY, 0, pageHeight - qrSize);
+
+      // Calcular coordenadas del rectángulo para pyHanko (x1, y1, x2, y2)
+      const x1 = clampedX;
+      const y1 = clampedY;
+      const x2 = clampedX + qrSize;
+      const y2 = clampedY + qrSize;
+
+      // Ruta al script de Python
+      const pythonScriptPath = path.join(__dirname, '../../MicroservicioPyHanko/firmar-pdf.py');
+      const testScriptPath = path.join(__dirname, '../../MicroservicioPyHanko/test-certificate.py');
+
+      // Primero probar el certificado
+      const testCommand = `python "${testScriptPath}" "${tempCert}" "${passphrase}"`;
+      console.log('Probando certificado con pyHanko:', testCommand);
+      
+      try {
+        const testResult = execSync(testCommand, { 
+          stdio: 'pipe',
+          encoding: 'utf8',
+          timeout: 10000 // 10 segundos timeout
+        });
+        console.log('✅ Certificado compatible con pyHanko');
+        console.log('Test output:', testResult);
+      } catch (testError) {
+        console.error('❌ Certificado no compatible con pyHanko:', testError.message);
+        console.error('Test error stdout:', testError.stdout);
+        console.error('Test error stderr:', testError.stderr);
+        throw new Error(`Certificado no compatible con pyHanko: ${testError.message}`);
+      }
+
+      // Ejecutar el script de Python con pyHanko
+      const command = `python "${pythonScriptPath}" "${tempCert}" "${passphrase}" "${tempPdfInput}" "${tempPdfOutput}" "${page}" "${x1}" "${y1}" "${x2}" "${y2}" "${tempCaCert}"`;
+      
+      console.log('Ejecutando comando pyHanko:', command);
+      
+      try {
+        execSync(command, { 
+          stdio: 'pipe',
+          encoding: 'utf8',
+          timeout: 30000 // 30 segundos timeout
+        });
+
+        // Leer el PDF firmado
+        const signedPdfBuffer = fs.readFileSync(tempPdfOutput);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="firmado_pyhanko.pdf"');
+        res.send(signedPdfBuffer);
+
+      } catch (pythonError) {
+        console.error('Error ejecutando pyHanko:', pythonError);
+        throw new Error(`Error en pyHanko: ${pythonError.message}`);
+      } finally {
+        // Limpieza de archivos temporales
+        [tempPdfInput, tempPdfOutput, tempCert, tempCaCert, pdfPath, p12Path].forEach(f => {
+          if (fs.existsSync(f)) {
+            try {
+              fs.unlinkSync(f);
+            } catch (e) {
+              console.error('Error eliminando archivo temporal:', e);
+            }
+          }
+        });
+      }
+
     } catch (error) {
-      console.error('Error al firmar el PDF con QR y node-signpdf:', error);
+      console.error('Error al firmar el PDF con pyHanko:', error);
       res.status(500).json({ error: error.message });
     }
   },

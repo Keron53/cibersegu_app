@@ -1,11 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-interface ThemeContextType {
-  theme: 'dark' | 'light';
-  toggleTheme: () => void;
-}
-
-const ThemeContext = createContext<ThemeContextType | null>(null);
+const ThemeContext = createContext(null);
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
@@ -37,7 +32,7 @@ export const ThemeProvider = ({ children }) => {
 
 export const useTheme = () => {
   const context = useContext(ThemeContext);
-  if (context === null) { // Cambiado de undefined a null para TypeScript
+  if (context === null) {
     throw new Error('useTheme must be used within a ThemeProvider');
   }
   return context;
