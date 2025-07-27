@@ -1,12 +1,11 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { LogOut, FileText, User, Sun, Moon } from 'lucide-react'
+import { LogOut, FileText, Sun, Moon, Upload, Plus, List, User } from 'lucide-react'
 import { useTheme } from '../../context/ThemeContext.jsx'
 
-function Navigation({ onLogout }) {
-  const [isProfileOpen, setIsProfileOpen] = useState(false)
+const Navigation = ({ onLogout }) => {
   const { theme, toggleTheme } = useTheme()
+  const navigate = useNavigate()
 
   return (
     <nav className="bg-white dark:bg-background border-b border-gray-200 dark:border-gray-700">
@@ -14,8 +13,55 @@ function Navigation({ onLogout }) {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
-              <FileText className="h-8 w-8 text-primary" />
-              <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">Digital Sign</span>
+              <button
+                onClick={() => navigate('/home')}
+                className="flex items-center hover:opacity-80 transition-opacity cursor-pointer"
+              >
+                <FileText className="h-8 w-8 text-primary" />
+                <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">Digital Sign</span>
+              </button>
+            </div>
+            
+            <div className="hidden md:flex items-center space-x-3 ml-8">
+              <button
+                onClick={() => navigate('/certificado')}
+                className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Subir Certificado
+              </button>
+              
+              <button
+                onClick={() => navigate('/generar-certificado')}
+                className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Generar Certificado
+              </button>
+              
+              <button
+                onClick={() => navigate('/mis-certificados')}
+                className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <List className="w-4 h-4 mr-2" />
+                Ver Certificados
+              </button>
+              
+              <button
+                onClick={() => navigate('/perfil')}
+                className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <User className="w-4 h-4 mr-2" />
+                Mi Perfil
+              </button>
+              
+              <button
+                onClick={onLogout}
+                className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Cerrar Sesión
+              </button>
             </div>
           </div>
           
@@ -27,37 +73,6 @@ function Navigation({ onLogout }) {
             >
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-
-            <div className="relative">
-              <button
-                onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center space-x-3 text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-background rounded-lg px-3 py-2 transition-colors"
-              >
-                <div className="w-8 h-8 bg-primary/10 dark:bg-primary/20 rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4 text-primary" />
-                </div>
-                <span className="hidden sm:block text-sm font-medium">Mi Cuenta</span>
-              </button>
-
-              {isProfileOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 z-50"
-                >
-                  <div className="py-1">
-                    <button
-                      onClick={onLogout}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                    >
-                      <LogOut className="w-4 h-4 mr-3" />
-                      Cerrar Sesión
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </div>
           </div>
         </div>
       </div>
