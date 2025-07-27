@@ -25,7 +25,7 @@ const enviarCodigoVerificacion = async (email, nombre, codigo) => {
     }
 
     const mailOptions = {
-      from: process.env.EMAIL_USER || 'tu-email@gmail.com',
+      from: process.env.EMAIL_USER,
       to: email,
       subject: 'Verificación de Email - Digital Sign',
       html: `
@@ -104,7 +104,7 @@ const enviarEmailRecuperacion = async (email, nombre, resetUrl) => {
     }
 
     const mailOptions = {
-      from: process.env.EMAIL_USER || 'tu-email@gmail.com',
+      from: process.env.EMAIL_USER,
       to: email,
       subject: 'Recuperación de Contraseña - Digital Sign',
       html: `
