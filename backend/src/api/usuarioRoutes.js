@@ -10,6 +10,9 @@ router.post('/login', usuarioController.login);
 // Verificación de email
 router.post('/verificar-email', usuarioController.verificarEmail);
 router.post('/reenviar-codigo', usuarioController.reenviarCodigo);
+router.post('/registro-whatsapp', usuarioController.registrarConWhatsApp);
+router.post('/verificar-whatsapp', usuarioController.verificarWhatsApp);
+router.post('/reenviar-codigo-whatsapp', usuarioController.reenviarCodigoWhatsApp);
 
 // Logout (requiere autenticación)
 router.post('/logout', authMiddleware, usuarioController.logout);

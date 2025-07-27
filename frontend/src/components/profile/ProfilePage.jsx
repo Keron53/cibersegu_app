@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { User, Mail, Calendar, Shield, Edit, Save, X, Lock } from 'lucide-react'
-import Navigation from '../layout/Navigation.jsx'
+import Navigation from '../layout/Navigation'
 import ChangePasswordModal from './ChangePasswordModal.jsx'
 
 function ProfilePage() {

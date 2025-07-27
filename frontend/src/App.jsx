@@ -2,15 +2,16 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { useEffect } from 'react'
 import LoginPage from './components/login/LoginPage'
 import RegisterPage from './components/register/RegisterPage'
-import HomePage from './components/home/HomePage.jsx'
-import { ThemeProvider } from './context/ThemeContext.jsx'
-import { SessionProvider, useSession } from './context/SessionContext.jsx'
+import HomePage from './components/home/HomePage'
+import { ThemeProvider } from './context/ThemeContext'
+import { SessionProvider, useSession } from './context/SessionContext'Poero implmenta ambas fun
 import SessionExpiredModal from './components/layout/SessionExpiredModal'
 import CertificateUpload from './components/certificados/CertificateUpload'
 import CertificateGenerator from './components/certificados/CertificateGenerator'
 import CertificateList from './components/certificados/CertificateList'
 import ProfilePage from './components/profile/ProfilePage'
 import RecuperarContrasenaPage from './components/auth/RecuperarContrasenaPage'
+import PDFValidationPage from './components/validacion/PDFValidationPage'
 import { setSessionExpiredCallback } from './services/api'
 
 function AppContent() {
@@ -36,6 +37,7 @@ function AppContent() {
           <Route path="/mis-certificados" element={<CertificateList />} />
           <Route path="/perfil" element={<ProfilePage />} />
           <Route path="/recuperar-contrasena" element={<RecuperarContrasenaPage />} />
+          <Route path="/validar-pdf" element={<PDFValidationPage />} />
         </Routes>
         
         {/* Modal de sesión expirada dentro del Router */}

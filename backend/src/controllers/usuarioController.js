@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const Usuario = require('../models/Usuario');
 const TokenInvalidado = require('../models/TokenInvalidado');
 const { enviarCodigoVerificacion, enviarEmailRecuperacion, validarEmail } = require('../services/emailService');
+const { enviarCodigoVerificacion: enviarCodigoWhatsApp, validarTelefono, formatearTelefono } = require('../services/ultramsgService');
 
 const SECRET_KEY = 'mi_clave_secreta';
 
@@ -524,6 +525,209 @@ const usuarioController = {
     } catch (err) {
       console.error('Error al restablecer contraseña:', err);
       res.status(500).json({ error: 'Error al restablecer contraseña' });
+    }
+  },
+
+  // Nuevas funciones para WhatsApp
+  async registrarConWhatsApp(req, res) {
+    const { nombre, username, telefono, password } = req.body;
+    
+    try {
+      // Validaciones
+      if (!nombre || !username || !telefono || !password) {
+        return res.status(400).json({ 
+          mensaje: 'Todos los campos son requeridos: nombre, username, telefono, password' 
+        });
+      }
+
+      // Validar formato de teléfono
+      if (!validarTelefono(telefono)) {
+        return res.status(400).json({ 
+          mensaje: 'Formato de número de teléfono inválido' 
+        });
+      }
+
+      // Validar política de contraseñas
+      if (password.length < 8) {
+        return res.status(400).json({ 
+          mensaje: 'La contraseña debe tener al menos 8 caracteres' 
+        });
+      }
+      
+      if (!/[A-Z]/.test(password)) {
+        return res.status(400).json({ 
+          mensaje: 'La contraseña debe contener al menos una letra mayúscula' 
+        });
+      }
+      
+      if (!/[a-z]/.test(password)) {
+        return res.status(400).json({ 
+          mensaje: 'La contraseña debe contener al menos una letra minúscula' 
+        });
+      }
+      
+      if (!/\d/.test(password)) {
+        return res.status(400).json({ 
+          mensaje: 'La contraseña debe contener al menos un número' 
+        });
+      }
+
+      // Verificar si el username ya existe
+      const usuarioExistente = await Usuario.findOne({ username: username.toLowerCase() });
+      if (usuarioExistente) {
+        return res.status(400).json({ 
+          mensaje: 'El nombre de usuario ya está registrado' 
+        });
+      }
+
+      // Verificar si el teléfono ya existe
+      const telefonoFormateado = formatearTelefono(telefono);
+      const telefonoExistente = await Usuario.findOne({ telefono: telefonoFormateado });
+      if (telefonoExistente) {
+        return res.status(400).json({ 
+          mensaje: 'El número de teléfono ya está registrado' 
+        });
+      }
+
+      // Crear nuevo usuario
+      const nuevoUsuario = new Usuario({
+        nombre,
+        username: username.toLowerCase(),
+        telefono: telefonoFormateado,
+        password
+      });
+
+      // Generar código de verificación WhatsApp
+      const codigo = nuevoUsuario.generarCodigoWhatsApp();
+      
+      // Guardar usuario
+      await nuevoUsuario.save();
+
+      // Enviar código por WhatsApp
+      try {
+        await enviarCodigoWhatsApp(telefonoFormateado, nombre, codigo);
+        console.log('✅ Código WhatsApp enviado a:', telefonoFormateado);
+        
+        res.status(201).json({
+          mensaje: 'Usuario registrado exitosamente. Se ha enviado un código de verificación por WhatsApp.',
+          usuario: {
+            id: nuevoUsuario._id,
+            nombre: nuevoUsuario.nombre,
+            username: nuevoUsuario.username,
+            telefono: nuevoUsuario.telefono,
+            telefonoVerificado: nuevoUsuario.telefonoVerificado
+          }
+        });
+      } catch (whatsappError) {
+        console.error('❌ Error enviando WhatsApp:', whatsappError);
+        return res.status(201).json({
+          mensaje: 'Usuario registrado exitosamente, pero hubo un problema enviando el código por WhatsApp. Contacta al administrador.',
+          usuario: {
+            id: nuevoUsuario._id,
+            nombre: nuevoUsuario.nombre,
+            username: nuevoUsuario.username,
+            telefono: nuevoUsuario.telefono,
+            telefonoVerificado: nuevoUsuario.telefonoVerificado
+          }
+        });
+      }
+
+    } catch (error) {
+      console.error('Error registrando usuario con WhatsApp:', error);
+      res.status(500).json({ 
+        mensaje: 'Error al registrar el usuario' 
+      });
+    }
+  },
+
+  async verificarWhatsApp(req, res) {
+    const { username, codigo } = req.body;
+    
+    try {
+      if (!username || !codigo) {
+        return res.status(400).json({ 
+          mensaje: 'Username y código son requeridos' 
+        });
+      }
+
+      // Buscar usuario
+      const usuario = await Usuario.findOne({ username: username.toLowerCase() });
+      if (!usuario) {
+        return res.status(400).json({ 
+          mensaje: 'Usuario no encontrado' 
+        });
+      }
+
+      // Verificar código
+      try {
+        usuario.verificarCodigoWhatsApp(codigo);
+        await usuario.save();
+
+        res.json({ 
+          mensaje: 'Teléfono verificado exitosamente' 
+        });
+      } catch (verificationError) {
+        res.status(400).json({ 
+          mensaje: verificationError.message 
+        });
+      }
+
+    } catch (error) {
+      console.error('Error verificando WhatsApp:', error);
+      res.status(500).json({ 
+        mensaje: 'Error al verificar el código' 
+      });
+    }
+  },
+
+  async reenviarCodigoWhatsApp(req, res) {
+    const { username } = req.body;
+    
+    try {
+      if (!username) {
+        return res.status(400).json({ 
+          mensaje: 'Username es requerido' 
+        });
+      }
+
+      // Buscar usuario
+      const usuario = await Usuario.findOne({ username: username.toLowerCase() });
+      if (!usuario) {
+        return res.status(400).json({ 
+          mensaje: 'Usuario no encontrado' 
+        });
+      }
+
+      if (usuario.telefonoVerificado) {
+        return res.status(400).json({ 
+          mensaje: 'El teléfono ya está verificado' 
+        });
+      }
+
+      // Generar nuevo código
+      const codigo = usuario.generarCodigoWhatsApp();
+      await usuario.save();
+
+      // Enviar nuevo código por WhatsApp
+      try {
+        await enviarCodigoWhatsApp(usuario.telefono, usuario.nombre, codigo);
+        console.log('✅ Nuevo código WhatsApp enviado a:', usuario.telefono);
+        
+        res.json({ 
+          mensaje: 'Nuevo código enviado por WhatsApp' 
+        });
+      } catch (whatsappError) {
+        console.error('❌ Error enviando WhatsApp:', whatsappError);
+        res.status(500).json({ 
+          mensaje: 'Error al enviar el código por WhatsApp' 
+        });
+      }
+
+    } catch (error) {
+      console.error('Error reenviando código WhatsApp:', error);
+      res.status(500).json({ 
+        mensaje: 'Error al reenviar el código' 
+      });
     }
   }
 };

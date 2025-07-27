@@ -16,29 +16,49 @@ const usuarioSchema = new mongoose.Schema({
     trim: true,
     lowercase: true
   },
-  email: { 
-    type: String, 
-    required: true, 
-    unique: true,
-    trim: true,
-    lowercase: true
-  },
+           email: { 
+           type: String, 
+           required: false, 
+           unique: true,
+           sparse: true,
+           trim: true,
+           lowercase: true
+         },
+         telefono: {
+           type: String,
+           required: false,
+           unique: true,
+           sparse: true,
+           trim: true
+         },
   password: { 
     type: String, 
     required: true 
   },
-  emailVerificado: {
-    type: Boolean,
-    default: false
-  },
-  codigoVerificacion: {
-    type: String,
-    required: false
-  },
-  codigoExpiracion: {
-    type: Date,
-    required: false
-  },
+           emailVerificado: {
+           type: Boolean,
+           default: false
+         },
+         telefonoVerificado: {
+           type: Boolean,
+           default: false
+         },
+           codigoVerificacion: {
+           type: String,
+           required: false
+         },
+         codigoExpiracion: {
+           type: Date,
+           required: false
+         },
+         codigoWhatsApp: {
+           type: String,
+           required: false
+         },
+         codigoWhatsAppExpiracion: {
+           type: Date,
+           required: false
+         },
   intentosVerificacion: {
     type: Number,
     default: 0
@@ -79,36 +99,67 @@ usuarioSchema.pre('save', function(next) {
   next();
 });
 
-// Método para generar código de verificación
-usuarioSchema.methods.generarCodigoVerificacion = function() {
-  const codigo = Math.floor(100000 + Math.random() * 900000).toString();
-  this.codigoVerificacion = codigo;
-  this.codigoExpiracion = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
-  this.intentosVerificacion = 0;
-  return codigo;
-};
+       // Método para generar código de verificación por email
+       usuarioSchema.methods.generarCodigoVerificacion = function() {
+         const codigo = Math.floor(100000 + Math.random() * 900000).toString();
+         this.codigoVerificacion = codigo;
+         this.codigoExpiracion = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
+         this.intentosVerificacion = 0;
+         return codigo;
+       };
 
-// Método para verificar código
-usuarioSchema.methods.verificarCodigo = function(codigo) {
-  if (this.intentosVerificacion >= 3) {
-    throw new Error('Demasiados intentos de verificación. Intente nuevamente en 15 minutos.');
-  }
-  
-  if (this.codigoExpiracion < new Date()) {
-    throw new Error('Código de verificación expirado.');
-  }
-  
-  if (this.codigoVerificacion !== codigo) {
-    this.intentosVerificacion += 1;
-    throw new Error('Código de verificación incorrecto.');
-  }
-  
-  this.emailVerificado = true;
-  this.codigoVerificacion = undefined;
-  this.codigoExpiracion = undefined;
-  this.intentosVerificacion = 0;
-  return true;
-};
+       // Método para generar código de verificación por WhatsApp
+       usuarioSchema.methods.generarCodigoWhatsApp = function() {
+         const codigo = Math.floor(100000 + Math.random() * 900000).toString();
+         this.codigoWhatsApp = codigo;
+         this.codigoWhatsAppExpiracion = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
+         this.intentosVerificacion = 0;
+         return codigo;
+       };
+
+       // Método para verificar código de email
+       usuarioSchema.methods.verificarCodigo = function(codigo) {
+         if (this.intentosVerificacion >= 3) {
+           throw new Error('Demasiados intentos de verificación. Intente nuevamente en 15 minutos.');
+         }
+         
+         if (this.codigoExpiracion < new Date()) {
+           throw new Error('Código de verificación expirado.');
+         }
+         
+         if (this.codigoVerificacion !== codigo) {
+           this.intentosVerificacion += 1;
+           throw new Error('Código de verificación incorrecto.');
+         }
+         
+         this.emailVerificado = true;
+         this.codigoVerificacion = undefined;
+         this.codigoExpiracion = undefined;
+         this.intentosVerificacion = 0;
+         return true;
+       };
+
+       // Método para verificar código de WhatsApp
+       usuarioSchema.methods.verificarCodigoWhatsApp = function(codigo) {
+         if (this.intentosVerificacion >= 3) {
+           throw new Error('Demasiados intentos de verificación. Intente nuevamente en 15 minutos.');
+         }
+         
+         if (this.codigoWhatsAppExpiracion < new Date()) {
+           throw new Error('Código de verificación expirado.');
+         }
+         
+         if (this.codigoWhatsApp !== codigo) {
+           this.intentosVerificacion += 1;
+           throw new Error('Código de verificación incorrecto.');
+         }
+         
+         this.telefonoVerificado = true;
+         this.codigoWhatsApp = undefined;
+         this.codigoWhatsAppExpiracion = undefined;
+         this.intentosVerificacion = 0;
+         return true;
+       };
 
 const Usuario = mongoose.model('Usuario', usuarioSchema);
 module.exports = Usuario;

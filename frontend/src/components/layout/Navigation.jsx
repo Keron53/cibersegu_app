@@ -1,9 +1,9 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, FileText, Sun, Moon, Upload, Plus, List, User } from 'lucide-react'
+import { LogOut, FileText, Sun, Moon, Upload, Plus, List, User, Shield } from 'lucide-react'
 import { useTheme } from '../../context/ThemeContext.jsx'
 
-const Navigation = ({ onLogout }) => {
+function Navigation({ onLogout }) {
   const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
 
@@ -46,6 +46,14 @@ const Navigation = ({ onLogout }) => {
             >
               <List className="w-4 h-4 mr-2" />
               Ver Certificados
+            </button>
+            
+            <button
+              onClick={() => navigate('/validar-pdf')}
+              className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <Shield className="w-4 h-4 mr-2" />
+              Validar PDF
             </button>
             
             <button

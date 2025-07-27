@@ -23,6 +23,14 @@ Este proyecto es un sistema web completo para la gestión y aplicación de firma
 - **Fecha de registro**: Muestra fecha y hora exacta de creación de cuenta
 - **Estado de cuenta**: Indicador visual del estado de verificación
 
+### 🔍 Validación de PDFs Firmados
+- **Validación de integridad**: Verifica si el PDF fue modificado después de la firma
+- **Validación de origen**: Confirma si el PDF fue firmado por nuestro sistema
+- **Verificación de certificado**: Valida el certificado usado para firmar
+- **Extracción de información QR**: Lee datos del firmante desde el QR integrado
+- **Validación por archivo o URL**: Soporte para subir archivo o validar desde URL
+- **Información detallada**: Muestra número de firmas, estado de certificado, etc.
+
 ### 🛡️ Seguridad y Privacidad
 - **Filtrado por usuario**: Cada usuario solo ve sus propios documentos
 - **Validación de propiedad**: Verificación de permisos en todas las operaciones
@@ -246,10 +254,12 @@ El sistema limpia automáticamente los datos para compatibilidad:
 **Backend:**
 - `backend/src/controllers/documentoController.js`: Controlador principal de documentos
 - `backend/src/controllers/usuarioController.js`: Controlador de usuarios y autenticación
+- `backend/src/controllers/validacionController.js`: Controlador de validación de PDFs
 - `backend/src/services/emailService.js`: Servicio de envío de emails
 - `backend/src/models/Usuario.js`: Modelo de usuario con campos de verificación
 - `backend/src/middleware/auth.js`: Middleware de autenticación JWT
-- `backend/config/email.js`: Configuración de email
+- `backend/src/config/email.js`: Configuración de email
+- `backend/src/utils/pdfValidator.js`: Utilidad para validar PDFs firmados
 - `backend/MicroservicioPyHanko/firmar-pdf.py`: Script de Python para pyHanko
 - `backend/MicroservicioPyHanko/requirements.txt`: Dependencias Python
 - `backend/CrearCACentral/ca.crt`: Certificado CA del sistema (no se sube al repo)
@@ -262,6 +272,7 @@ El sistema limpia automáticamente los datos para compatibilidad:
 - `frontend/src/components/profile/ProfilePage.jsx`: Perfil de usuario
 - `frontend/src/components/profile/ChangePasswordModal.jsx`: Modal de cambio de contraseña
 - `frontend/src/components/auth/PasswordStrengthBar.jsx`: Barra de fortaleza de contraseña
+- `frontend/src/components/validacion/PDFValidationPage.jsx`: Página de validación de PDFs
 
 ### Ventajas vs Implementación Anterior
 
@@ -320,6 +331,12 @@ El sistema limpia automáticamente los datos para compatibilidad:
 - `POST /api/certificados/upload` - Subir certificado
 - `GET /api/certificados` - Listar certificados del usuario
 
+### Validación
+- `POST /api/validacion/validar-pdf` - Validar PDF subido
+- `POST /api/validacion/validar-pdf-url` - Validar PDF desde URL
+- `POST /api/validacion/informacion-firmas` - Obtener información detallada de firmas
+- `POST /api/validacion/verificar-integridad` - Verificar integridad del PDF
+
 ## 🔧 Troubleshooting
 
 ### Problemas Comunes
@@ -352,3 +369,13 @@ El proyecto incluye scripts de diagnóstico en el directorio `backend/`:
 - `test-system.js` - Probar funcionalidades del sistema
 - `clear-test-users.js` - Limpiar usuarios de prueba
 - `debug-registration.js` - Diagnosticar problemas de registro
+- `test-validation.js` - Probar funcionalidad de validación de PDFs
+
+**Uso del script de validación:**
+```bash
+# Probar validación básica
+node test-validation.js
+
+# Probar con un PDF firmado específico
+node test-validation.js ruta/al/archivo-firmado.pdf
+```
