@@ -43,6 +43,14 @@ const usuarioSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  tokenRecuperacion: {
+    type: String,
+    required: false
+  },
+  tokenRecuperacionExpiracion: {
+    type: Date,
+    required: false
+  },
   createdAt: {
     type: Date,
     default: Date.now

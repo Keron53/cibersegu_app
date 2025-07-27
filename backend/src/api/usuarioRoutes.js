@@ -18,6 +18,13 @@ router.post('/logout', authMiddleware, usuarioController.logout);
 router.get('/perfil', authMiddleware, usuarioController.obtenerPerfil);
 router.put('/perfil', authMiddleware, usuarioController.actualizarPerfil);
 
+// Cambiar contraseña (requiere autenticación)
+router.put('/cambiar-contrasena', authMiddleware, usuarioController.cambiarContrasena);
+
+// Recuperación de contraseña (no requiere autenticación)
+router.post('/solicitar-recuperacion', usuarioController.solicitarRecuperacionContrasena);
+router.post('/restablecer-contrasena', usuarioController.restablecerContrasena);
+
 // Listar usuarios
 router.get('/', usuarioController.listarUsuarios);
 

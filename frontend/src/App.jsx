@@ -10,6 +10,7 @@ import CertificateUpload from './components/certificados/CertificateUpload'
 import CertificateGenerator from './components/certificados/CertificateGenerator'
 import CertificateList from './components/certificados/CertificateList'
 import ProfilePage from './components/profile/ProfilePage'
+import RecuperarContrasenaPage from './components/auth/RecuperarContrasenaPage'
 import { setSessionExpiredCallback } from './services/api'
 
 function AppContent() {
@@ -34,6 +35,7 @@ function AppContent() {
           <Route path="/generar-certificado" element={<CertificateGenerator />} />
           <Route path="/mis-certificados" element={<CertificateList />} />
           <Route path="/perfil" element={<ProfilePage />} />
+          <Route path="/recuperar-contrasena" element={<RecuperarContrasenaPage />} />
         </Routes>
         
         {/* Modal de sesión expirada dentro del Router */}

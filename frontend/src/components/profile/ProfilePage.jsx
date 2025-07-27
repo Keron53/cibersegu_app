@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { User, Mail, Calendar, Shield, Edit, Save, X } from 'lucide-react'
+import { User, Mail, Calendar, Shield, Edit, Save, X, Lock } from 'lucide-react'
 import Navigation from '../layout/Navigation.jsx'
+import ChangePasswordModal from './ChangePasswordModal.jsx'
 
 function ProfilePage() {
   const navigate = useNavigate()
@@ -11,6 +12,7 @@ function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [editedData, setEditedData] = useState({})
   const [notification, setNotification] = useState(null)
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false)
 
   useEffect(() => {
     loadUserData()
@@ -26,9 +28,7 @@ function ProfilePage() {
         setUserData(user)
         setEditedData({
           nombre: user.nombre || '',
-          email: user.email || '',
-          organizacion: user.organizacion || '',
-          telefono: user.telefono || ''
+          email: user.email || ''
         })
       } else {
         // Si no hay datos en localStorage, intentar obtenerlos de la API
@@ -38,9 +38,7 @@ function ProfilePage() {
           setUserData(userData)
           setEditedData({
             nombre: userData.nombre || '',
-            email: userData.email || '',
-            organizacion: userData.organizacion || '',
-            telefono: userData.telefono || ''
+            email: userData.email || ''
           })
           localStorage.setItem('userData', JSON.stringify(userData))
         } catch (apiError) {
@@ -73,9 +71,7 @@ function ProfilePage() {
     setIsEditing(false)
     setEditedData({
       nombre: userData.nombre || '',
-      email: userData.email || '',
-      organizacion: userData.organizacion || '',
-      telefono: userData.telefono || ''
+      email: userData.email || ''
     })
   }
 
@@ -100,6 +96,10 @@ function ProfilePage() {
       ...prev,
       [field]: value
     }))
+  }
+
+  const handlePasswordChangeSuccess = () => {
+    showNotification('Contraseña cambiada exitosamente', 'success')
   }
 
   const showNotification = (message, type) => {
@@ -230,42 +230,6 @@ function ProfilePage() {
                       </p>
                     )}
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Organización
-                    </label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={editedData.organizacion}
-                        onChange={(e) => handleInputChange('organizacion', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-                      />
-                    ) : (
-                      <p className="text-gray-900 dark:text-white font-medium">
-                        {userData?.organizacion || 'No especificado'}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Teléfono
-                    </label>
-                    {isEditing ? (
-                      <input
-                        type="tel"
-                        value={editedData.telefono}
-                        onChange={(e) => handleInputChange('telefono', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-                      />
-                    ) : (
-                      <p className="text-gray-900 dark:text-white font-medium">
-                        {userData?.telefono || 'No especificado'}
-                      </p>
-                    )}
-                  </div>
                 </div>
               </div>
 
@@ -295,7 +259,9 @@ function ProfilePage() {
                         ? new Date(userData.createdAt).toLocaleDateString('es-ES', {
                             year: 'numeric',
                             month: 'long',
-                            day: 'numeric'
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
                           })
                         : 'No especificado'
                       }
@@ -310,12 +276,32 @@ function ProfilePage() {
                       Activa
                     </span>
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Contraseña
+                    </label>
+                    <button
+                      onClick={() => setShowChangePasswordModal(true)}
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      <Lock className="w-4 h-4 mr-2" />
+                      Cambiar Contraseña
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </motion.div>
       </div>
+
+      {/* Modal de Cambiar Contraseña */}
+      <ChangePasswordModal
+        isOpen={showChangePasswordModal}
+        onClose={() => setShowChangePasswordModal(false)}
+        onSuccess={handlePasswordChangeSuccess}
+      />
     </div>
   )
 }

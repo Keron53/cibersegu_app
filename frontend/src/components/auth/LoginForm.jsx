@@ -5,6 +5,7 @@ import InputField from './InputField'
 import { authService } from '../../services/api'
 import LoadingSpinner from './LoadingSpinner'
 import PasswordPolicy from './PasswordPolicy'
+import ForgotPasswordModal from './ForgotPasswordModal'
 
 function LoginForm() {
   const [formData, setFormData] = useState({
@@ -15,6 +16,7 @@ function LoginForm() {
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false)
   
   const navigate = useNavigate()
   
@@ -100,80 +102,98 @@ function LoginForm() {
   }
   
   return (
-    <motion.form 
-      onSubmit={handleSubmit}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.2 }}
-    >
-      {successMessage && (
-        <div className="mb-4 p-3 bg-green-500/20 border border-green-500 rounded text-green-500 text-sm">
-          {successMessage}
-        </div>
-      )}
-      
-      {errors.form && (
-        <div className={`mb-4 p-3 border rounded text-sm ${
-          errors.type === 'warning' 
-            ? 'bg-yellow-500/20 border-yellow-500 text-yellow-600'
-            : errors.type === 'error'
-            ? 'bg-red-500/20 border-red-500 text-red-500'
-            : 'bg-red-500/20 border-red-500 text-red-500'
-        }`}>
-          {errors.form}
-        </div>
-      )}
-      
-      <div className="space-y-5">
-        <InputField
-          type="text"
-          name="username"
-          label="Nombre de Usuario"
-          value={formData.username}
-          onChange={handleChange}
-          error={errors.username}
-          autoComplete="username"
-        />
+    <>
+      <motion.form 
+        onSubmit={handleSubmit}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+      >
+        {successMessage && (
+          <div className="mb-4 p-3 bg-green-500/20 border border-green-500 rounded text-green-500 text-sm">
+            {successMessage}
+          </div>
+        )}
         
-        <InputField
-          type="password"
-          name="password"
-          label="Contraseña"
-          value={formData.password}
-          onChange={handleChange}
-          error={errors.password}
-          autoComplete="current-password"
-        />
+        {errors.form && (
+          <div className={`mb-4 p-3 border rounded text-sm ${
+            errors.type === 'warning' 
+              ? 'bg-yellow-500/20 border-yellow-500 text-yellow-600'
+              : errors.type === 'error'
+              ? 'bg-red-500/20 border-red-500 text-red-500'
+              : 'bg-red-500/20 border-red-500 text-red-500'
+          }`}>
+            {errors.form}
+          </div>
+        )}
         
-        <motion.button
-          type="submit"
-          className="primary-button"
-          disabled={isLoading}
-          whileTap={{ scale: 0.97 }}
-        >
-          {isLoading ? (
-            <span className="flex items-center justify-center">
-              <LoadingSpinner className="mr-2" />
-              Iniciando sesión...
-            </span>
-          ) : (
-            'Iniciar Sesión'
-          )}
-        </motion.button>
-      </div>
-      
-      <div className="mt-6 text-center text-sm text-gray-400">
-        ¿No tienes una cuenta?{' '}
-        <Link 
-          to="/register"
-          className="secondary-button font-medium"
-        >
-          Regístrate ahora
-        </Link>
-      </div>
-      
-      <PasswordPolicy className="mt-4" />
-    </motion.form>
+        <div className="space-y-5">
+          <InputField
+            type="text"
+            name="username"
+            label="Nombre de Usuario"
+            value={formData.username}
+            onChange={handleChange}
+            error={errors.username}
+            autoComplete="username"
+          />
+          
+          <InputField
+            type="password"
+            name="password"
+            label="Contraseña"
+            value={formData.password}
+            onChange={handleChange}
+            error={errors.password}
+            autoComplete="current-password"
+          />
+          
+          <div className="text-right">
+            <button
+              type="button"
+              onClick={() => setShowForgotPasswordModal(true)}
+              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
+          
+          <motion.button
+            type="submit"
+            className="primary-button"
+            disabled={isLoading}
+            whileTap={{ scale: 0.97 }}
+          >
+            {isLoading ? (
+              <span className="flex items-center justify-center">
+                <LoadingSpinner className="mr-2" />
+                Iniciando sesión...
+              </span>
+            ) : (
+              'Iniciar Sesión'
+            )}
+          </motion.button>
+        </div>
+        
+        <div className="mt-6 text-center text-sm text-gray-400">
+          ¿No tienes una cuenta?{' '}
+          <Link 
+            to="/register"
+            className="secondary-button font-medium"
+          >
+            Regístrate ahora
+          </Link>
+        </div>
+        
+        <PasswordPolicy className="mt-4" />
+      </motion.form>
+
+      {/* Modal de Recuperación de Contraseña */}
+      <ForgotPasswordModal
+        isOpen={showForgotPasswordModal}
+        onClose={() => setShowForgotPasswordModal(false)}
+      />
+    </>
   )
 }
 

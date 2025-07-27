@@ -96,8 +96,85 @@ const verificarEmailExiste = async (email) => {
   }
 };
 
+// Función para enviar email de recuperación de contraseña
+const enviarEmailRecuperacion = async (email, nombre, resetUrl) => {
+  try {
+    if (!validarEmail(email)) {
+      throw new Error('Formato de email inválido');
+    }
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'tu-email@gmail.com',
+      to: email,
+      subject: 'Recuperación de Contraseña - Digital Sign',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
+          <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #2563eb; margin: 0; font-size: 28px;">Digital Sign</h1>
+              <p style="color: #6b7280; margin: 10px 0 0 0;">Sistema de Firma Digital</p>
+            </div>
+            
+            <div style="margin-bottom: 30px;">
+              <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Recuperación de Contraseña</h2>
+              <p style="color: #374151; line-height: 1.6; margin: 0 0 20px 0;">
+                Hola <strong>${nombre}</strong>,
+              </p>
+              <p style="color: #374151; line-height: 1.6; margin: 0 0 20px 0;">
+                Has solicitado restablecer tu contraseña en Digital Sign. 
+                Haz clic en el botón de abajo para crear una nueva contraseña.
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin-bottom: 30px;">
+              <a href="${resetUrl}" 
+                 style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">
+                Restablecer Contraseña
+              </a>
+            </div>
+            
+            <div style="margin-bottom: 30px;">
+              <p style="color: #374151; line-height: 1.6; margin: 0 0 15px 0;">
+                <strong>Información importante:</strong>
+              </p>
+              <ul style="color: #374151; line-height: 1.6; margin: 0; padding-left: 20px;">
+                <li>Este enlace es válido por 1 hora</li>
+                <li>Si no solicitaste este cambio, puedes ignorar este email</li>
+                <li>Tu contraseña actual seguirá funcionando hasta que la cambies</li>
+              </ul>
+            </div>
+            
+            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 6px; margin-bottom: 30px;">
+              <p style="color: #6b7280; font-size: 14px; margin: 0; text-align: center;">
+                Si el botón no funciona, copia y pega este enlace en tu navegador:
+              </p>
+              <p style="color: #2563eb; font-size: 12px; margin: 10px 0 0 0; text-align: center; word-break: break-all;">
+                ${resetUrl}
+              </p>
+            </div>
+            
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
+              <p style="color: #6b7280; font-size: 14px; margin: 0;">
+                Este es un email automático, por favor no respondas a este mensaje.
+              </p>
+            </div>
+          </div>
+        </div>
+      `
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Email de recuperación enviado:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('❌ Error enviando email de recuperación:', error);
+    throw new Error('Error al enviar el email de recuperación');
+  }
+};
+
 module.exports = {
   enviarCodigoVerificacion,
+  enviarEmailRecuperacion,
   validarEmail,
   verificarEmailExiste
 }; 

@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const Usuario = require('../models/Usuario');
 const TokenInvalidado = require('../models/TokenInvalidado');
-const { enviarCodigoVerificacion, validarEmail } = require('../services/emailService');
+const { enviarCodigoVerificacion, enviarEmailRecuperacion, validarEmail } = require('../services/emailService');
 
 const SECRET_KEY = 'mi_clave_secreta';
 
@@ -334,6 +334,196 @@ const usuarioController = {
     } catch (err) {
       console.error('Error al actualizar perfil:', err);
       res.status(500).json({ error: 'Error al actualizar perfil' });
+    }
+  },
+
+  // Función para cambiar contraseña (desde perfil)
+  async cambiarContrasena(req, res) {
+    try {
+      const { contrasenaActual, nuevaContrasena } = req.body;
+      
+      if (!contrasenaActual || !nuevaContrasena) {
+        return res.status(400).json({ 
+          mensaje: 'La contraseña actual y la nueva contraseña son requeridas' 
+        });
+      }
+
+      const usuario = await Usuario.findById(req.usuario.id);
+      if (!usuario) {
+        return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+      }
+
+      // Verificar contraseña actual
+      const contrasenaValida = await bcrypt.compare(contrasenaActual, usuario.password);
+      if (!contrasenaValida) {
+        return res.status(400).json({ mensaje: 'La contraseña actual es incorrecta' });
+      }
+
+      // Validar nueva contraseña
+      if (nuevaContrasena.length < 8) {
+        return res.status(400).json({ 
+          mensaje: 'La nueva contraseña debe tener al menos 8 caracteres' 
+        });
+      }
+      
+      if (!/[A-Z]/.test(nuevaContrasena)) {
+        return res.status(400).json({ 
+          mensaje: 'La nueva contraseña debe contener al menos una letra mayúscula' 
+        });
+      }
+      
+      if (!/[a-z]/.test(nuevaContrasena)) {
+        return res.status(400).json({ 
+          mensaje: 'La nueva contraseña debe contener al menos una letra minúscula' 
+        });
+      }
+      
+      if (!/\d/.test(nuevaContrasena)) {
+        return res.status(400).json({ 
+          mensaje: 'La nueva contraseña debe contener al menos un número' 
+        });
+      }
+
+      // Verificar que la nueva contraseña sea diferente
+      const nuevaContrasenaValida = await bcrypt.compare(nuevaContrasena, usuario.password);
+      if (nuevaContrasenaValida) {
+        return res.status(400).json({ 
+          mensaje: 'La nueva contraseña debe ser diferente a la actual' 
+        });
+      }
+
+      // Actualizar contraseña
+      usuario.password = nuevaContrasena;
+      await usuario.save();
+
+      res.json({ mensaje: 'Contraseña cambiada exitosamente' });
+    } catch (err) {
+      console.error('Error al cambiar contraseña:', err);
+      res.status(500).json({ error: 'Error al cambiar contraseña' });
+    }
+  },
+
+  // Función para solicitar recuperación de contraseña
+  async solicitarRecuperacionContrasena(req, res) {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ mensaje: 'El email es requerido' });
+      }
+
+      if (!validarEmail(email)) {
+        return res.status(400).json({ mensaje: 'Formato de email inválido' });
+      }
+
+      const usuario = await Usuario.findOne({ email: email.toLowerCase() });
+      if (!usuario) {
+        // Por seguridad, no revelar si el email existe o no
+        return res.json({ 
+          mensaje: 'Si el email está registrado, recibirás un enlace de recuperación' 
+        });
+      }
+
+      // Generar token de recuperación (válido por 1 hora)
+      const tokenRecuperacion = jwt.sign(
+        { id: usuario._id, tipo: 'recuperacion' },
+        SECRET_KEY,
+        { expiresIn: '1h' }
+      );
+
+      // Guardar token en el usuario
+      usuario.tokenRecuperacion = tokenRecuperacion;
+      usuario.tokenRecuperacionExpiracion = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+      await usuario.save();
+
+      // Enviar email con enlace de recuperación
+      try {
+        const resetUrl = `http://localhost:5173/recuperar-contrasena?token=${tokenRecuperacion}`;
+        await enviarEmailRecuperacion(email, usuario.nombre, resetUrl);
+        
+        res.json({ 
+          mensaje: 'Si el email está registrado, recibirás un enlace de recuperación' 
+        });
+      } catch (emailError) {
+        console.error('Error enviando email de recuperación:', emailError);
+        res.status(500).json({ 
+          error: 'Error al enviar el email de recuperación' 
+        });
+      }
+    } catch (err) {
+      console.error('Error al solicitar recuperación:', err);
+      res.status(500).json({ error: 'Error al procesar la solicitud' });
+    }
+  },
+
+  // Función para restablecer contraseña con token
+  async restablecerContrasena(req, res) {
+    try {
+      const { token, nuevaContrasena } = req.body;
+      
+      if (!token || !nuevaContrasena) {
+        return res.status(400).json({ 
+          mensaje: 'El token y la nueva contraseña son requeridos' 
+        });
+      }
+
+      // Verificar token
+      let decoded;
+      try {
+        decoded = jwt.verify(token, SECRET_KEY);
+        if (decoded.tipo !== 'recuperacion') {
+          throw new Error('Token inválido');
+        }
+      } catch (tokenError) {
+        return res.status(400).json({ mensaje: 'Token de recuperación inválido o expirado' });
+      }
+
+      const usuario = await Usuario.findById(decoded.id);
+      if (!usuario) {
+        return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+      }
+
+      // Verificar que el token coincida y no haya expirado
+      if (usuario.tokenRecuperacion !== token || 
+          usuario.tokenRecuperacionExpiracion < new Date()) {
+        return res.status(400).json({ mensaje: 'Token de recuperación inválido o expirado' });
+      }
+
+      // Validar nueva contraseña
+      if (nuevaContrasena.length < 8) {
+        return res.status(400).json({ 
+          mensaje: 'La nueva contraseña debe tener al menos 8 caracteres' 
+        });
+      }
+      
+      if (!/[A-Z]/.test(nuevaContrasena)) {
+        return res.status(400).json({ 
+          mensaje: 'La nueva contraseña debe contener al menos una letra mayúscula' 
+        });
+      }
+      
+      if (!/[a-z]/.test(nuevaContrasena)) {
+        return res.status(400).json({ 
+          mensaje: 'La nueva contraseña debe contener al menos una letra minúscula' 
+        });
+      }
+      
+      if (!/\d/.test(nuevaContrasena)) {
+        return res.status(400).json({ 
+          mensaje: 'La nueva contraseña debe contener al menos un número' 
+        });
+      }
+
+      // Actualizar contraseña y limpiar token
+      usuario.password = nuevaContrasena;
+      usuario.tokenRecuperacion = undefined;
+      usuario.tokenRecuperacionExpiracion = undefined;
+      await usuario.save();
+
+      res.json({ mensaje: 'Contraseña restablecida exitosamente' });
+    } catch (err) {
+      console.error('Error al restablecer contraseña:', err);
+      res.status(500).json({ error: 'Error al restablecer contraseña' });
     }
   }
 };
