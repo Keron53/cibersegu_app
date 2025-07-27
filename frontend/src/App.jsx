@@ -12,6 +12,7 @@ import CertificateList from './components/certificados/CertificateList'
 import ProfilePage from './components/profile/ProfilePage'
 import RecuperarContrasenaPage from './components/auth/RecuperarContrasenaPage'
 import PDFValidationPage from './components/validacion/PDFValidationPage'
+import EmailVerificationPage from './components/auth/EmailVerificationPage'
 import { setSessionExpiredCallback } from './services/api'
 
 function AppContent() {
@@ -38,6 +39,7 @@ function AppContent() {
           <Route path="/perfil" element={<ProfilePage />} />
           <Route path="/recuperar-contrasena" element={<RecuperarContrasenaPage />} />
           <Route path="/validar-pdf" element={<PDFValidationPage />} />
+          <Route path="/verificar-email" element={<EmailVerificationPage />} />
         </Routes>
         
         {/* Modal de sesión expirada dentro del Router */}

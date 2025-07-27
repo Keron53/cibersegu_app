@@ -5,11 +5,10 @@ import { useNavigate } from 'react-router-dom';
 
 const SuccessModal = ({ isOpen, onClose, message = "¡Registro exitoso! Tu cuenta ha sido verificada." }) => {
   console.log('🎭 SuccessModal renderizado, isOpen:', isOpen);
-  const navigate = useNavigate();
 
   const handleContinue = () => {
-    onClose();
-    navigate('/login');
+    console.log('🔍 SuccessModal handleContinue ejecutado');
+    onClose(); // Usar solo onClose para que use la lógica personalizada
   };
 
   return (
@@ -64,7 +63,7 @@ const SuccessModal = ({ isOpen, onClose, message = "¡Registro exitoso! Tu cuent
                 onClick={handleContinue}
                 className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
               >
-                <span>Ir al Login</span>
+                <span>Continuar</span>
                 <ArrowRight className="w-4 h-4" />
               </motion.button>
             </div>

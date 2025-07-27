@@ -754,6 +754,32 @@ const usuarioController = {
         mensaje: 'Error al reenviar el código' 
       });
     }
+  },
+
+  async checkUsernameAvailability(req, res) {
+    const { username } = req.body;
+    
+    try {
+      if (!username) {
+        return res.status(400).json({ 
+          mensaje: 'Username es requerido' 
+        });
+      }
+
+      // Buscar usuario
+      const usuario = await Usuario.findOne({ username: username.toLowerCase() });
+      
+      res.json({ 
+        available: !usuario,
+        username: username.toLowerCase()
+      });
+      
+    } catch (error) {
+      console.error('Error verificando disponibilidad de usuario:', error);
+      res.status(500).json({ 
+        mensaje: 'Error al verificar disponibilidad' 
+      });
+    }
   }
 };
 

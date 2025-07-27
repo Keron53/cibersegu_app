@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, MessageSquare, User } from 'lucide-react';
 import RegisterFormSimple from './RegisterFormSimple';
-import RegisterWhatsAppFormSimple from './RegisterWhatsAppFormSimple';
+import RegisterWhatsAppForm from './RegisterWhatsAppForm';
 
 const RegisterMethodSelector = () => {
   const [selectedMethod, setSelectedMethod] = useState(null);
@@ -26,7 +26,7 @@ const RegisterMethodSelector = () => {
   if (selectedMethod === 'whatsapp') {
     return (
       <div>
-        <RegisterWhatsAppFormSimple onSwitchToEmail={handleSwitchMethod} />
+        <RegisterWhatsAppForm onSwitchToEmail={handleSwitchMethod} />
       </div>
     );
   }

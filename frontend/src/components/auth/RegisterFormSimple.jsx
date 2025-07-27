@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import PasswordStrengthBar from './PasswordStrengthBar';
 import SuccessModal from './SuccessModal';
 
@@ -17,6 +18,8 @@ const RegisterFormSimple = ({ onSwitchToWhatsApp }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
+  const navigate = useNavigate();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -86,6 +89,7 @@ const RegisterFormSimple = ({ onSwitchToWhatsApp }) => {
       const data = await response.json();
 
       if (response.ok) {
+        setRegisteredEmail(formData.email);
         setShowSuccessModal(true);
       } else {
         setError(data.message || 'Error en el registro');
@@ -95,6 +99,16 @@ const RegisterFormSimple = ({ onSwitchToWhatsApp }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSuccessModalClose = () => {
+    console.log('🔍 handleSuccessModalClose ejecutado');
+    console.log('📧 Email registrado:', registeredEmail);
+    setShowSuccessModal(false);
+    // Redirigir a la página de verificación de email
+    navigate('/verificar-email', { 
+      state: { email: registeredEmail } 
+    });
   };
 
   return (
@@ -250,7 +264,7 @@ const RegisterFormSimple = ({ onSwitchToWhatsApp }) => {
     {/* Modal de éxito */}
     <SuccessModal 
       isOpen={showSuccessModal}
-      onClose={() => setShowSuccessModal(false)}
+      onClose={handleSuccessModalClose}
       message="¡Registro exitoso! Revisa tu email para verificar tu cuenta."
     />
     </>

@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import InputField from './InputField'
 import LoadingSpinner from './LoadingSpinner'
 import PasswordPolicy from './PasswordPolicy'
 import { authService } from '../../services/api'
 
-function EmailVerification({ email, onVerificationSuccess }) {
+function EmailVerification({ email: propEmail, onVerificationSuccess }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  
   const [verificationData, setVerificationData] = useState({
-    email: email || '',
+    email: propEmail || location.state?.email || '',
     codigo: ''
   })
   
@@ -16,7 +19,12 @@ function EmailVerification({ email, onVerificationSuccess }) {
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   
-  const navigate = useNavigate()
+  // Si no hay email, redirigir al registro
+  useEffect(() => {
+    if (!verificationData.email) {
+      navigate('/register');
+    }
+  }, [verificationData.email, navigate]);
   
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -94,6 +102,15 @@ function EmailVerification({ email, onVerificationSuccess }) {
     } finally {
       setIsLoading(false)
     }
+  }
+  
+  // Si no hay email, mostrar mensaje de carga
+  if (!verificationData.email) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner />
+      </div>
+    );
   }
   
   return (

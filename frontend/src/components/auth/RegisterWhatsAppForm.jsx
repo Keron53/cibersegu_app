@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { User, Lock, Phone, MessageSquare, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Lock, Phone, MessageSquare, Eye, EyeOff, CheckCircle, XCircle, X, Check } from 'lucide-react';
 import PasswordStrengthBar from './PasswordStrengthBar';
 import PasswordPolicy from './PasswordPolicy';
 
@@ -17,10 +17,15 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showVerification, setShowVerification] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [verificationData, setVerificationData] = useState({
     username: '',
     codigo: ''
   });
+  
+  // Nuevos estados para validación en tiempo real
+  const [usernameStatus, setUsernameStatus] = useState(''); // 'available', 'unavailable', 'checking'
+  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false); // Inicialmente oculto
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -29,11 +34,71 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
       [name]: value
     }));
     setError('');
+    
+    // Validar usuario en tiempo real
+    if (name === 'username' && value.length >= 3) {
+      checkUsernameAvailability(value);
+    } else if (name === 'username') {
+      setUsernameStatus('');
+    }
+    
+    // Mostrar requisitos de contraseña SOLO cuando se empiece a escribir
+    if (name === 'password') {
+      // Solo mostrar si hay al menos 1 carácter
+      const shouldShow = value.length > 0;
+      setShowPasswordRequirements(shouldShow);
+    }
+  };
+
+  // Función para verificar disponibilidad del usuario
+  const checkUsernameAvailability = async (username) => {
+    if (username.length < 3) return;
+    
+    setUsernameStatus('checking');
+    
+    try {
+      const response = await fetch('http://localhost:3001/api/usuarios/check-username', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username: username.toLowerCase() })
+      });
+
+      if (!response.ok) {
+        console.error('❌ Error en respuesta:', response.status, response.statusText);
+        setUsernameStatus('');
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setUsernameStatus(data.available ? 'available' : 'unavailable');
+      } else {
+        setUsernameStatus('');
+      }
+    } catch (error) {
+      console.error('❌ Error verificando usuario:', error);
+      setUsernameStatus('');
+    }
   };
 
   const validateForm = () => {
     if (!formData.nombre || !formData.username || !formData.telefono || !formData.password || !formData.confirmPassword) {
       setError('Todos los campos son requeridos');
+      return false;
+    }
+
+    // Verificar si el usuario ya existe
+    if (usernameStatus === 'unavailable') {
+      setError('El nombre de usuario ya está en uso. Por favor elige otro.');
+      return false;
+    }
+
+    // Verificar si el usuario está siendo verificado
+    if (usernameStatus === 'checking') {
+      setError('Espera mientras verificamos la disponibilidad del usuario.');
       return false;
     }
 
@@ -81,6 +146,9 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
     setError('');
 
     try {
+      console.log('📝 Enviando registro de usuario...');
+      console.log('📝 Datos del formulario:', formData);
+      
       const response = await fetch('http://localhost:3001/api/usuarios/registro-whatsapp', {
         method: 'POST',
         headers: {
@@ -95,17 +163,21 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
       });
 
       const data = await response.json();
+      console.log('📝 Respuesta del registro:', response.status, data);
 
       if (response.ok) {
+        console.log('✅ Registro exitoso, mostrando verificación...');
         setVerificationData(prev => ({ ...prev, username: formData.username }));
         setShowVerification(true);
         if (onRegisterSuccess) {
           onRegisterSuccess(data);
         }
       } else {
+        console.log('❌ Error en registro:', data.mensaje);
         setError(data.mensaje || 'Error al registrar el usuario');
       }
     } catch (err) {
+      console.error('❌ Error de conexión en registro:', err);
       setError('Error de conexión. Intenta nuevamente.');
     } finally {
       setLoading(false);
@@ -124,6 +196,9 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
     setError('');
 
     try {
+      console.log('🔍 Enviando verificación de WhatsApp...');
+      console.log('📱 Datos enviados:', verificationData);
+      
       const response = await fetch('http://localhost:3001/api/usuarios/verificar-whatsapp', {
         method: 'POST',
         headers: {
@@ -136,15 +211,17 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
       });
 
       const data = await response.json();
+      console.log('📱 Respuesta del servidor:', response.status, data);
 
       if (response.ok) {
-        // Redirigir al login o mostrar mensaje de éxito
-        alert('¡Registro exitoso! Ya puedes iniciar sesión.');
-        window.location.href = '/login';
+        console.log('✅ Verificación exitosa, mostrando modal...');
+        setShowSuccessModal(true);
       } else {
+        console.log('❌ Error en verificación:', data.mensaje);
         setError(data.mensaje || 'Error al verificar el código');
       }
     } catch (err) {
+      console.error('❌ Error de conexión:', err);
       setError('Error de conexión. Intenta nuevamente.');
     } finally {
       setLoading(false);
@@ -179,6 +256,71 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
       setLoading(false);
     }
   };
+
+  const handleSuccessModalClose = () => {
+    setShowSuccessModal(false);
+    window.location.href = '/login';
+  };
+
+  // Modal de confirmación de éxito
+  if (showSuccessModal) {
+    console.log('🎉 Renderizando modal de éxito...');
+    return (
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                ¡Registro Exitoso!
+              </h3>
+              <button
+                onClick={handleSuccessModalClose}
+                className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 text-center">
+              <div className="mb-4">
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
+                </div>
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  ¡Teléfono Verificado Exitosamente!
+                </h4>
+                <p className="text-gray-600 dark:text-gray-300 mb-4">
+                  Tu cuenta ha sido creada y verificada. Ya puedes iniciar sesión con tu usuario y contraseña.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={handleSuccessModalClose}
+                  className="w-full bg-primary hover:bg-primary-dark dark:bg-primary-light dark:hover:bg-primary text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center"
+                >
+                  <Check className="w-5 h-5 mr-2" />
+                  Ir al Login
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
 
   if (showVerification) {
     return (
@@ -294,6 +436,21 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
+            {usernameStatus === 'checking' && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Verificando disponibilidad...
+              </p>
+            )}
+            {usernameStatus === 'available' && (
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                Nombre de usuario disponible.
+              </p>
+            )}
+            {usernameStatus === 'unavailable' && (
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                Nombre de usuario no disponible.
+              </p>
+            )}
           </div>
 
           <div>
@@ -336,6 +493,13 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
               </button>
             </div>
             <PasswordStrengthBar password={formData.password} />
+            
+            {/* Mostrar requisitos de contraseña solo cuando se empiece a escribir */}
+            {showPasswordRequirements && (
+              <div className="mt-2">
+                <PasswordPolicy />
+              </div>
+            )}
           </div>
 
           <div>
@@ -362,8 +526,6 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
             </div>
           </div>
 
-          <PasswordPolicy />
-
           {error && (
             <div className="flex items-center space-x-2 text-red-600 dark:text-red-400 text-sm">
               <XCircle size={16} />
@@ -373,10 +535,13 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || usernameStatus === 'unavailable' || usernameStatus === 'checking'}
             className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Registrando...' : 'Registrarse con WhatsApp'}
+            {loading ? 'Registrando...' : 
+             usernameStatus === 'checking' ? 'Verificando usuario...' :
+             usernameStatus === 'unavailable' ? 'Usuario no disponible' :
+             'Registrarse con WhatsApp'}
           </button>
 
           <div className="text-center">

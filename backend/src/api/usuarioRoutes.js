@@ -7,6 +7,9 @@ const authMiddleware = require('../middleware/auth');
 router.post('/registro', usuarioController.registrar);
 router.post('/login', usuarioController.login);
 
+// Verificación de disponibilidad de usuario
+router.post('/check-username', usuarioController.checkUsernameAvailability);
+
 // Verificación de email
 router.post('/verificar-email', usuarioController.verificarEmail);
 router.post('/reenviar-codigo', usuarioController.reenviarCodigo);
