@@ -3,7 +3,8 @@ const bcrypt = require('bcrypt');
 const Usuario = require('../models/Usuario');
 const TokenInvalidado = require('../models/TokenInvalidado');
 const { enviarCodigoVerificacion, enviarEmailRecuperacion, validarEmail } = require('../services/emailService');
-const { enviarCodigoVerificacion: enviarCodigoWhatsApp, validarTelefono, formatearTelefono } = require('../services/ultramsgService');
+const UltraMsgService = require('../services/ultramsgService');
+const ultramsgService = new UltraMsgService();
 
 const SECRET_KEY = 'mi_clave_secreta';
 
@@ -221,12 +222,20 @@ const usuarioController = {
       const match = await bcrypt.compare(password, usuario.password);
       if (!match) return res.status(401).json({ mensaje: 'Credenciales inválidas' });
 
-      // Verificar si el email está verificado
-      if (!usuario.emailVerificado) {
+      // Verificar si el email o teléfono está verificado
+      if (usuario.email && !usuario.emailVerificado) {
         return res.status(401).json({ 
           mensaje: 'Debes verificar tu email antes de iniciar sesión',
           requiereVerificacion: true,
           email: usuario.email
+        });
+      }
+      
+      if (usuario.telefono && !usuario.telefonoVerificado) {
+        return res.status(401).json({ 
+          mensaje: 'Debes verificar tu teléfono antes de iniciar sesión',
+          requiereVerificacion: true,
+          telefono: usuario.telefono
         });
       }
 
@@ -541,9 +550,11 @@ const usuarioController = {
       }
 
       // Validar formato de teléfono
-      if (!validarTelefono(telefono)) {
+      try {
+        ultramsgService.validarTelefono(telefono);
+      } catch (error) {
         return res.status(400).json({ 
-          mensaje: 'Formato de número de teléfono inválido' 
+          mensaje: error.message || 'Formato de número de teléfono inválido' 
         });
       }
 
@@ -581,7 +592,7 @@ const usuarioController = {
       }
 
       // Verificar si el teléfono ya existe
-      const telefonoFormateado = formatearTelefono(telefono);
+      const telefonoFormateado = ultramsgService.formatearTelefono(telefono);
       const telefonoExistente = await Usuario.findOne({ telefono: telefonoFormateado });
       if (telefonoExistente) {
         return res.status(400).json({ 
@@ -605,7 +616,7 @@ const usuarioController = {
 
       // Enviar código por WhatsApp
       try {
-        await enviarCodigoWhatsApp(telefonoFormateado, nombre, codigo);
+        await ultramsgService.enviarCodigoVerificacion(telefonoFormateado, codigo);
         console.log('✅ Código WhatsApp enviado a:', telefonoFormateado);
         
         res.status(201).json({
@@ -644,6 +655,8 @@ const usuarioController = {
     const { username, codigo } = req.body;
     
     try {
+      console.log('🔍 Verificando WhatsApp para:', username, 'con código:', codigo);
+      
       if (!username || !codigo) {
         return res.status(400).json({ 
           mensaje: 'Username y código son requeridos' 
@@ -652,6 +665,11 @@ const usuarioController = {
 
       // Buscar usuario
       const usuario = await Usuario.findOne({ username: username.toLowerCase() });
+      console.log('🔍 Usuario encontrado:', usuario ? 'Sí' : 'No');
+      if (usuario) {
+        console.log('👤 Usuario:', usuario.username, 'Teléfono:', usuario.telefono);
+      }
+      
       if (!usuario) {
         return res.status(400).json({ 
           mensaje: 'Usuario no encontrado' 
@@ -660,13 +678,20 @@ const usuarioController = {
 
       // Verificar código
       try {
+        console.log('🔍 Código recibido:', codigo);
+        console.log('🔍 Código almacenado:', usuario.codigoWhatsApp);
+        console.log('🔍 Expiración:', usuario.codigoWhatsAppExpiracion);
+        console.log('🔍 Intentos:', usuario.intentosVerificacion);
+        
         usuario.verificarCodigoWhatsApp(codigo);
         await usuario.save();
 
+        console.log('✅ Verificación exitosa');
         res.json({ 
           mensaje: 'Teléfono verificado exitosamente' 
         });
       } catch (verificationError) {
+        console.log('❌ Error en verificación:', verificationError.message);
         res.status(400).json({ 
           mensaje: verificationError.message 
         });
@@ -710,7 +735,7 @@ const usuarioController = {
 
       // Enviar nuevo código por WhatsApp
       try {
-        await enviarCodigoWhatsApp(usuario.telefono, usuario.nombre, codigo);
+        await ultramsgService.enviarCodigoVerificacion(usuario.telefono, codigo);
         console.log('✅ Nuevo código WhatsApp enviado a:', usuario.telefono);
         
         res.json({ 

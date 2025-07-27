@@ -4,7 +4,7 @@ import LoginPage from './components/login/LoginPage'
 import RegisterPage from './components/register/RegisterPage'
 import HomePage from './components/home/HomePage'
 import { ThemeProvider } from './context/ThemeContext'
-import { SessionProvider, useSession } from './context/SessionContext'Poero implmenta ambas fun
+import { SessionProvider, useSession } from './context/SessionContext'                                                    
 import SessionExpiredModal from './components/layout/SessionExpiredModal'
 import CertificateUpload from './components/certificados/CertificateUpload'
 import CertificateGenerator from './components/certificados/CertificateGenerator'

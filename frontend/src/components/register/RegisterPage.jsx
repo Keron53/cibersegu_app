@@ -18,7 +18,7 @@ function RegisterPage() {
           <h1 className="text-3xl font-semibold text-white mb-2">Crear Cuenta</h1>
           <p className="text-gray-400 mb-8">Únete a nuestra plataforma de firmas electrónicas</p>
           
-          <RegisterMethodSelectorSimple />
+          <RegisterMethodSelector />
         </motion.div>
       </div>
       

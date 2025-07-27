@@ -15,7 +15,7 @@ module.exports = {
   
   // Configuración de desarrollo
   development: {
-    simulateMessages: process.env.NODE_ENV,
+    simulateMessages: false, // Cambiar a false cuando esté activa
     testPhoneNumbers: ['+5930992061812', '+593992061812']
   }
 };

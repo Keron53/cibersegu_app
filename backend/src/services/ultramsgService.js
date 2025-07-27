@@ -45,9 +45,10 @@ class UltraMsgService {
     
     // En modo desarrollo, simular envío
     if (ultramsgConfig.development.simulateMessages) {
-      console.log('🔄 Modo desarrollo: Simulando envío de WhatsApp');
+      console.log('🔄 MODO SIMULACIÓN: UltraMsg requiere renovación de suscripción');
       console.log('📱 Para:', numeroFormateado);
       console.log('💬 Mensaje:', mensaje);
+      console.log('💡 Para envío real, renueva la suscripción en https://ultramsg.com/');
       return {
         success: true,
         messageId: 'dev-simulated-' + Date.now(),
@@ -142,4 +143,4 @@ class UltraMsgService {
   }
 }
 
-module.exports = new UltraMsgService(); 
+module.exports = UltraMsgService; 

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { User, Lock, Phone, Eye, EyeOff } from 'lucide-react';
+import PasswordStrengthBar from './PasswordStrengthBar';
+import SuccessModal from './SuccessModal';
 
 const RegisterWhatsAppFormSimple = ({ onSwitchToEmail }) => {
   const [formData, setFormData] = useState({
@@ -16,6 +18,19 @@ const RegisterWhatsAppFormSimple = ({ onSwitchToEmail }) => {
   const [error, setError] = useState('');
   const [showVerification, setShowVerification] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // useEffect para manejar el modal de éxito
+  useEffect(() => {
+    console.log('🎭 useEffect - showSuccessModal cambió a:', showSuccessModal);
+    if (showSuccessModal) {
+      // Forzar re-renderizado después de un pequeño delay
+      const timer = setTimeout(() => {
+        console.log('🎭 Modal debería estar visible ahora');
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccessModal]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -104,7 +119,7 @@ const RegisterWhatsAppFormSimple = ({ onSwitchToEmail }) => {
     }
   };
 
-  const handleVerificationSubmit = async (e) => {
+  const handleVerificationSubmit = useCallback(async (e) => {
     e.preventDefault();
     
     if (!verificationCode.trim()) {
@@ -122,17 +137,20 @@ const RegisterWhatsAppFormSimple = ({ onSwitchToEmail }) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          telefono: formData.telefono,
+          username: formData.username,
           codigo: verificationCode
         })
       });
 
       const data = await response.json();
+      console.log('📡 Respuesta del servidor:', response.status, data);
 
       if (response.ok) {
-        alert('¡Registro exitoso! Tu cuenta ha sido verificada.');
-        // Aquí podrías redirigir al login
+        console.log('✅ Verificación exitosa, mostrando modal...');
+        setShowSuccessModal(true);
+        console.log('🎭 Estado del modal después de setShowSuccessModal:', true);
       } else {
+        console.log('❌ Error en verificación:', data.message);
         setError(data.message || 'Código de verificación incorrecto');
       }
     } catch (error) {
@@ -140,7 +158,7 @@ const RegisterWhatsAppFormSimple = ({ onSwitchToEmail }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [verificationCode, formData.username]);
 
   if (showVerification) {
     return (
@@ -194,12 +212,13 @@ const RegisterWhatsAppFormSimple = ({ onSwitchToEmail }) => {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="max-w-md mx-auto"
-    >
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-md mx-auto"
+      >
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             Registro con WhatsApp
@@ -283,6 +302,11 @@ const RegisterWhatsAppFormSimple = ({ onSwitchToEmail }) => {
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
+            
+            {/* Barra de fortaleza de contraseña */}
+            <div className="mt-2">
+              <PasswordStrengthBar password={formData.password} />
+            </div>
           </div>
 
           <div>
@@ -335,6 +359,33 @@ const RegisterWhatsAppFormSimple = ({ onSwitchToEmail }) => {
         </form>
       </div>
     </motion.div>
+    
+    {/* Modal de éxito */}
+    {console.log('🎭 Renderizando modal, showSuccessModal:', showSuccessModal)}
+    {showSuccessModal && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+          <div className="text-center">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              ¡Éxito!
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              ¡Registro exitoso! Tu cuenta ha sido verificada.
+            </p>
+            <button
+              onClick={() => {
+                setShowSuccessModal(false);
+                window.location.href = '/login';
+              }}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg"
+            >
+              Ir al Login
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

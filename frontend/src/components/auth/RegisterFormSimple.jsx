@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import PasswordStrengthBar from './PasswordStrengthBar';
+import SuccessModal from './SuccessModal';
 
 const RegisterFormSimple = ({ onSwitchToWhatsApp }) => {
   const [formData, setFormData] = useState({
@@ -14,6 +16,7 @@ const RegisterFormSimple = ({ onSwitchToWhatsApp }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -83,8 +86,7 @@ const RegisterFormSimple = ({ onSwitchToWhatsApp }) => {
       const data = await response.json();
 
       if (response.ok) {
-        alert('Registro exitoso! Revisa tu email para verificar tu cuenta.');
-        // Aquí podrías redirigir al login o mostrar un mensaje de éxito
+        setShowSuccessModal(true);
       } else {
         setError(data.message || 'Error en el registro');
       }
@@ -96,12 +98,13 @@ const RegisterFormSimple = ({ onSwitchToWhatsApp }) => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="max-w-md mx-auto"
-    >
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-md mx-auto"
+      >
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
         <div className="text-center mb-8">
           <User className="mx-auto h-12 w-12 text-blue-500 mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -186,6 +189,11 @@ const RegisterFormSimple = ({ onSwitchToWhatsApp }) => {
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
+            
+            {/* Barra de fortaleza de contraseña */}
+            <div className="mt-2">
+              <PasswordStrengthBar password={formData.password} />
+            </div>
           </div>
 
           <div>
@@ -238,6 +246,14 @@ const RegisterFormSimple = ({ onSwitchToWhatsApp }) => {
         </form>
       </div>
     </motion.div>
+    
+    {/* Modal de éxito */}
+    <SuccessModal 
+      isOpen={showSuccessModal}
+      onClose={() => setShowSuccessModal(false)}
+      message="¡Registro exitoso! Revisa tu email para verificar tu cuenta."
+    />
+    </>
   );
 };
 
