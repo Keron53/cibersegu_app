@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import InputField from './InputField'
 import { authService } from '../../services/api'
 import LoadingSpinner from './LoadingSpinner'
+import PasswordPolicy from './PasswordPolicy'
 
 function LoginForm() {
   const [formData, setFormData] = useState({
@@ -59,9 +60,23 @@ function LoginForm() {
       const response = await authService.login(formData)
       console.log('Inicio de sesión exitoso:', response)
       
+      // Verificar si el backend requiere verificación de email
+      if (response.requiereVerificacion) {
+        setErrors({
+          form: `Debes verificar tu email antes de iniciar sesión. Revisa tu email: ${response.email}`,
+          type: 'warning'
+        })
+        return
+      }
+      
       // Guardar el token en localStorage
       if (response.token) {
         localStorage.setItem('token', response.token)
+      }
+      
+      // Guardar datos del usuario si están disponibles
+      if (response.usuario) {
+        localStorage.setItem('userData', JSON.stringify(response.usuario))
       }
       
       setSuccessMessage('¡Inicio de sesión exitoso!')
@@ -71,8 +86,13 @@ function LoginForm() {
       
     } catch (error) {
       console.error('Error de inicio de sesión:', error)
+      
+      // Manejar errores específicos del backend
+      const backendMsg = error.response?.data?.mensaje || error.response?.data?.error || error.message || 'Error al iniciar sesión. Por favor, intenta de nuevo.'
+      
       setErrors({
-        form: error.message || 'Error al iniciar sesión. Por favor, intenta de nuevo.'
+        form: backendMsg,
+        type: 'error'
       })
     } finally {
       setIsLoading(false)
@@ -93,7 +113,13 @@ function LoginForm() {
       )}
       
       {errors.form && (
-        <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded text-red-500 text-sm">
+        <div className={`mb-4 p-3 border rounded text-sm ${
+          errors.type === 'warning' 
+            ? 'bg-yellow-500/20 border-yellow-500 text-yellow-600'
+            : errors.type === 'error'
+            ? 'bg-red-500/20 border-red-500 text-red-500'
+            : 'bg-red-500/20 border-red-500 text-red-500'
+        }`}>
           {errors.form}
         </div>
       )}
@@ -145,6 +171,8 @@ function LoginForm() {
           Regístrate ahora
         </Link>
       </div>
+      
+      <PasswordPolicy className="mt-4" />
     </motion.form>
   )
 }

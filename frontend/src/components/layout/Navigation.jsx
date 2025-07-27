@@ -21,48 +21,48 @@ const Navigation = ({ onLogout }) => {
                 <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">Digital Sign</span>
               </button>
             </div>
+          </div>
+          
+          <div className="hidden md:flex items-center space-x-3">
+            <button
+              onClick={() => navigate('/certificado')}
+              className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Subir Certificado
+            </button>
             
-            <div className="hidden md:flex items-center space-x-3 ml-8">
-              <button
-                onClick={() => navigate('/certificado')}
-                className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Subir Certificado
-              </button>
-              
-              <button
-                onClick={() => navigate('/generar-certificado')}
-                className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Generar Certificado
-              </button>
-              
-              <button
-                onClick={() => navigate('/mis-certificados')}
-                className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <List className="w-4 h-4 mr-2" />
-                Ver Certificados
-              </button>
-              
-              <button
-                onClick={() => navigate('/perfil')}
-                className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <User className="w-4 h-4 mr-2" />
-                Mi Perfil
-              </button>
-              
-              <button
-                onClick={onLogout}
-                className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Cerrar Sesión
-              </button>
-            </div>
+            <button
+              onClick={() => navigate('/generar-certificado')}
+              className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Generar Certificado
+            </button>
+            
+            <button
+              onClick={() => navigate('/mis-certificados')}
+              className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <List className="w-4 h-4 mr-2" />
+              Ver Certificados
+            </button>
+            
+            <button
+              onClick={() => navigate('/perfil')}
+              className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <User className="w-4 h-4 mr-2" />
+              Mi Perfil
+            </button>
+            
+            <button
+              onClick={onLogout}
+              className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Cerrar Sesión
+            </button>
           </div>
           
           <div className="flex items-center space-x-4">

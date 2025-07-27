@@ -62,10 +62,10 @@ router.post('/:documentoId/firmar', auth, documentoController.firmarDocumentoCon
 
 router.post('/subir', auth, upload.any(), documentoController.subirDocumento);
 
-router.get('/', documentoController.listarDocumentos);
+router.get('/', auth, documentoController.listarDocumentos);
 router.get('/:id', auth, documentoController.obtenerDocumento);
 router.get('/:id/info', auth, documentoController.infoDocumento);
 router.get('/:id/download', auth, documentoController.descargarDocumento);
-router.delete('/:id', documentoController.eliminarDocumento);
+router.delete('/:id', auth, documentoController.eliminarDocumento);
 
 module.exports = router 

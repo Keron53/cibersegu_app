@@ -367,7 +367,17 @@ const documentoController = {
 
   listarDocumentos: async (req, res) => {
     try {
-      const documentos = await Documento.find({ estado: 'activo' }).populate('usuario', 'nombre email');
+      // Verificar que el usuario esté autenticado
+      if (!req.usuario || !req.usuario.id) {
+        return res.status(401).json({ error: 'Usuario no autenticado' });
+      }
+
+      // Filtrar documentos solo del usuario autenticado
+      const documentos = await Documento.find({ 
+        usuario: req.usuario.id,
+        estado: 'activo' 
+      }).populate('usuario', 'nombre email');
+      
       res.json(documentos);
     } catch (error) {
       console.error('Error al listar documentos:', error);
@@ -378,10 +388,27 @@ const documentoController = {
   eliminarDocumento: async (req, res) => {
     try {
       const { id } = req.params;
-      const doc = await Documento.findByIdAndUpdate(id, { estado: 'eliminado' }, { new: true });
+      
+      // Verificar que el usuario esté autenticado
+      if (!req.usuario || !req.usuario.id) {
+        return res.status(401).json({ error: 'Usuario no autenticado' });
+      }
+
+      // Buscar el documento y verificar que pertenezca al usuario
+      const doc = await Documento.findById(id);
       if (!doc) {
         return res.status(404).json({ error: 'Documento no encontrado' });
       }
+
+      // Verificar que el documento pertenezca al usuario autenticado
+      if (doc.usuario.toString() !== req.usuario.id) {
+        return res.status(403).json({ error: 'No tienes permisos para eliminar este documento' });
+      }
+
+      // Marcar como eliminado
+      doc.estado = 'eliminado';
+      await doc.save();
+      
       res.json({ message: 'Documento eliminado correctamente', documento: doc });
     } catch (error) {
       console.error('Error al eliminar documento:', error);
@@ -420,10 +447,22 @@ const documentoController = {
   obtenerDocumento: async (req, res) => {
     try {
       const { id } = req.params;
+      
+      // Verificar que el usuario esté autenticado
+      if (!req.usuario || !req.usuario.id) {
+        return res.status(401).json({ error: 'Usuario no autenticado' });
+      }
+
       const doc = await Documento.findById(id);
       if (!doc) {
         return res.status(404).json({ error: 'Documento no encontrado' });
       }
+
+      // Verificar que el documento pertenezca al usuario autenticado
+      if (doc.usuario.toString() !== req.usuario.id) {
+        return res.status(403).json({ error: 'No tienes permisos para acceder a este documento' });
+      }
+
       // Enviar el archivo PDF
       res.sendFile(require('path').resolve(doc.ruta));
     } catch (error) {
@@ -434,11 +473,23 @@ const documentoController = {
   infoDocumento: async (req, res) => {
     try {
       const { id } = req.params;
+      
+      // Verificar que el usuario esté autenticado
+      if (!req.usuario || !req.usuario.id) {
+        return res.status(401).json({ error: 'Usuario no autenticado' });
+      }
+
       const doc = await Documento.findById(id);
       if (!doc) {
         console.error('Documento no encontrado en la base de datos:', id);
         return res.status(404).json({ error: 'Documento no encontrado' });
       }
+
+      // Verificar que el documento pertenezca al usuario autenticado
+      if (doc.usuario.toString() !== req.usuario.id) {
+        return res.status(403).json({ error: 'No tienes permisos para acceder a este documento' });
+      }
+
       if (!fs.existsSync(doc.ruta)) {
         console.error('Archivo PDF no existe en la ruta:', doc.ruta);
         return res.status(404).json({ error: 'Archivo PDF no encontrado en el servidor' });
@@ -457,10 +508,21 @@ const documentoController = {
   descargarDocumento: async (req, res) => {
     try {
       const { id } = req.params;
+      
+      // Verificar que el usuario esté autenticado
+      if (!req.usuario || !req.usuario.id) {
+        return res.status(401).json({ error: 'Usuario no autenticado' });
+      }
+
       const doc = await Documento.findById(id);
       
       if (!doc) {
         return res.status(404).json({ error: 'Documento no encontrado' });
+      }
+
+      // Verificar que el documento pertenezca al usuario autenticado
+      if (doc.usuario.toString() !== req.usuario.id) {
+        return res.status(403).json({ error: 'No tienes permisos para descargar este documento' });
       }
 
       if (!fs.existsSync(doc.ruta)) {

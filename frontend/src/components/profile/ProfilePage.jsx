@@ -20,7 +20,7 @@ function ProfilePage() {
     try {
       setLoading(true)
       // Obtener datos del usuario desde localStorage o API
-      const storedUser = localStorage.getItem('user')
+      const storedUser = localStorage.getItem('userData')
       if (storedUser) {
         const user = JSON.parse(storedUser)
         setUserData(user)
@@ -30,6 +30,23 @@ function ProfilePage() {
           organizacion: user.organizacion || '',
           telefono: user.telefono || ''
         })
+      } else {
+        // Si no hay datos en localStorage, intentar obtenerlos de la API
+        try {
+          const { authService } = await import('../../services/api')
+          const userData = await authService.obtenerPerfil()
+          setUserData(userData)
+          setEditedData({
+            nombre: userData.nombre || '',
+            email: userData.email || '',
+            organizacion: userData.organizacion || '',
+            telefono: userData.telefono || ''
+          })
+          localStorage.setItem('userData', JSON.stringify(userData))
+        } catch (apiError) {
+          console.error('Error al obtener datos de la API:', apiError)
+          showNotification('Error al cargar datos del usuario', 'error')
+        }
       }
     } catch (error) {
       console.error('Error al cargar datos del usuario:', error)
@@ -41,7 +58,7 @@ function ProfilePage() {
   const handleLogout = () => {
     showNotification('¡Sesión cerrada exitosamente!', 'success')
     localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    localStorage.removeItem('userData')
 
     setTimeout(() => {
       navigate('/login', { replace: true })
@@ -64,29 +81,17 @@ function ProfilePage() {
 
   const handleSave = async () => {
     try {
-      // Aquí se haría la llamada a la API para actualizar los datos
-      const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:3001/api/usuarios/perfil', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(editedData)
-      })
-
-      if (response.ok) {
-        const updatedUser = { ...userData, ...editedData }
-        setUserData(updatedUser)
-        localStorage.setItem('user', JSON.stringify(updatedUser))
-        setIsEditing(false)
-        showNotification('Perfil actualizado correctamente', 'success')
-      } else {
-        showNotification('Error al actualizar el perfil', 'error')
-      }
+      const { authService } = await import('../../services/api')
+      const updatedUser = await authService.actualizarPerfil(editedData)
+      
+      setUserData(updatedUser.usuario)
+      localStorage.setItem('userData', JSON.stringify(updatedUser.usuario))
+      setIsEditing(false)
+      showNotification('Perfil actualizado correctamente', 'success')
     } catch (error) {
       console.error('Error al actualizar perfil:', error)
-      showNotification('Error al actualizar el perfil', 'error')
+      const errorMsg = error.response?.data?.mensaje || error.response?.data?.error || 'Error al actualizar el perfil'
+      showNotification(errorMsg, 'error')
     }
   }
 

@@ -72,8 +72,28 @@ export const authService = {
     return response.data
   },
 
+  async verificarEmail(verificationData) {
+    const response = await axios.post(`${API_BASE_URL}/usuarios/verificar-email`, verificationData)
+    return response.data
+  },
+
+  async reenviarCodigo(emailData) {
+    const response = await axios.post(`${API_BASE_URL}/usuarios/reenviar-codigo`, emailData)
+    return response.data
+  },
+
   async logout() {
     const response = await axios.post(`${API_BASE_URL}/usuarios/logout`)
+    return response.data
+  },
+
+  async obtenerPerfil() {
+    const response = await axios.get(`${API_BASE_URL}/usuarios/perfil`)
+    return response.data
+  },
+
+  async actualizarPerfil(userData) {
+    const response = await axios.put(`${API_BASE_URL}/usuarios/perfil`, userData)
     return response.data
   }
 }

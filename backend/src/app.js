@@ -1,3 +1,6 @@
+// Cargar variables de entorno al inicio
+require('dotenv').config();
+
 const express = require('express');
 const app = express();
 const cors = require('cors');
