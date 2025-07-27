@@ -7,12 +7,12 @@
 module.exports = {
   // Configuración de Gmail
   gmail: {
-    user: process.env.EMAIL_USER || 'tu-email@gmail.com',
-    pass: process.env.EMAIL_PASS || 'tu-contraseña-de-aplicacion'
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
   },
   
   // Configuración del remitente
-  from: process.env.EMAIL_USER || 'tu-email@gmail.com',
+  from: process.env.EMAIL_USER,
   
   // Configuración de la aplicación
   appName: 'Digital Sign',

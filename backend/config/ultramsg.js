@@ -3,8 +3,8 @@
 
 module.exports = {
   // Credenciales de UltraMsg
-  token: process.env.ULTRAMSG_TOKEN || '1fvgcgr7qmdcr0wk',
-  instanceId: process.env.ULTRAMSG_INSTANCE_ID || 'instance135447',
+  token: process.env.ULTRAMSG_TOKEN,
+  instanceId: process.env.ULTRAMSG_INSTANCE_ID,
   
   // URL base de la API
   baseUrl: 'https://api.ultramsg.com',
@@ -15,7 +15,7 @@ module.exports = {
   
   // Configuración de desarrollo
   development: {
-    simulateMessages: process.env.NODE_ENV === 'development',
+    simulateMessages: process.env.NODE_ENV,
     testPhoneNumbers: ['+5930992061812', '+593992061812']
   }
 };
