@@ -26,6 +26,14 @@ axios.interceptors.request.use(
   }
 )
 
+// Variable global para el callback de sesión expirada
+let sessionExpiredCallback = null
+
+// Función para establecer el callback de sesión expirada
+export const setSessionExpiredCallback = (callback) => {
+  sessionExpiredCallback = callback
+}
+
 // Interceptor de respuesta para manejar errores de autenticación
 axios.interceptors.response.use(
   (response) => {
@@ -33,17 +41,20 @@ axios.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      console.log('🔐 Token expirado, redirigiendo al login...')
-      
-      // Mostrar mensaje al usuario
-      alert('🔐 Tu sesión ha expirado. Serás redirigido al login.')
+      console.log('🔐 Token expirado, mostrando modal...')
       
       // Limpiar datos de sesión
       localStorage.removeItem('token')
       localStorage.removeItem('user')
+      localStorage.removeItem('userData')
       
-      // Redirigir al login
-      window.location.href = '/login'
+      // Mostrar modal si hay callback disponible
+      if (sessionExpiredCallback) {
+        sessionExpiredCallback()
+      } else {
+        // Fallback: redirigir directamente
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }

@@ -1,9 +1,12 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Check, FileText, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { X, Check, FileText, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react'
 import QRCodeGenerator from './QRCodeGenerator'
+import { useNavigate } from 'react-router-dom'
 
 function SignatureConfirmationModal({ signatureInfo, onClose, onConfirm }) {
+  const navigate = useNavigate()
+  
   // Debug: Log de los datos recibidos
   console.log('SignatureConfirmationModal recibió:', {
     signatureInfo,
@@ -30,6 +33,7 @@ function SignatureConfirmationModal({ signatureInfo, onClose, onConfirm }) {
   const [showPassword, setShowPassword] = useState(false)
   const [passwordError, setPasswordError] = useState('')
   const [isValidating, setIsValidating] = useState(false)
+  const [isSigning, setIsSigning] = useState(false)
 
   const formatDate = (timestamp) => {
     return new Date(timestamp).toLocaleString('es-ES', {
@@ -93,8 +97,23 @@ function SignatureConfirmationModal({ signatureInfo, onClose, onConfirm }) {
   const handleConfirm = async () => {
     const isValid = await validatePassword()
     if (isValid) {
-      // Pasar la contraseña validada al callback
-      onConfirm(certificatePassword)
+      setIsSigning(true)
+      setPasswordError('')
+      
+      try {
+        // Pasar la contraseña validada al callback
+        await onConfirm(certificatePassword)
+        
+        // Simular un pequeño delay para mostrar la animación
+        await new Promise(resolve => setTimeout(resolve, 1500))
+        
+        // Redirigir al home
+        navigate('/home')
+      } catch (error) {
+        console.error('Error durante la firma:', error)
+        setPasswordError('❌ Error durante la firma del documento')
+        setIsSigning(false)
+      }
     }
   }
 
@@ -297,12 +316,13 @@ function SignatureConfirmationModal({ signatureInfo, onClose, onConfirm }) {
                         passwordError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Ingresa la contraseña del certificado"
-                      disabled={isValidating}
+                      disabled={isValidating || isSigning}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      disabled={isValidating || isSigning}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -322,9 +342,9 @@ function SignatureConfirmationModal({ signatureInfo, onClose, onConfirm }) {
           <div className="flex items-center justify-end p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0" style={{ minHeight: '60px' }}>
             <button
               onClick={handleConfirm}
-              disabled={isValidating || !certificatePassword.trim()}
+              disabled={isValidating || isSigning || !certificatePassword.trim()}
               className={`flex items-center px-4 py-2 font-medium rounded-lg transition-colors ${
-                isValidating || !certificatePassword.trim()
+                isValidating || isSigning || !certificatePassword.trim()
                   ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                   : 'bg-primary hover:bg-primary-dark dark:bg-primary-light dark:hover:bg-primary text-white'
               }`}
@@ -333,6 +353,11 @@ function SignatureConfirmationModal({ signatureInfo, onClose, onConfirm }) {
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   Validando...
+                </>
+              ) : isSigning ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Firmando documento...
                 </>
               ) : (
                 <>

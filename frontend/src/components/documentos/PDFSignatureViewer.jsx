@@ -42,13 +42,8 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
   const [previewPosition, setPreviewPosition] = useState(null)
 
   // Estado para la firma con node-signpdf
-  const [certPassword, setCertPassword] = useState('')
   const [signing, setSigning] = useState(false)
   const [message, setMessage] = useState('')
-  const [qrNombre, setQrNombre] = useState('')
-  const [qrCorreo, setQrCorreo] = useState('')
-  const [qrOrganizacion, setQrOrganizacion] = useState('')
-  const [qrSize, setQrSize] = useState(100)
 
   useEffect(() => {
     loadDocument()
@@ -357,21 +352,19 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
       alert('Selecciona un certificado')
       return
     }
-    if (!certPassword) {
-      alert('Ingresa la contraseña del certificado')
-      return
-    }
     if (!pdfUrl) {
       alert('No se ha cargado el PDF')
-      return
-    }
-    if (!qrNombre || !qrCorreo || !qrOrganizacion) {
-      alert('Completa los datos para el QR')
       return
     }
     if (!signaturePosition) {
       alert('Selecciona la posición en el PDF')
       return
+    }
+    
+    // Solicitar contraseña al usuario
+    const password = prompt('Ingresa la contraseña del certificado:')
+    if (!password) {
+      return // Usuario canceló
     }
     setSigning(true)
     setMessage('')
@@ -380,10 +373,16 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
       // Descargar el PDF como blob
       const pdfBlob = await fetch(pdfUrl).then(r => r.blob())
       // Descargar el certificado .p12 del backend
-      const certBlob = await certificadoService.descargar(selectedCertificate.id, certPassword)
+      const certBlob = await certificadoService.descargar(selectedCertificate.id, password)
       // Crear archivos para enviar
       const pdfFile = new File([pdfBlob], documentName || 'documento.pdf', { type: 'application/pdf' })
       const certFile = new File([certBlob], selectedCertificate.filename || 'certificado.p12', { type: 'application/x-pkcs12' })
+      
+      // Usar datos del certificado para el QR
+      const nombre = selectedCertificate.nombreComun || 'Usuario'
+      const correo = selectedCertificate.email || 'usuario@ejemplo.com'
+      const organizacion = selectedCertificate.organizacion || 'Organización'
+      
       // Firmar usando el endpoint QR, enviando posición y tamaño del canvas
       const canvasRect = containerRef.current?.getBoundingClientRect();
       const canvasWidth = canvasRect?.width || 1;
@@ -391,25 +390,25 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
       const signedPdfBlob = await documentoService.firmarQRNode(
         pdfFile,
         certFile,
-        certPassword,
-        qrNombre,
-        qrCorreo,
-        qrOrganizacion,
+        password,
+        nombre,
+        correo,
+        organizacion,
         signaturePosition.x,
         signaturePosition.y,
         signaturePosition.page,
         canvasWidth,
         canvasHeight,
-        qrSize
+        100 // Tamaño fijo del QR
       )
       // Descargar el PDF firmado
       const link = document.createElement('a')
       link.href = URL.createObjectURL(signedPdfBlob)
-      link.download = `firmado_qr_${documentName || 'documento'}.pdf`
+      link.download = `firmado_${documentName || 'documento'}.pdf`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      setMessage('Documento firmado con QR y descargado exitosamente')
+      setMessage('Documento firmado y descargado exitosamente')
     } catch (err) {
       setError('Error al firmar el documento: ' + (err?.response?.data?.error || err.message))
       console.error(err)
@@ -626,10 +625,10 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
                   <div
                     className="absolute border-2 border-primary bg-white dark:bg-gray-800 rounded-lg cursor-move z-10 shadow-lg"
                     style={{
-                      left: signaturePosition.x - qrSize / 2,
-                      top: signaturePosition.y - qrSize / 2,
-                      width: qrSize,
-                      height: qrSize
+                      left: signaturePosition.x - 50,
+                      top: signaturePosition.y - 50,
+                      width: 100,
+                      height: 100
                     }}
                     onMouseDown={handleMouseDown}
                   >
@@ -680,133 +679,24 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
 
                   <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                     <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-                      Posición seleccionada:
+                      Coordenadas seleccionadas:
                     </h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-300">Página:</span>
-                        <span className={`font-bold ${signaturePosition.page === currentPage ? 'text-green-600' : 'text-red-600'}`}>
-                          {signaturePosition.page} de {totalPages}
+                        <span className="text-gray-600 dark:text-gray-300">X:</span>
+                        <span className="text-gray-900 dark:text-white font-medium">
+                          {Math.round(signaturePosition.x)}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-300">Coordenadas:</span>
-                        <span className="text-gray-900 dark:text-white">
-                          X: {Math.round(signaturePosition.x)}, Y: {Math.round(signaturePosition.y)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-300">Tamaño:</span>
-                        <span className="text-gray-900 dark:text-white">
-                          {signaturePosition.width} × {signaturePosition.height} px
+                        <span className="text-gray-600 dark:text-gray-300">Y:</span>
+                        <span className="text-gray-900 dark:text-white font-medium">
+                          {Math.round(signaturePosition.y)}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {selectedCertificate && (
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                      <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-                        Certificado seleccionado:
-                      </h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-300">Nombre:</span>
-                          <span className="text-gray-900 dark:text-white font-medium">
-                            {generateCertificateDisplayName(selectedCertificate)}
-                          </span>
-                        </div>
-                        {selectedCertificate.organizacion && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-300">Organización:</span>
-                            <span className="text-gray-900 dark:text-white">
-                              {selectedCertificate.organizacion}
-                            </span>
-                          </div>
-                        )}
-                        {selectedCertificate.email && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-300">Email:</span>
-                            <span className="text-gray-900 dark:text-white">
-                              {selectedCertificate.email}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {qrData && selectedCertificate && (
-                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
-                      <div className="flex items-center text-green-600 dark:text-green-400">
-                        <QrCode className="w-5 h-5 mr-2" />
-                        <span className="font-medium">QR generado y listo</span>
-                      </div>
-                      <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                        La firma está lista para ser procesada
-                      </p>
-                    </div>
-                  )}
-                  {selectedCertificate && (
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                      <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-                        Contraseña del certificado:
-                      </h4>
-                      <input
-                        type="password"
-                        value={certPassword}
-                        onChange={e => setCertPassword(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                        placeholder="Contraseña .p12"
-                      />
-                    </div>
-                  )}
-                  <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                    <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-                      Datos para el QR visual:
-                    </h4>
-                    <input
-                      type="text"
-                      value={qrNombre}
-                      onChange={e => setQrNombre(e.target.value)}
-                      className="w-full mb-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      placeholder="Nombre para QR"
-                    />
-                    <input
-                      type="email"
-                      value={qrCorreo}
-                      onChange={e => setQrCorreo(e.target.value)}
-                      className="w-full mb-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      placeholder="Correo para QR"
-                    />
-                    <input
-                      type="text"
-                      value={qrOrganizacion}
-                      onChange={e => setQrOrganizacion(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      placeholder="Organización para QR"
-                    />
-                  </div>
-                  <div className="mb-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Tamaño del QR (puntos PDF): {qrSize}
-                    </label>
-                    <input
-                      type="range"
-                      min={40}
-                      max={200}
-                      value={qrSize}
-                      onChange={e => setQrSize(Number(e.target.value))}
-                      className="w-full"
-                    />
-                  </div>
-                  <button
-                    onClick={handleSignWithQRNode}
-                    disabled={signing || !selectedCertificate || !certPassword || !qrNombre || !qrCorreo || !qrOrganizacion}
-                    className="w-full mt-4 px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {signing ? 'Firmando QR...' : 'Firmar PDF con QR visual'}
-                  </button>
                   {message && (
                     <div className="mt-2 p-2 bg-green-100 text-green-800 rounded">{message}</div>
                   )}
@@ -897,4 +787,4 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
   )
 }
 
-export default PDFSignatureViewer 
+export default PDFSignatureViewer
