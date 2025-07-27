@@ -35,14 +35,14 @@ const validacionController = {
       // Limpiar archivo temporal
       fs.unlinkSync(pdfFile.path);
 
-      // Extraer información QR si es válido
+      // Extraer información QR si es válido (temporalmente deshabilitado)
       let qrInfo = null;
-      if (validationResult.isValid) {
-        const tempPdfPath = tmp.tmpNameSync({ postfix: '.pdf' });
-        fs.writeFileSync(tempPdfPath, pdfBuffer);
-        qrInfo = await PDFValidator.extractQRInfo(tempPdfPath);
-        fs.unlinkSync(tempPdfPath);
-      }
+      // if (validationResult.isValid) {
+      //   const tempPdfPath = tmp.tmpNameSync({ postfix: '.pdf' });
+      //   fs.writeFileSync(tempPdfPath, pdfBuffer);
+      //   qrInfo = await PDFValidator.extractQRInfo(tempPdfPath);
+      //   fs.unlinkSync(tempPdfPath);
+      // }
 
       res.json({
         success: true,
@@ -91,14 +91,14 @@ const validacionController = {
       // Realizar validación completa
       const validationResult = await PDFValidator.validatePDFSignature(Buffer.from(pdfBuffer));
 
-      // Extraer información QR si es válido
+      // Extraer información QR si es válido (temporalmente deshabilitado)
       let qrInfo = null;
-      if (validationResult.isValid) {
-        const tempPdfPath = tmp.tmpNameSync({ postfix: '.pdf' });
-        fs.writeFileSync(tempPdfPath, Buffer.from(pdfBuffer));
-        qrInfo = await PDFValidator.extractQRInfo(tempPdfPath);
-        fs.unlinkSync(tempPdfPath);
-      }
+      // if (validationResult.isValid) {
+      //   const tempPdfPath = tmp.tmpNameSync({ postfix: '.pdf' });
+      //   fs.writeFileSync(tempPdfPath, Buffer.from(pdfBuffer));
+      //   qrInfo = await PDFValidator.extractQRInfo(tempPdfPath);
+      //   fs.unlinkSync(tempPdfPath);
+      // }
 
       res.json({
         success: true,

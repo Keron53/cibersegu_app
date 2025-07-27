@@ -66,12 +66,15 @@ const PDFValidationPage = () => {
       const data = await response.json();
 
       if (response.ok) {
+        console.log('🔍 Respuesta del backend:', data);
         setValidationResult(data);
       } else {
         setError(data.message || 'Error al validar el PDF');
+        setValidationResult(null);
       }
     } catch (err) {
       setError('Error de conexión. Intenta nuevamente.');
+      setValidationResult(null);
     } finally {
       setLoading(false);
     }
@@ -197,7 +200,7 @@ const PDFValidationPage = () => {
           </div>
 
           {/* Results */}
-          {validationResult && (
+          {validationResult && validationResult.validation && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -230,7 +233,7 @@ const PDFValidationPage = () => {
                         Firmas Digitales
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {validationResult.validation.details.signatureCount} firma(s) encontrada(s)
+                        {validationResult.validation.details?.signatureCount || 0} firma(s) encontrada(s)
                       </p>
                     </div>
                   </div>
@@ -242,7 +245,7 @@ const PDFValidationPage = () => {
                         Integridad
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {validationResult.validation.details.isModified ? 'Modificado' : 'Intacto'}
+                        {validationResult.validation.details?.isModified ? 'Modificado' : 'Intacto'}
                       </p>
                     </div>
                   </div>
@@ -254,7 +257,7 @@ const PDFValidationPage = () => {
                         Sistema de Origen
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {validationResult.validation.details.isOurSystem ? 'Nuestro Sistema' : 'Otro Sistema'}
+                        {validationResult.validation.details?.isOurSystem ? 'Nuestro Sistema' : 'Otro Sistema'}
                       </p>
                     </div>
                   </div>
@@ -266,7 +269,7 @@ const PDFValidationPage = () => {
                         Certificado
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {validationResult.validation.details.certificateInfo.isValid ? 'Válido' : 'Inválido'}
+                        {validationResult.validation.details?.certificateInfo?.isValid ? 'Válido' : 'Inválido'}
                       </p>
                     </div>
                   </div>

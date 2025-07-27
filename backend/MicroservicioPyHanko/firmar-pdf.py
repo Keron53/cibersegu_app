@@ -150,4 +150,3 @@ if __name__ == "__main__":
     firmar_pdf(cert_path, cert_password, pdf_input, pdf_output, page, x1, y1, x2, y2, ca_cert_path)
     print(">> Exit OK")
     sys.exit(0)
-
