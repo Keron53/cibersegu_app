@@ -2,6 +2,33 @@
 
 Este proyecto es un sistema web completo para la gestión y aplicación de firmas electrónicas en documentos PDF. Cuenta con una arquitectura de cliente-servidor (frontend y backend) que permite a los usuarios subir, visualizar, descargar, eliminar y **firmar digitalmente** documentos PDF con certificados digitales.
 
+## ✨ Nuevas Funcionalidades (v2.0)
+
+### 🔐 Sistema de Autenticación Mejorado
+- **Registro con validación de email**: Verificación por código de 6 dígitos
+- **Política de contraseñas robusta**: Mínimo 8 caracteres, mayúscula, minúscula y número
+- **Recuperación de contraseña**: Enlace seguro por email con expiración de 1 hora
+- **Cambio de contraseña**: Desde el perfil del usuario con validación de contraseña actual
+- **Sesiones seguras**: JWT con invalidación de tokens al cerrar sesión
+
+### 📧 Sistema de Email Integrado
+- **Verificación de registro**: Email automático con código de confirmación
+- **Recuperación de contraseña**: Enlace seguro para restablecer contraseña
+- **Plantillas HTML profesionales**: Diseño responsive y branding consistente
+- **Configuración Gmail**: Soporte para contraseñas de aplicación
+
+### 👤 Gestión de Perfil de Usuario
+- **Perfil simplificado**: Solo información esencial (nombre, email, fecha de registro)
+- **Edición de datos**: Actualización de nombre y email con re-verificación
+- **Fecha de registro**: Muestra fecha y hora exacta de creación de cuenta
+- **Estado de cuenta**: Indicador visual del estado de verificación
+
+### 🛡️ Seguridad y Privacidad
+- **Filtrado por usuario**: Cada usuario solo ve sus propios documentos
+- **Validación de propiedad**: Verificación de permisos en todas las operaciones
+- **Middleware de autenticación**: Protección de rutas sensibles
+- **Mensajes de seguridad**: No revela si un email existe o no
+
 ## 🚀 Instalación
 
 ### Prerrequisitos
@@ -52,6 +79,23 @@ npm install
 1. Asegúrate de que MongoDB esté ejecutándose
 2. El sistema creará automáticamente la CA interna en `backend/CrearCACentral/`
 
+### Configuración de Email (Opcional)
+
+Para habilitar las funcionalidades de email (verificación y recuperación de contraseña):
+
+1. **Activar verificación en 2 pasos** en tu cuenta de Gmail
+2. **Generar contraseña de aplicación** en configuración de seguridad
+3. **Crear archivo `.env`** en el directorio `backend/`:
+
+```env
+EMAIL_USER=tu-email@gmail.com
+EMAIL_PASS=tu-contraseña-de-aplicación
+MONGODB_URI=mongodb://localhost:27017/digital_sign
+JWT_SECRET=mi_clave_secreta
+```
+
+**Nota:** Si no configuras el email, el registro funcionará pero sin verificación automática.
+
 ### Ejecución
 
 **Backend:**
@@ -73,6 +117,36 @@ El sistema estará disponible en:
 ## 🔐 Firma Digital con pyHanko
 
 El sistema ahora utiliza **pyHanko** (Python) para crear firmas digitales válidas que son reconocidas por Adobe y otros validadores de PDF.
+
+## 📧 Sistema de Email y Autenticación
+
+### Flujo de Registro con Verificación
+1. **Usuario se registra** → Sistema valida datos y política de contraseñas
+2. **Email de verificación** → Se envía código de 6 dígitos por email
+3. **Verificación de código** → Usuario ingresa código para activar cuenta
+4. **Cuenta activada** → Usuario puede iniciar sesión normalmente
+
+### Flujo de Recuperación de Contraseña
+1. **Usuario olvida contraseña** → Clic en "¿Olvidaste tu contraseña?"
+2. **Ingresa email** → Sistema envía enlace seguro por email
+3. **Clic en enlace** → Llega a página de restablecimiento
+4. **Nueva contraseña** → Sistema valida y actualiza contraseña
+5. **Redirección** → Usuario vuelve al login automáticamente
+
+### Cambio de Contraseña desde Perfil
+1. **Acceso al perfil** → Usuario va a "Mi Perfil"
+2. **Botón cambiar contraseña** → Abre modal de cambio
+3. **Validación actual** → Sistema verifica contraseña actual
+4. **Nueva contraseña** → Validación de política de seguridad
+5. **Confirmación** → Contraseña actualizada exitosamente
+
+### Política de Contraseñas
+- **Mínimo 8 caracteres**
+- **Al menos una letra mayúscula**
+- **Al menos una letra minúscula**
+- **Al menos un número**
+- **Barra de fortaleza en tiempo real**
+- **Validación en frontend y backend**
 
 ### Flujo de Firma Digital
 
@@ -106,6 +180,10 @@ El sello incluye:
 - `tmp` (archivos temporales)
 - `node-forge` (extracción de datos del certificado)
 - `pdf-lib` (cálculo de coordenadas)
+- `nodemailer` (envío de emails)
+- `bcrypt` (encriptación de contraseñas)
+- `jsonwebtoken` (tokens de autenticación)
+- `dotenv` (variables de entorno)
 
 **Microservicio Python:**
 - `pyhanko>=1.8.0` (firma digital)
@@ -165,10 +243,25 @@ El sistema limpia automáticamente los datos para compatibilidad:
 
 ### Archivos del Sistema
 
-- `backend/src/controllers/documentoController.js`: Controlador principal
+**Backend:**
+- `backend/src/controllers/documentoController.js`: Controlador principal de documentos
+- `backend/src/controllers/usuarioController.js`: Controlador de usuarios y autenticación
+- `backend/src/services/emailService.js`: Servicio de envío de emails
+- `backend/src/models/Usuario.js`: Modelo de usuario con campos de verificación
+- `backend/src/middleware/auth.js`: Middleware de autenticación JWT
+- `backend/config/email.js`: Configuración de email
 - `backend/MicroservicioPyHanko/firmar-pdf.py`: Script de Python para pyHanko
 - `backend/MicroservicioPyHanko/requirements.txt`: Dependencias Python
 - `backend/CrearCACentral/ca.crt`: Certificado CA del sistema (no se sube al repo)
+
+**Frontend:**
+- `frontend/src/components/auth/LoginForm.jsx`: Formulario de login con recuperación
+- `frontend/src/components/auth/RegisterForm.jsx`: Registro con verificación de email
+- `frontend/src/components/auth/ForgotPasswordModal.jsx`: Modal de recuperación
+- `frontend/src/components/auth/RecuperarContrasenaPage.jsx`: Página de restablecimiento
+- `frontend/src/components/profile/ProfilePage.jsx`: Perfil de usuario
+- `frontend/src/components/profile/ChangePasswordModal.jsx`: Modal de cambio de contraseña
+- `frontend/src/components/auth/PasswordStrengthBar.jsx`: Barra de fortaleza de contraseña
 
 ### Ventajas vs Implementación Anterior
 
@@ -179,9 +272,83 @@ El sistema limpia automáticamente los datos para compatibilidad:
 | **Estándar PDF** | ⚠️ Modificación post-firma | ✅ Cumple PDF/A |
 | **Validación** | ❌ Falla validación criptográfica | ✅ Pasa validación |
 
+### Seguridad y Privacidad
+
+| Aspecto | Descripción |
+|---------|-------------|
+| **Filtrado por Usuario** | Cada usuario solo ve sus propios documentos |
+| **Validación de Propiedad** | Verificación de permisos en todas las operaciones |
+| **Middleware de Autenticación** | Protección de rutas sensibles |
+| **Tokens de Recuperación** | Expiración automática de 1 hora |
+| **Política de Contraseñas** | Validación robusta en frontend y backend |
+| **Mensajes de Seguridad** | No revela si un email existe o no |
+
 ### Notas Técnicas
 
 - El certificado CA del sistema se copia temporalmente para cada firma
 - Las coordenadas se convierten de canvas (frontend) a PDF (backend)
 - El sistema mantiene compatibilidad con la interfaz existente
 - Los archivos temporales se limpian automáticamente después de cada firma
+- Los tokens de recuperación se invalidan automáticamente después de su uso
+- Las contraseñas se encriptan con bcrypt antes de almacenarse
+- Los emails de verificación expiran después de 15 minutos
+- El sistema soporta modo oscuro y claro en toda la interfaz
+
+## 🔧 API Endpoints
+
+### Autenticación y Usuarios
+- `POST /api/usuarios/registro` - Registro de usuario
+- `POST /api/usuarios/login` - Inicio de sesión
+- `POST /api/usuarios/logout` - Cerrar sesión
+- `POST /api/usuarios/verificar-email` - Verificar email con código
+- `POST /api/usuarios/reenviar-codigo` - Reenviar código de verificación
+- `POST /api/usuarios/solicitar-recuperacion` - Solicitar recuperación de contraseña
+- `POST /api/usuarios/restablecer-contrasena` - Restablecer contraseña con token
+- `PUT /api/usuarios/cambiar-contrasena` - Cambiar contraseña desde perfil
+- `GET /api/usuarios/perfil` - Obtener perfil de usuario
+- `PUT /api/usuarios/perfil` - Actualizar perfil de usuario
+
+### Documentos
+- `GET /api/documentos` - Listar documentos del usuario
+- `POST /api/documentos/subir` - Subir documento
+- `POST /api/documentos/:id/firmar` - Firmar documento
+- `GET /api/documentos/:id/download` - Descargar documento
+- `DELETE /api/documentos/:id` - Eliminar documento
+
+### Certificados
+- `POST /api/certificados/generate` - Generar certificado
+- `POST /api/certificados/upload` - Subir certificado
+- `GET /api/certificados` - Listar certificados del usuario
+
+## 🔧 Troubleshooting
+
+### Problemas Comunes
+
+**Error de Email:**
+```
+Error: Invalid login: 535-5.7.8 Username and Password not accepted.
+```
+**Solución:** Verificar que la contraseña de aplicación de Gmail sea correcta y que la verificación en 2 pasos esté activada.
+
+**Error de Variables de Entorno:**
+```
+[dotenv@17.2.1] injecting env (6) from .env
+```
+**Solución:** Asegurarse de que `require('dotenv').config();` esté al inicio de `backend/src/app.js`.
+
+**Error de Ruta de Recuperación:**
+```
+No routes matched location "/recuperar-contrasena?token=..."
+```
+**Solución:** Verificar que la ruta esté agregada en `frontend/src/App.jsx`.
+
+**Documentos de Otro Usuario:**
+Si ves documentos de otro usuario, verificar que el middleware de autenticación esté aplicado en todas las rutas de documentos.
+
+### Scripts de Diagnóstico
+
+El proyecto incluye scripts de diagnóstico en el directorio `backend/`:
+- `verify-env.js` - Verificar variables de entorno
+- `test-system.js` - Probar funcionalidades del sistema
+- `clear-test-users.js` - Limpiar usuarios de prueba
+- `debug-registration.js` - Diagnosticar problemas de registro
