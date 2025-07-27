@@ -5,13 +5,14 @@ import RegisterPage from './components/register/RegisterPage'
 import HomePage from './components/home/HomePage.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import { SessionProvider, useSession } from './context/SessionContext.jsx'
+import SessionExpiredModal from './components/layout/SessionExpiredModal'
 import CertificateUpload from './components/certificados/CertificateUpload'
 import CertificateGenerator from './components/certificados/CertificateGenerator'
 import CertificateList from './components/certificados/CertificateList'
 import { setSessionExpiredCallback } from './services/api'
 
 function AppContent() {
-  const { showSessionExpiredModal } = useSession()
+  const { isSessionExpired, showSessionExpiredModal, hideSessionExpiredModal } = useSession()
 
   useEffect(() => {
     // Configurar el callback para mostrar el modal cuando expire la sesión
@@ -32,6 +33,12 @@ function AppContent() {
           <Route path="/generar-certificado" element={<CertificateGenerator />} />
           <Route path="/mis-certificados" element={<CertificateList />} />
         </Routes>
+        
+        {/* Modal de sesión expirada dentro del Router */}
+        <SessionExpiredModal 
+          isOpen={isSessionExpired} 
+          onClose={hideSessionExpiredModal} 
+        />
       </div>
     </Router>
   )

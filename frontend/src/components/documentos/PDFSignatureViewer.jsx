@@ -331,14 +331,10 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
       const certFile = new File([certBlob], selectedCertificate.filename || 'certificado.p12', { type: 'application/x-pkcs12' })
       // Firmar usando node-signpdf
       const signedPdfBlob = await documentoService.firmarNode(pdfFile, certFile, certPassword)
-      // Descargar el PDF firmado
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(signedPdfBlob)
-      link.download = `firmado_${documentName || 'documento'}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      setMessage('Documento firmado y descargado exitosamente')
+      // Guardar el PDF firmado para descarga opcional
+      const signedPdfUrl = URL.createObjectURL(signedPdfBlob)
+      setSignedPdfUrl(signedPdfUrl)
+      setMessage('Documento firmado exitosamente')
     } catch (err) {
       setError('Error al firmar el documento: ' + (err?.response?.data?.error || err.message))
       console.error(err)
@@ -401,14 +397,10 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
         canvasHeight,
         100 // Tamaño fijo del QR
       )
-      // Descargar el PDF firmado
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(signedPdfBlob)
-      link.download = `firmado_${documentName || 'documento'}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      setMessage('Documento firmado y descargado exitosamente')
+      // Guardar el PDF firmado para descarga opcional
+      const signedPdfUrl = URL.createObjectURL(signedPdfBlob)
+      setSignedPdfUrl(signedPdfUrl)
+      setMessage('Documento firmado exitosamente')
     } catch (err) {
       setError('Error al firmar el documento: ' + (err?.response?.data?.error || err.message))
       console.error(err)

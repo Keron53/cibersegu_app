@@ -155,6 +155,18 @@ export const documentoService = {
     return response.data
   },
 
+  async firmarDocumento(documentoId, certificadoId, password, nombre, organizacion, email) {
+    if (!checkToken()) return
+    const response = await axios.post(`${API_BASE_URL}/documentos/${documentoId}/firmar`, {
+      certificadoId,
+      password,
+      nombre,
+      organizacion,
+      email
+    })
+    return response.data
+  },
+
   async infoDocumento(id) {
     if (!checkToken()) return
     const response = await axios.get(`${API_BASE_URL}/documentos/${id}/info`)

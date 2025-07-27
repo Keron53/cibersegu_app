@@ -2,6 +2,8 @@ const fs = require('fs');
 const tmp = require('tmp');
 const forge = require('node-forge');
 const Documento = require('../models/Documento');
+const Certificate = require('../models/Certificate');
+const CertificateManager = require('../utils/CertificateManager');
 const { signPDF } = require('../utils/pdfSigner');
 const crypto = require('crypto');
 const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
@@ -194,6 +196,175 @@ const documentoController = {
     }
   },
 
+  // Nuevo endpoint para firmar documento y guardar información en BD
+  firmarDocumentoConInfo: async (req, res) => {
+    try {
+      console.log('🔍 Iniciando firma de documento...');
+      const { documentoId } = req.params;
+      const { certificadoId, password, nombre, organizacion, email } = req.body;
+
+      console.log('📋 Datos recibidos:', { documentoId, certificadoId, nombre, organizacion, email });
+
+      // Verificar que el documento existe y no está firmado
+      const documento = await Documento.findById(documentoId);
+      if (!documento) {
+        console.error('❌ Documento no encontrado:', documentoId);
+        return res.status(404).json({ error: 'Documento no encontrado' });
+      }
+
+      console.log('✅ Documento encontrado:', documento.nombre);
+
+      if (documento.firmaDigital) {
+        console.log('❌ Documento ya firmado');
+        return res.status(400).json({ error: 'El documento ya ha sido firmado' });
+      }
+
+      // Obtener el certificado
+      const certificado = await Certificate.findById(certificadoId);
+      if (!certificado) {
+        console.error('❌ Certificado no encontrado:', certificadoId);
+        return res.status(404).json({ error: 'Certificado no encontrado' });
+      }
+
+      console.log('✅ Certificado encontrado:', certificado.nombreComun);
+
+      // Descargar el certificado
+      console.log('🔐 Descifrando certificado...');
+      console.log('📊 Datos del certificado:', {
+        tieneDatosCifrados: !!certificado.datosCifrados,
+        tieneSalt: !!certificado.encryptionSalt,
+        tieneKey: !!certificado.encryptionKey,
+        tamanioDatos: certificado.datosCifrados ? certificado.datosCifrados.length : 0
+      });
+
+      const certBuffer = CertificateManager.decryptCertificate(
+        certificado.datosCifrados, 
+        certificado.encryptionSalt, 
+        certificado.encryptionKey, 
+        password
+      );
+
+      console.log('✅ Certificado descifrado, tamaño:', certBuffer.length);
+      
+      // Crear archivos temporales
+      const tempPdfInput = tmp.tmpNameSync({ postfix: '.pdf' });
+      const tempPdfOutput = tmp.tmpNameSync({ postfix: '.pdf' });
+      const tempCert = tmp.tmpNameSync({ postfix: '.p12' });
+      const tempCaCert = tmp.tmpNameSync({ postfix: '.pem' });
+
+      // Copiar archivos
+      fs.copyFileSync(documento.ruta, tempPdfInput);
+      fs.writeFileSync(tempCert, certBuffer);
+      
+      // Copiar certificado CA
+      const caCertPath = path.join(__dirname, '../../CrearCACentral/ca.crt');
+      if (fs.existsSync(caCertPath)) {
+        fs.copyFileSync(caCertPath, tempCaCert);
+      } else {
+        throw new Error('Certificado CA no encontrado');
+      }
+
+      // Ejecutar firma con pyHanko
+      console.log('🔧 Ejecutando firma con pyHanko...');
+      
+      // Verificar que Python esté disponible
+      try {
+        execSync('python --version', { stdio: 'pipe', encoding: 'utf8' });
+        console.log('✅ Python está disponible');
+      } catch (pythonError) {
+        console.error('❌ Python no está disponible:', pythonError.message);
+        throw new Error('Python no está instalado o no está en el PATH');
+      }
+      
+      const pythonScriptPath = path.join(__dirname, '../../MicroservicioPyHanko/firmar-pdf.py');
+      
+      // Verificar que el script existe
+      if (!fs.existsSync(pythonScriptPath)) {
+        throw new Error(`Script de Python no encontrado: ${pythonScriptPath}`);
+      }
+      
+      // Usar coordenadas más apropiadas para el sello de firma
+      const command = `python "${pythonScriptPath}" "${tempCert}" "${password}" "${tempPdfInput}" "${tempPdfOutput}" "1" "50" "50" "250" "150" "${tempCaCert}"`;
+      
+      console.log('📋 Comando ejecutado:', command);
+      
+      try {
+        const result = execSync(command, { 
+          stdio: 'pipe',
+          encoding: 'utf8',
+          timeout: 30000
+        });
+        console.log('📤 Output de pyHanko:', result);
+      } catch (execError) {
+        console.error('❌ Error ejecutando pyHanko:', execError.message);
+        console.error('📋 Error stdout:', execError.stdout);
+        console.error('📋 Error stderr:', execError.stderr);
+        throw new Error(`Error en pyHanko: ${execError.message}`);
+      }
+
+      console.log('✅ Firma con pyHanko completada');
+
+      // Verificar que el archivo de salida existe
+      if (!fs.existsSync(tempPdfOutput)) {
+        throw new Error('El archivo PDF firmado no se generó');
+      }
+
+      console.log('📁 Archivo de salida existe:', tempPdfOutput);
+      console.log('📏 Tamaño del archivo de salida:', fs.statSync(tempPdfOutput).size);
+
+      // Leer el PDF firmado
+      const signedPdfBuffer = fs.readFileSync(tempPdfOutput);
+      console.log('📄 PDF firmado leído, tamaño:', signedPdfBuffer.length);
+
+      // Reemplazar el archivo original con el PDF firmado
+      fs.writeFileSync(documento.ruta, signedPdfBuffer);
+      console.log('💾 Archivo original reemplazado con PDF firmado');
+
+      console.log('💾 Guardando información de la firma...');
+      
+      // Guardar información de la firma en la base de datos
+      const firmaInfo = {
+        certificadoId: certificado._id,
+        nombreFirmante: nombre || certificado.nombreComun,
+        organizacion: organizacion || certificado.organizacion,
+        email: email || certificado.email,
+        fechaFirma: new Date(),
+        numeroSerie: certificado.numeroSerie,
+        validoHasta: certificado.validoHasta
+      };
+
+      console.log('📝 Información de firma:', firmaInfo);
+
+      // Actualizar el documento con la información de la firma
+      documento.firmaDigital = firmaInfo;
+      await documento.save();
+      
+      console.log('✅ Documento actualizado en la base de datos');
+
+      // Limpiar archivos temporales
+      [tempPdfInput, tempPdfOutput, tempCert, tempCaCert].forEach(f => {
+        if (fs.existsSync(f)) {
+          try {
+            fs.unlinkSync(f);
+          } catch (e) {
+            console.error('Error eliminando archivo temporal:', e);
+          }
+        }
+      });
+
+      res.json({ 
+        message: 'Documento firmado correctamente',
+        firmaInfo,
+        documento: documento
+      });
+
+    } catch (error) {
+      console.error('❌ Error al firmar documento:', error);
+      console.error('📋 Stack trace:', error.stack);
+      res.status(500).json({ error: error.message });
+    }
+  },
+
   listarDocumentos: async (req, res) => {
     try {
       const documentos = await Documento.find({ estado: 'activo' }).populate('usuario', 'nombre email');
@@ -280,6 +451,32 @@ const documentoController = {
     } catch (error) {
       console.error('Error al obtener información del PDF:', error);
       res.status(500).json({ error: 'Error al obtener información del PDF', detalle: error.message });
+    }
+  },
+
+  descargarDocumento: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const doc = await Documento.findById(id);
+      
+      if (!doc) {
+        return res.status(404).json({ error: 'Documento no encontrado' });
+      }
+
+      if (!fs.existsSync(doc.ruta)) {
+        return res.status(404).json({ error: 'Archivo PDF no encontrado en el servidor' });
+      }
+
+      // Configurar headers para descarga
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="firmado_${doc.nombre}"`);
+      
+      // Enviar el archivo
+      res.sendFile(require('path').resolve(doc.ruta));
+      
+    } catch (error) {
+      console.error('Error al descargar documento:', error);
+      res.status(500).json({ error: 'Error al descargar el documento' });
     }
   }
 };

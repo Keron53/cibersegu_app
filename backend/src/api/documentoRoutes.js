@@ -57,11 +57,15 @@ router.post('/firmar-qr-node', upload.fields([
     { name: 'cert', maxCount: 1 }
 ]), documentoController.firmarDocumentoQRNode);
 
+// Nueva ruta para firmar documento y guardar información en BD
+router.post('/:documentoId/firmar', auth, documentoController.firmarDocumentoConInfo);
+
 router.post('/subir', auth, upload.any(), documentoController.subirDocumento);
 
 router.get('/', documentoController.listarDocumentos);
 router.get('/:id', auth, documentoController.obtenerDocumento);
 router.get('/:id/info', auth, documentoController.infoDocumento);
+router.get('/:id/download', auth, documentoController.descargarDocumento);
 router.delete('/:id', documentoController.eliminarDocumento);
 
 module.exports = router 

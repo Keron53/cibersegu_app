@@ -27,18 +27,25 @@ function DocumentList({ documents, onDelete }) {
 
   const getDocumentStatus = (document) => {
     if (document.firmaDigital) {
+      const firmaInfo = document.firmaDigital;
+      const firmante = firmaInfo.nombreFirmante || 'Firmante desconocido';
+      const fecha = firmaInfo.fechaFirma ? new Date(firmaInfo.fechaFirma).toLocaleDateString('es-ES') : 'Fecha no disponible';
+      
       return {
-        text: 'Documento firmado',
+        text: `Firmado por: ${firmante}`,
+        subtitle: `Fecha: ${fecha}`,
         icon: 'CheckCircle',
         className: 'bg-blue-100 dark:bg-blue-800/20 text-blue-700 dark:text-blue-400',
-        iconClassName: 'text-blue-600 dark:text-blue-400'
+        iconClassName: 'text-blue-600 dark:text-blue-400',
+        isSigned: true
       }
     }
     return {
       text: 'Listo para firmar',
       icon: 'PenTool',
       className: 'bg-green-100 dark:bg-green-800/20 text-green-700 dark:text-green-400',
-      iconClassName: 'text-green-600 dark:text-green-400'
+      iconClassName: 'text-green-600 dark:text-green-400',
+      isSigned: false
     }
   }
 
@@ -146,59 +153,24 @@ function DocumentList({ documents, onDelete }) {
         id: signatureInfo.certificateData._id || signatureInfo.certificateData.id
       } : null
 
-      // Descargar el PDF original
-      const pdfBlob = await documentoService.ver(documentId)
+      // Usar el nuevo endpoint que guarda la información de la firma
+      const result = await documentoService.firmarDocumento(
+        documentId,
+        certificateData.id,
+        certificatePassword,
+        certificateData.nombreComun,
+        certificateData.organizacion,
+        certificateData.email
+      )
 
-      // Descargar el certificado .p12 como Blob
-      const certResponse = await fetch(`http://localhost:3001/api/certificados/download/${certificateData.id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ password: certificatePassword })
-      })
-      if (!certResponse.ok) {
-        const errorData = await certResponse.json()
-        showNotification(errorData.error || 'Error al descargar el certificado', 'error', 10000)
-        return
-      }
-      const certBlob = await certResponse.blob()
-
-      // Generar el JSON de datos del QR
-      const qrData = signatureInfo.qrData || JSON.stringify({});
-
-      // Crear FormData para la firma visible
-      const formData = new FormData()
-      formData.append('pdf', pdfBlob, signatureInfo.documentName ?? 'documento.pdf')
-      formData.append('cert', certBlob, (certificateData.nombreComun || 'certificado') + '.p12')
-      formData.append('password', certificatePassword)
-      formData.append('qrdata', qrData)
-
-      // Enviar al backend para firmar con QR visual usando Node.js
-      const response = await fetch('http://localhost:3001/api/documentos/firmar-qr-node', {
-        method: 'POST',
-        body: formData
-      })
-      if (!response.ok) {
-        const errorData = await response.json()
-        showNotification(errorData.error || 'Error al firmar el documento', 'error', 10000)
-        return
-      }
-      const signedPdfBlob = await response.blob()
-      // Descargar el PDF firmado
-      const url = window.URL.createObjectURL(signedPdfBlob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = 'firmado_qr.pdf'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      // El PDF ya está firmado y guardado en el servidor
+      // No descargar automáticamente
 
       setShowConfirmationModal(false)
       setSignatureInfo(null)
-      showNotification('✅ Firma digital con QR aplicada correctamente al documento', 'success', 8000)
+      showNotification('✅ Documento firmado correctamente', 'success', 8000)
+      
+      // Recargar la lista de documentos para mostrar el nuevo estado
       window.location.reload()
     } catch (error) {
       console.error('Error al firmar documento:', error)
@@ -246,15 +218,22 @@ function DocumentList({ documents, onDelete }) {
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {formatDate(doc.fechaSubida)}
                   </p>
-                  <div className="mt-2">
+                  <div className="mt-2 space-y-1">
                     {(() => {
                       const status = getDocumentStatus(doc)
                       const IconComponent = status.icon === 'CheckCircle' ? CheckCircle : PenTool
                       return (
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${status.className}`}>
-                          <IconComponent className={`w-3 h-3 mr-1 ${status.iconClassName}`} />
-                          {status.text}
-                        </span>
+                        <>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${status.className}`}>
+                            <IconComponent className={`w-3 h-3 mr-1 ${status.iconClassName}`} />
+                            {status.text}
+                          </span>
+                          {status.subtitle && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {status.subtitle}
+                            </p>
+                          )}
+                        </>
                       )
                     })()}
                   </div>

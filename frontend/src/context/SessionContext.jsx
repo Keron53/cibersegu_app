@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState } from 'react'
-import SessionExpiredModal from '../components/layout/SessionExpiredModal'
 
 const SessionContext = createContext()
 
@@ -31,10 +30,6 @@ export const SessionProvider = ({ children }) => {
   return (
     <SessionContext.Provider value={value}>
       {children}
-      <SessionExpiredModal 
-        isOpen={isSessionExpired} 
-        onClose={hideSessionExpiredModal} 
-      />
     </SessionContext.Provider>
   )
 } 
