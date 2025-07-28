@@ -31,11 +31,22 @@ Este proyecto es un sistema web completo para la gestión y aplicación de firma
 - **Validación por archivo o URL**: Soporte para subir archivo o validar desde URL
 - **Información detallada**: Muestra número de firmas, estado de certificado, etc.
 
+### 🤝 Sistema de Solicitudes de Firma (NUEVO)
+- **Solicitar firma a otros usuarios**: Un usuario puede pedirle a otro que firme su documento
+- **Notificaciones por email**: El firmante recibe un email con el enlace para firmar
+- **Posicionamiento automático**: La firma se posiciona automáticamente donde el solicitante eligió
+- **Gestión de solicitudes**: Dashboard para ver solicitudes pendientes y enviadas
+- **Estados de solicitud**: Pendiente, firmado, rechazado, expirado
+- **Expiración automática**: Las solicitudes expiran en 7 días
+- **Mensajes personalizados**: El solicitante puede agregar un mensaje para el firmante
+- **Permisos inteligentes**: Los firmantes pueden ver documentos que no son suyos si tienen una solicitud válida
+
 ### 🛡️ Seguridad y Privacidad
 - **Filtrado por usuario**: Cada usuario solo ve sus propios documentos
 - **Validación de propiedad**: Verificación de permisos en todas las operaciones
 - **Middleware de autenticación**: Protección de rutas sensibles
 - **Mensajes de seguridad**: No revela si un email existe o no
+- **Permisos de documentos**: Los firmantes pueden acceder temporalmente a documentos ajenos
 
 ## 🚀 Instalación
 
@@ -166,6 +177,60 @@ El sistema ahora utiliza **pyHanko** (Python) para crear firmas digitales válid
    - Posiciona el sello visual en las coordenadas exactas
 4. **Descarga**: El PDF firmado se descarga automáticamente
 
+### 🔄 Flujo de Solicitudes de Firma (NUEVO)
+
+#### **Paso 1: Solicitar Firma**
+1. **Usuario A** sube un documento y selecciona una posición de firma
+2. **Hace clic en "Solicitar Firma"** en el visor de PDF
+3. **Selecciona un firmante** de la lista de usuarios verificados
+4. **Agrega un mensaje personalizado** (opcional)
+5. **Envía la solicitud** → Sistema crea registro en base de datos
+
+#### **Paso 2: Notificación al Firmante**
+1. **Sistema envía email** al firmante con:
+   - Enlace directo para firmar el documento
+   - Información del solicitante
+   - Mensaje personalizado (si se agregó)
+   - Fecha de expiración (7 días)
+2. **Email incluye botón** "Firmar Documento" que lleva directamente a la página
+
+#### **Paso 3: Firmante Recibe Solicitud**
+1. **Firmante hace clic** en el enlace del email
+2. **Sistema verifica** que la solicitud esté pendiente y no haya expirado
+3. **Muestra página de firma** con:
+   - Vista previa del documento
+   - Información de la solicitud
+   - Selector de certificado
+   - Campo para contraseña del certificado
+   - Botones "Firmar" y "Rechazar"
+
+#### **Paso 4: Proceso de Firma**
+1. **Firmante selecciona** su certificado digital
+2. **Ingresa la contraseña** del certificado
+3. **Hace clic en "Firmar"** → Sistema:
+   - Desencripta el certificado
+   - Ejecuta pyHanko con las coordenadas predefinidas
+   - Actualiza el documento con la nueva firma
+   - Marca la solicitud como "firmado"
+   - Envía email de confirmación al solicitante
+
+#### **Paso 5: Confirmación**
+1. **Sistema envía email** al solicitante confirmando que el documento fue firmado
+2. **Documento actualizado** aparece en la lista del solicitante
+3. **Firmante es redirigido** a la página principal
+
+#### **Estados de Solicitud:**
+- **🟡 Pendiente**: Solicitud enviada, esperando respuesta
+- **🟢 Firmado**: Documento firmado exitosamente
+- **🔴 Rechazado**: Firmante rechazó la solicitud
+- **⚫ Expirado**: Pasaron 7 días sin respuesta
+
+#### **Permisos Inteligentes:**
+- **Propietario del documento**: Puede ver y gestionar su documento normalmente
+- **Firmante con solicitud válida**: Puede acceder temporalmente al documento para firmarlo
+- **Otros usuarios**: No pueden acceder al documento
+- **Solicitudes expiradas**: Se marcan automáticamente como expiradas
+
 ### Características de la Firma
 
 - ✅ **Firma Válida**: Adobe y otros lectores reconocen la firma como válida
@@ -255,8 +320,10 @@ El sistema limpia automáticamente los datos para compatibilidad:
 - `backend/src/controllers/documentoController.js`: Controlador principal de documentos
 - `backend/src/controllers/usuarioController.js`: Controlador de usuarios y autenticación
 - `backend/src/controllers/validacionController.js`: Controlador de validación de PDFs
+- `backend/src/controllers/solicitudFirmaController.js`: Controlador de solicitudes de firma (NUEVO)
 - `backend/src/services/emailService.js`: Servicio de envío de emails
 - `backend/src/models/Usuario.js`: Modelo de usuario con campos de verificación
+- `backend/src/models/SolicitudFirma.js`: Modelo de solicitudes de firma (NUEVO)
 - `backend/src/middleware/auth.js`: Middleware de autenticación JWT
 - `backend/src/config/email.js`: Configuración de email
 - `backend/src/utils/pdfValidator.js`: Utilidad para validar PDFs firmados
@@ -273,6 +340,10 @@ El sistema limpia automáticamente los datos para compatibilidad:
 - `frontend/src/components/profile/ChangePasswordModal.jsx`: Modal de cambio de contraseña
 - `frontend/src/components/auth/PasswordStrengthBar.jsx`: Barra de fortaleza de contraseña
 - `frontend/src/components/validacion/PDFValidationPage.jsx`: Página de validación de PDFs
+- `frontend/src/components/documentos/SolicitarFirma.jsx`: Modal para solicitar firma (NUEVO)
+- `frontend/src/components/documentos/SolicitudesPendientes.jsx`: Página de solicitudes pendientes (NUEVO)
+- `frontend/src/components/documentos/FirmarPorSolicitud.jsx`: Página para firmar por solicitud (NUEVO)
+- `frontend/src/components/documentos/PDFViewerEmbedded.jsx`: Visor de PDF embebido (NUEVO)
 
 ### Ventajas vs Implementación Anterior
 
@@ -282,6 +353,57 @@ El sistema limpia automáticamente los datos para compatibilidad:
 | **QR Code** | 📍 Posicionamiento libre | 🔗 Integrado en sello |
 | **Estándar PDF** | ⚠️ Modificación post-firma | ✅ Cumple PDF/A |
 | **Validación** | ❌ Falla validación criptográfica | ✅ Pasa validación |
+
+### 📊 Modelos de Datos (NUEVO)
+
+#### **Modelo SolicitudFirma:**
+```javascript
+{
+  documentoId: ObjectId,        // Referencia al documento
+  solicitanteId: ObjectId,      // Usuario que solicita la firma
+  firmanteId: ObjectId,         // Usuario que debe firmar
+  posicionFirma: {              // Coordenadas de la firma
+    x: Number,
+    y: Number,
+    page: Number,
+    qrSize: Number
+  },
+  mensaje: String,              // Mensaje personalizado
+  estado: String,               // 'pendiente', 'firmado', 'rechazado', 'expirado'
+  fechaSolicitud: Date,
+  fechaExpiracion: Date,        // 7 días después
+  fechaFirma: Date,             // Cuando se firma
+  certificadoId: ObjectId,      // Certificado usado para firmar
+  prioridad: String,            // 'baja', 'media', 'alta'
+  comentarios: String           // Comentarios adicionales
+}
+```
+
+#### **Modelo Documento (Actualizado):**
+```javascript
+{
+  // ... campos existentes ...
+  esDocumentoCompartido: Boolean,    // Si tiene solicitudes de firma
+  solicitudesFirma: [ObjectId],      // Array de IDs de solicitudes
+  firmantes: [{                      // Información de firmantes
+    usuarioId: ObjectId,
+    nombre: String,
+    email: String,
+    fechaFirma: Date,
+    posicion: {
+      x: Number,
+      y: Number,
+      page: Number
+    }
+  }]
+}
+```
+
+#### **Permisos Inteligentes:**
+- **Propietario**: Acceso completo al documento
+- **Firmante con solicitud válida**: Acceso temporal para firmar
+- **Otros usuarios**: Sin acceso al documento
+- **Solicitudes expiradas**: Se marcan automáticamente
 
 ### Seguridad y Privacidad
 
@@ -337,6 +459,14 @@ El sistema limpia automáticamente los datos para compatibilidad:
 - `POST /api/validacion/informacion-firmas` - Obtener información detallada de firmas
 - `POST /api/validacion/verificar-integridad` - Verificar integridad del PDF
 
+### Solicitudes de Firma (NUEVO)
+- `POST /api/solicitudes/crear` - Crear nueva solicitud de firma
+- `GET /api/solicitudes/pendientes` - Listar solicitudes pendientes del usuario
+- `GET /api/solicitudes/enviadas` - Listar solicitudes enviadas por el usuario
+- `POST /api/solicitudes/firmar/:solicitudId` - Firmar documento por solicitud
+- `POST /api/solicitudes/rechazar/:solicitudId` - Rechazar solicitud de firma
+- `GET /api/solicitudes/:solicitudId` - Obtener detalles de una solicitud
+
 ## 🔧 Troubleshooting
 
 ### Problemas Comunes
@@ -361,6 +491,24 @@ No routes matched location "/recuperar-contrasena?token=..."
 
 **Documentos de Otro Usuario:**
 Si ves documentos de otro usuario, verificar que el middleware de autenticación esté aplicado en todas las rutas de documentos.
+
+**Error 403 al Cargar Documento:**
+Si recibes error 403 al intentar cargar un documento para firmar, verificar:
+1. Que tengas una solicitud de firma pendiente para ese documento
+2. Que la solicitud no haya expirado (7 días)
+3. Que el token de autenticación sea válido
+
+**Solicitudes de Firma No Aparecen:**
+Si no ves solicitudes de firma pendientes:
+1. Verificar que el usuario tenga email verificado
+2. Verificar que la solicitud esté en estado 'pendiente'
+3. Verificar que no haya expirado (7 días)
+
+**Email de Solicitud No Llega:**
+Si el firmante no recibe el email:
+1. Verificar configuración de email en `.env`
+2. Verificar que el firmante tenga email verificado
+3. Revisar logs del servidor para errores de email
 
 ### Scripts de Diagnóstico
 
