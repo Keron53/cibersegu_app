@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, FileText, Sun, Moon, Upload, Plus, List, User, Shield, Clock, Send } from 'lucide-react'
+import { LogOut, FileText, Sun, Moon, Upload, Plus, List, User, Shield, Clock, Send, CheckCircle } from 'lucide-react'
 import { useTheme } from '../../context/ThemeContext.jsx'
 
 function Navigation({ onLogout }) {
@@ -63,6 +63,14 @@ function Navigation({ onLogout }) {
             >
               <Clock className="w-4 h-4 mr-2" />
               Solicitudes Pendientes
+            </button>
+            
+            <button
+              onClick={() => navigate('/documentos-firmados')}
+              className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Documentos Firmados
             </button>
             
             <button

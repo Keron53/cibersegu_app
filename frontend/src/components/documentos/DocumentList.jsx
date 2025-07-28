@@ -26,6 +26,37 @@ function DocumentList({ documents, onDelete }) {
   }
 
   const getDocumentStatus = (document) => {
+    // Verificar si tiene firmantes (nuevo sistema de solicitudes)
+    if (document.firmantes && document.firmantes.length > 0) {
+      const firmantes = document.firmantes.map(f => f.nombre || f.usuarioId?.nombre || 'Firmante desconocido');
+      const fechaUltimaFirma = document.firmantes[document.firmantes.length - 1]?.fechaFirma;
+      const fecha = fechaUltimaFirma ? new Date(fechaUltimaFirma).toLocaleDateString('es-ES') : 'Fecha no disponible';
+      
+      return {
+        text: `Firmado por: ${firmantes.join(', ')}`,
+        subtitle: `Fecha: ${fecha} | ${document.firmantes.length} firma(s)`,
+        icon: 'CheckCircle',
+        className: 'bg-blue-100 dark:bg-blue-800/20 text-blue-700 dark:text-blue-400',
+        iconClassName: 'text-blue-600 dark:text-blue-400',
+        isSigned: true,
+        firmantes: document.firmantes
+      }
+    }
+    
+    // Verificar si tiene solicitudes pendientes
+    if (document.solicitudesPendientes && document.solicitudesPendientes > 0) {
+      return {
+        text: `${document.solicitudesPendientes} solicitud(es) pendiente(s)`,
+        subtitle: 'Esperando firmas',
+        icon: 'PenTool',
+        className: 'bg-yellow-100 dark:bg-yellow-800/20 text-yellow-700 dark:text-yellow-400',
+        iconClassName: 'text-yellow-600 dark:text-yellow-400',
+        isSigned: false,
+        hasPendingRequests: true
+      }
+    }
+    
+    // Verificar firma digital antigua (sistema anterior)
     if (document.firmaDigital) {
       const firmaInfo = document.firmaDigital;
       const firmante = firmaInfo.nombreFirmante || 'Firmante desconocido';
@@ -40,6 +71,7 @@ function DocumentList({ documents, onDelete }) {
         isSigned: true
       }
     }
+    
     return {
       text: 'Listo para firmar',
       icon: 'PenTool',
@@ -263,16 +295,16 @@ function DocumentList({ documents, onDelete }) {
                   </motion.button>
 
                   <motion.button
-                    whileHover={{ scale: doc.firmaDigital ? 1 : 1.05 }}
-                    whileTap={{ scale: doc.firmaDigital ? 1 : 0.95 }}
-                    onClick={() => !doc.firmaDigital && handleSignDocument(doc)}
+                    whileHover={{ scale: (doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0)) ? 1 : 1.05 }}
+                    whileTap={{ scale: (doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0)) ? 1 : 0.95 }}
+                    onClick={() => !doc.firmaDigital && !(doc.firmantes && doc.firmantes.length > 0) && handleSignDocument(doc)}
                     className={`p-2 rounded-lg transition-colors ${
-                      doc.firmaDigital 
+                      (doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0))
                         ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed' 
                         : 'text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-800/20'
                     }`}
-                    title={doc.firmaDigital ? 'Documento ya firmado' : 'Firmar documento'}
-                    disabled={doc.firmaDigital}
+                    title={(doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0)) ? 'Documento ya firmado' : 'Firmar documento'}
+                    disabled={doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0)}
                   >
                     <Signature className="w-4 h-4" />
                   </motion.button>

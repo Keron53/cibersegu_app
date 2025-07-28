@@ -376,12 +376,77 @@ const documentoController = {
       const documentos = await Documento.find({ 
         usuario: req.usuario.id,
         estado: 'activo' 
-      }).populate('usuario', 'nombre email');
+      })
+      .populate('usuario', 'nombre email')
+      .populate('firmantes.usuarioId', 'nombre email')
+      .populate('solicitudesFirma', 'estado firmanteId solicitanteId fechaSolicitud');
       
-      res.json(documentos);
+      // Agregar información adicional sobre firmas
+      const documentosConInfo = documentos.map(doc => {
+        const docObj = doc.toObject();
+        
+        // Contar firmas realizadas
+        docObj.numeroFirmas = docObj.firmantes ? docObj.firmantes.length : 0;
+        
+        // Contar solicitudes pendientes
+        const solicitudesPendientes = docObj.solicitudesFirma ? 
+          docObj.solicitudesFirma.filter(s => s.estado === 'pendiente').length : 0;
+        
+        docObj.solicitudesPendientes = solicitudesPendientes;
+        
+        return docObj;
+      });
+      
+      res.json(documentosConInfo);
     } catch (error) {
       console.error('Error al listar documentos:', error);
       res.status(500).json({ error: 'Error al listar documentos' });
+    }
+  },
+
+  // Listar documentos firmados por el usuario (NUEVO)
+  listarDocumentosFirmados: async (req, res) => {
+    try {
+      // Verificar que el usuario esté autenticado
+      if (!req.usuario || !req.usuario.id) {
+        return res.status(401).json({ error: 'Usuario no autenticado' });
+      }
+
+      // Buscar documentos donde el usuario es firmante
+      const documentos = await Documento.find({
+        'firmantes.usuarioId': req.usuario.id,
+        estado: 'activo'
+      })
+      .populate('usuario', 'nombre email')
+      .populate('firmantes.usuarioId', 'nombre email')
+      .populate('solicitudesFirma', 'estado firmanteId solicitanteId fechaSolicitud');
+      
+      // Filtrar solo los documentos donde el usuario actual es firmante
+      const documentosFirmados = documentos.filter(doc => {
+        return doc.firmantes && doc.firmantes.some(firmante => 
+          firmante.usuarioId && firmante.usuarioId._id.toString() === req.usuario.id
+        );
+      });
+
+      // Agregar información adicional
+      const documentosConInfo = documentosFirmados.map(doc => {
+        const docObj = doc.toObject();
+        
+        // Encontrar la información de firma específica del usuario
+        const firmaUsuario = docObj.firmantes.find(f => 
+          f.usuarioId && f.usuarioId._id.toString() === req.usuario.id
+        );
+        
+        docObj.miFirma = firmaUsuario;
+        docObj.numeroFirmas = docObj.firmantes ? docObj.firmantes.length : 0;
+        
+        return docObj;
+      });
+      
+      res.json(documentosConInfo);
+    } catch (error) {
+      console.error('Error al listar documentos firmados:', error);
+      res.status(500).json({ error: 'Error al listar documentos firmados' });
     }
   },
 

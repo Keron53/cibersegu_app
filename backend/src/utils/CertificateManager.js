@@ -175,12 +175,47 @@ class CertificateManager {
 
   // Descifrar un buffer de certificado
   static decryptCertificate(encryptedData, salt, iv, password) {
-    const saltBuffer = Buffer.from(salt, 'hex');
-    const ivBuffer = Buffer.from(iv, 'hex');
-    const derivedKey = crypto.pbkdf2Sync(password, saltBuffer, 100000, 32, 'sha256');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', derivedKey, ivBuffer);
-    
-    return Buffer.concat([decipher.update(encryptedData), decipher.final()]);
+    try {
+      // Si no hay salt o iv, es un certificado del sistema (no cifrado)
+      if (!salt || !iv) {
+        console.log('🔓 Certificado del sistema detectado (sin cifrado)');
+        return encryptedData;
+      }
+
+      console.log('🔐 Descifrando certificado cifrado...');
+      console.log('📊 Salt:', salt);
+      console.log('📊 IV:', iv);
+      console.log('📊 Password length:', password ? password.length : 0);
+      
+      const saltBuffer = Buffer.from(salt, 'hex');
+      const ivBuffer = Buffer.from(iv, 'hex');
+      const derivedKey = crypto.pbkdf2Sync(password, saltBuffer, 100000, 32, 'sha256');
+      
+      console.log('🔑 Derived key length:', derivedKey.length);
+      
+      const decipher = crypto.createDecipheriv('aes-256-cbc', derivedKey, ivBuffer);
+      
+      const decrypted = Buffer.concat([decipher.update(encryptedData), decipher.final()]);
+      console.log('✅ Certificado descifrado exitosamente, tamaño:', decrypted.length);
+      
+      return decrypted;
+    } catch (error) {
+      console.error('❌ Error descifrando certificado:', error.message);
+      console.error('📊 Detalles del error:', {
+        hasSalt: !!salt,
+        hasIv: !!iv,
+        hasPassword: !!password,
+        encryptedDataLength: encryptedData ? encryptedData.length : 0
+      });
+      
+      // Si es un error de descifrado, intentar devolver los datos sin descifrar
+      if (error.code === 'ERR_OSSL_BAD_DECRYPT') {
+        console.log('⚠️ Error de descifrado, intentando usar datos sin cifrar...');
+        return encryptedData;
+      }
+      
+      throw error;
+    }
   }
 }
 

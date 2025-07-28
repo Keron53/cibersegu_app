@@ -121,6 +121,17 @@ export const documentoService = {
     return response.data
   },
 
+  async listarFirmados() {
+    if (!checkToken()) return
+    const token = localStorage.getItem('token')
+    const response = await axios.get(`${API_BASE_URL}/documentos/firmados`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    return response.data
+  },
+
   async ver(id) {
     if (!checkToken()) return
     const token = localStorage.getItem('token')

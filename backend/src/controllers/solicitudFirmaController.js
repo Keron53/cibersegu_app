@@ -201,14 +201,32 @@ const solicitudFirmaController = {
 
       // Descifrar el certificado
       console.log('🔐 Descifrando certificado...');
-      const certBuffer = CertificateManager.decryptCertificate(
-        certificado.datosCifrados, 
-        certificado.encryptionSalt, 
-        certificado.encryptionKey, 
-        password
-      );
-
-      console.log('✅ Certificado descifrado, tamaño:', certBuffer.length);
+      console.log('📊 Certificado ID:', certificado._id);
+      console.log('📊 Nombre del certificado:', certificado.nombreComun);
+      console.log('📊 Tiene salt:', !!certificado.encryptionSalt);
+      console.log('📊 Tiene IV:', !!certificado.encryptionKey);
+      console.log('📊 Tamaño datos cifrados:', certificado.datosCifrados ? certificado.datosCifrados.length : 0);
+      
+      let certBuffer;
+      try {
+        certBuffer = CertificateManager.decryptCertificate(
+          certificado.datosCifrados, 
+          certificado.encryptionSalt, 
+          certificado.encryptionKey, 
+          password
+        );
+        console.log('✅ Certificado descifrado, tamaño:', certBuffer.length);
+      } catch (decryptError) {
+        console.error('❌ Error descifrando certificado:', decryptError.message);
+        
+        // Si el certificado no se puede descifrar, verificar si es un certificado del sistema
+        if (!certificado.encryptionSalt && !certificado.encryptionKey) {
+          console.log('🔓 Usando certificado del sistema (sin cifrado)');
+          certBuffer = certificado.datosCifrados;
+        } else {
+          throw new Error(`Error descifrando certificado: ${decryptError.message}. Verifica que la contraseña sea correcta.`);
+        }
+      }
       
       // Crear archivos temporales
       const tempPdfInput = tmp.tmpNameSync({ postfix: '.pdf' });
@@ -274,7 +292,7 @@ const solicitudFirmaController = {
       solicitud.certificadoId = certificado._id;
       await solicitud.save();
 
-      // Actualizar documento con información del firmante
+      // Actualizar documento con información del firmante y marcar como compartido
       await Documento.findByIdAndUpdate(solicitud.documentoId._id, {
         $push: {
           firmantes: {
@@ -287,7 +305,11 @@ const solicitudFirmaController = {
               y: y,
               page: page
             }
-          }
+          },
+          solicitudesFirma: solicitud._id
+        },
+        $set: {
+          esDocumentoCompartido: true
         }
       });
 

@@ -63,6 +63,7 @@ router.post('/:documentoId/firmar', auth, documentoController.firmarDocumentoCon
 router.post('/subir', auth, upload.any(), documentoController.subirDocumento);
 
 router.get('/', auth, documentoController.listarDocumentos);
+router.get('/firmados', auth, documentoController.listarDocumentosFirmados);
 router.get('/:id', auth, documentoController.obtenerDocumento);
 router.get('/:id/info', auth, documentoController.infoDocumento);
 router.get('/:id/download', auth, documentoController.descargarDocumento);
