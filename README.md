@@ -2,6 +2,30 @@
 
 Este proyecto es un sistema web completo para la gestión y aplicación de firmas electrónicas en documentos PDF. Cuenta con una arquitectura de cliente-servidor (frontend y backend) que permite a los usuarios subir, visualizar, descargar, eliminar y **firmar digitalmente** documentos PDF con certificados digitales.
 
+## 📊 Arquitectura del Sistema
+
+### Diagrama de Flujo de la Aplicación
+
+El siguiente diagrama muestra el flujo completo de la aplicación, incluyendo las interacciones entre usuarios, el sistema de autenticación, gestión de documentos, solicitudes de firma y el proceso de firma digital.
+
+![Flujo de la Aplicación](backend/Diagramas/FlujoDeLaApp.png)
+
+**Descripción del Flujo:**
+
+1. **Autenticación**: Los usuarios se registran o inician sesión con verificación de email
+2. **Gestión de Documentos**: Subida, visualización y gestión de documentos PDF
+3. **Sistema de Certificados**: Generación, subida y gestión de certificados digitales
+4. **Solicitudes de Firma**: Un usuario puede solicitar a otro que firme su documento
+5. **Proceso de Firma**: Firma digital con posicionamiento y validación
+6. **Validación de PDFs**: Verificación de integridad y autenticidad de documentos firmados
+
+**Componentes Principales:**
+- **Frontend (React)**: Interfaz de usuario moderna y responsive
+- **Backend (Node.js)**: API REST con autenticación JWT
+- **Python (pyHanko)**: Microservicio para firma digital de PDFs
+- **MongoDB**: Base de datos para documentos, usuarios y certificados
+- **Email Service**: Notificaciones automáticas por email
+
 ## ✨ Nuevas Funcionalidades (v2.0)
 
 ### 🔐 Sistema de Autenticación Mejorado
@@ -40,6 +64,16 @@ Este proyecto es un sistema web completo para la gestión y aplicación de firma
 - **Expiración automática**: Las solicitudes expiran en 7 días
 - **Mensajes personalizados**: El solicitante puede agregar un mensaje para el firmante
 - **Permisos inteligentes**: Los firmantes pueden ver documentos que no son suyos si tienen una solicitud válida
+
+### 🔄 Sistema de Firmas Múltiples (NUEVO)
+- **Firmas múltiples por documento**: Cada usuario puede firmar una vez por documento
+- **Firma del propietario**: El propietario puede firmar su propio documento
+- **Firmas por solicitud**: Usuarios invitados pueden firmar por solicitud
+- **Estados inteligentes**: El sistema detecta si el usuario ya firmó
+- **Botones dinámicos**: Se habilitan/deshabilitan según permisos
+- **Historial de firmas**: Lista completa de quién firmó y cuándo
+- **Documentos compartidos**: Los firmantes pueden ver documentos después de firmar
+- **Contador de firmas**: Muestra el número total de firmas en el documento
 
 ### 🛡️ Seguridad y Privacidad
 - **Filtrado por usuario**: Cada usuario solo ve sus propios documentos
@@ -230,6 +264,41 @@ El sistema ahora utiliza **pyHanko** (Python) para crear firmas digitales válid
 - **Firmante con solicitud válida**: Puede acceder temporalmente al documento para firmarlo
 - **Otros usuarios**: No pueden acceder al documento
 - **Solicitudes expiradas**: Se marcan automáticamente como expiradas
+
+### 🔄 Flujo de Firmas Múltiples (NUEVO)
+
+#### **Escenario 1: Propietario firma primero**
+1. **Usuario A** sube documento → Documento aparece como "Listo para firmar"
+2. **Usuario A** puede firmar → Botón "Firmar" habilitado
+3. **Usuario A** firma → Documento muestra "Firmado por: Usuario A"
+4. **Usuario A** solicita firma a **Usuario B** → Solicitud enviada
+5. **Usuario B** firma → Documento muestra "Firmado por: Usuario A, Usuario B"
+
+#### **Escenario 2: Invitado firma primero**
+1. **Usuario A** sube documento → Documento aparece como "Listo para firmar"
+2. **Usuario A** solicita firma a **Usuario B** → Solicitud enviada
+3. **Usuario B** firma → Documento muestra "Firmado por: Usuario B"
+4. **Usuario A** puede firmar → Botón "Firmar" habilitado
+5. **Usuario A** firma → Documento muestra "Firmado por: Usuario B, Usuario A"
+
+#### **Reglas de Firmas Múltiples:**
+- ✅ **Cada usuario puede firmar una vez** por documento
+- ✅ **El propietario puede firmar** su propio documento
+- ✅ **Los invitados pueden firmar** por solicitud de firma
+- ✅ **Documentos compartidos** requieren solicitud de firma
+- ❌ **No se permiten firmas duplicadas** del mismo usuario
+- ❌ **No se puede firmar** documentos ajenos sin solicitud
+
+#### **Estados del Documento:**
+- **🟢 "Listo para firmar"**: Documento nuevo, propietario puede firmar
+- **🟡 "X solicitud(es) pendiente(s)"**: Con solicitudes activas
+- **🔵 "Firmado por: X, Y"**: Con firmas, muestra lista de firmantes
+- **📝 "Ya firmaste"**: Se muestra si el usuario actual ya firmó
+
+#### **Botones Inteligentes:**
+- **Habilitado**: Usuario puede firmar (propietario o con solicitud)
+- **Deshabilitado**: Usuario ya firmó o no tiene permisos
+- **Tooltip informativo**: Explica por qué está habilitado/deshabilitado
 
 ### Características de la Firma
 

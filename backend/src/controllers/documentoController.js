@@ -201,11 +201,11 @@ const documentoController = {
     try {
       console.log('🔍 Iniciando firma de documento...');
       const { documentoId } = req.params;
-      const { certificadoId, password, nombre, organizacion, email } = req.body;
+      const { certificadoId, password, nombre, organizacion, email, x, y, page } = req.body;
 
-      console.log('📋 Datos recibidos:', { documentoId, certificadoId, nombre, organizacion, email });
+      console.log('📋 Datos recibidos:', { documentoId, certificadoId, nombre, organizacion, email, x, y, page });
 
-      // Verificar que el documento existe y no está firmado
+      // Verificar que el documento existe
       const documento = await Documento.findById(documentoId);
       if (!documento) {
         console.error('❌ Documento no encontrado:', documentoId);
@@ -214,9 +214,20 @@ const documentoController = {
 
       console.log('✅ Documento encontrado:', documento.nombre);
 
-      if (documento.firmaDigital) {
-        console.log('❌ Documento ya firmado');
-        return res.status(400).json({ error: 'El documento ya ha sido firmado' });
+      // Verificar que el usuario es el propietario del documento
+      if (documento.usuario.toString() !== req.usuario.id) {
+        console.error('❌ Usuario no autorizado para firmar este documento');
+        return res.status(403).json({ error: 'No tienes permisos para firmar este documento' });
+      }
+
+      // Verificar que el usuario no haya firmado ya este documento
+      const yaFirmo = documento.firmantes && documento.firmantes.some(firmante => 
+        firmante.usuarioId && firmante.usuarioId.toString() === req.usuario.id
+      );
+
+      if (yaFirmo) {
+        console.log('❌ Usuario ya firmó este documento');
+        return res.status(400).json({ error: 'Ya has firmado este documento' });
       }
 
       // Obtener el certificado
@@ -322,7 +333,7 @@ const documentoController = {
 
       console.log('💾 Guardando información de la firma...');
       
-      // Guardar información de la firma en la base de datos
+      // Guardar información de la firma en la base de datos usando el nuevo sistema de firmantes
       const firmaInfo = {
         certificadoId: certificado._id,
         nombreFirmante: nombre || certificado.nombreComun,
@@ -335,9 +346,22 @@ const documentoController = {
 
       console.log('📝 Información de firma:', firmaInfo);
 
-      // Actualizar el documento con la información de la firma
-      documento.firmaDigital = firmaInfo;
-      await documento.save();
+      // Actualizar el documento con la información del firmante usando el nuevo sistema
+      await Documento.findByIdAndUpdate(documento._id, {
+        $push: {
+          firmantes: {
+            usuarioId: req.usuario.id,
+            nombre: req.usuario.nombre,
+            email: req.usuario.email,
+            fechaFirma: new Date(),
+            posicion: {
+              x: x || 50,
+              y: y || 50,
+              page: page || 1
+            }
+          }
+        }
+      });
       
       console.log('✅ Documento actualizado en la base de datos');
 
@@ -413,7 +437,8 @@ const documentoController = {
 
       // Agregar información adicional sobre firmas
       const documentosConInfo = todosLosDocumentos.map(doc => {
-        const docObj = doc.toObject();
+        // Verificar si es un objeto de Mongoose válido
+        const docObj = doc && typeof doc.toObject === 'function' ? doc.toObject() : doc;
         
         // Contar firmas realizadas
         docObj.numeroFirmas = docObj.firmantes ? docObj.firmantes.length : 0;
@@ -460,7 +485,8 @@ const documentoController = {
 
       // Agregar información adicional
       const documentosConInfo = documentosFirmados.map(doc => {
-        const docObj = doc.toObject();
+        // Verificar si es un objeto de Mongoose válido
+        const docObj = doc && typeof doc.toObject === 'function' ? doc.toObject() : doc;
         
         // Encontrar la información de firma específica del usuario
         const firmaUsuario = docObj.firmantes.find(f => 
@@ -507,7 +533,11 @@ const documentoController = {
       const documentosConInfo = documentosCompartidos
         .filter(compartido => compartido.documentoId && compartido.documentoId.estado === 'activo')
         .map(compartido => {
-          const docObj = compartido.documentoId.toObject();
+          // Verificar si es un objeto de Mongoose válido
+          const docObj = compartido.documentoId && typeof compartido.documentoId.toObject === 'function' 
+            ? compartido.documentoId.toObject() 
+            : compartido.documentoId;
+          
           docObj.esCompartido = true;
           docObj.tipoAcceso = compartido.tipoAcceso;
           docObj.permisos = compartido.permisos;
@@ -597,7 +627,7 @@ const documentoController = {
         return res.status(404).json({ error: 'Documento no encontrado' });
       }
 
-      // Verificar que el documento pertenezca al usuario autenticado O que tenga solicitudes de firma pendientes
+      // Verificar que el documento pertenezca al usuario autenticado O que tenga solicitudes de firma pendientes O que ya haya firmado
       const isOwner = doc.usuario.toString() === req.usuario.id;
       
       if (!isOwner) {
@@ -609,7 +639,12 @@ const documentoController = {
           estado: 'pendiente'
         });
         
-        if (!solicitudPendiente) {
+        // Verificar si el usuario ya firmó este documento
+        const yaFirmo = doc.firmantes && doc.firmantes.some(firmante => 
+          firmante.usuarioId && firmante.usuarioId.toString() === req.usuario.id
+        );
+        
+        if (!solicitudPendiente && !yaFirmo) {
           return res.status(403).json({ error: 'No tienes permisos para acceder a este documento' });
         }
       }
@@ -637,7 +672,7 @@ const documentoController = {
         return res.status(404).json({ error: 'Documento no encontrado' });
       }
 
-      // Verificar que el documento pertenezca al usuario autenticado O que tenga solicitudes de firma pendientes
+      // Verificar que el documento pertenezca al usuario autenticado O que tenga solicitudes de firma pendientes O que ya haya firmado
       const isOwner = doc.usuario.toString() === req.usuario.id;
       
       if (!isOwner) {
@@ -649,7 +684,12 @@ const documentoController = {
           estado: 'pendiente'
         });
         
-        if (!solicitudPendiente) {
+        // Verificar si el usuario ya firmó este documento
+        const yaFirmo = doc.firmantes && doc.firmantes.some(firmante => 
+          firmante.usuarioId && firmante.usuarioId.toString() === req.usuario.id
+        );
+        
+        if (!solicitudPendiente && !yaFirmo) {
           return res.status(403).json({ error: 'No tienes permisos para acceder a este documento' });
         }
       }
@@ -684,9 +724,26 @@ const documentoController = {
         return res.status(404).json({ error: 'Documento no encontrado' });
       }
 
-      // Verificar que el documento pertenezca al usuario autenticado
-      if (doc.usuario.toString() !== req.usuario.id) {
-        return res.status(403).json({ error: 'No tienes permisos para descargar este documento' });
+      // Verificar que el documento pertenezca al usuario autenticado O que tenga solicitudes de firma pendientes O que ya haya firmado
+      const isOwner = doc.usuario.toString() === req.usuario.id;
+      
+      if (!isOwner) {
+        // Verificar si el usuario tiene solicitudes de firma pendientes para este documento
+        const SolicitudFirma = require('../models/SolicitudFirma');
+        const solicitudPendiente = await SolicitudFirma.findOne({
+          documentoId: doc._id,
+          firmanteId: req.usuario.id,
+          estado: 'pendiente'
+        });
+        
+        // Verificar si el usuario ya firmó este documento
+        const yaFirmo = doc.firmantes && doc.firmantes.some(firmante => 
+          firmante.usuarioId && firmante.usuarioId.toString() === req.usuario.id
+        );
+        
+        if (!solicitudPendiente && !yaFirmo) {
+          return res.status(403).json({ error: 'No tienes permisos para descargar este documento' });
+        }
       }
 
       if (!fs.existsSync(doc.ruta)) {

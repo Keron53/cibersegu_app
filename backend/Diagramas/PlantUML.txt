@@ -1,0 +1,153 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+
+title Flujo de Firma Digital - Sistema Digital Sign
+
+actor "Usuario A\n(Propietario)" as UserA
+actor "Usuario B\n(Firmante)" as UserB
+participant "Frontend" as FE
+participant "Backend\n(Node.js)" as BE
+participant "Python\npyHanko" as PY
+participant "Base de\nDatos" as DB
+participant "Email\nService" as EMAIL
+
+== Flujo 1: Firma Directa (Propietario) ==
+
+UserA -> FE: Sube documento PDF
+FE -> BE: POST /documentos/upload
+BE -> DB: Guarda documento
+DB --> BE: Documento creado
+BE --> FE: Documento subido
+FE --> UserA: Documento listado
+
+UserA -> FE: Selecciona "Firmar"
+FE -> FE: PDFSignatureViewer
+UserA -> FE: Selecciona posición (x,y,page)
+UserA -> FE: Elige certificado
+UserA -> FE: Ingresa contraseña
+FE -> BE: POST /documentos/{id}/firmar
+note right: {certificadoId, password, x, y, page}
+
+BE -> BE: Verifica permisos
+BE -> BE: Verifica que no haya firmado ya
+BE -> PY: Ejecuta pyHanko
+PY -> PY: Firma PDF con coordenadas
+PY --> BE: PDF firmado
+BE -> DB: Actualiza firmantes[]
+DB --> BE: Documento actualizado
+BE --> FE: Firma completada
+FE --> UserA: "Firmado por: Usuario A"
+
+== Flujo 2: Solicitud de Firma ==
+
+UserA -> FE: Selecciona "Solicitar Firma"
+FE -> FE: SolicitarFirma component
+UserA -> FE: Elige firmante (Usuario B)
+UserA -> FE: Agrega mensaje
+UserA -> FE: Envía solicitud
+FE -> BE: POST /solicitudes-firma/crear
+note right: {documentoId, firmanteId, posicionFirma}
+
+BE -> DB: Crea SolicitudFirma
+DB --> BE: Solicitud creada
+BE -> DB: Actualiza documento.solicitudesFirma[]
+BE -> EMAIL: Envía notificación
+EMAIL --> UserB: Email con enlace
+BE --> FE: Solicitud enviada
+FE --> UserA: "Solicitud enviada"
+
+== Flujo 3: Firmar por Solicitud ==
+
+UserB -> FE: Ve "Solicitudes Pendientes"
+FE -> BE: GET /solicitudes-firma/pendientes
+BE -> DB: Busca solicitudes del usuario
+DB --> BE: Lista de solicitudes
+BE --> FE: Solicitudes pendientes
+FE --> UserB: Lista de solicitudes
+
+UserB -> FE: Selecciona solicitud
+FE -> FE: FirmarPorSolicitud component
+UserB -> FE: Selecciona posición
+UserB -> FE: Elige certificado
+UserB -> FE: Ingresa contraseña
+FE -> BE: POST /solicitudes-firma/firmar/{solicitudId}
+note right: {certificadoId, password}
+
+BE -> BE: Verifica solicitud válida
+BE -> BE: Verifica que no haya expirado
+BE -> PY: Ejecuta pyHanko con coordenadas de solicitud
+PY -> PY: Firma PDF
+PY --> BE: PDF firmado
+BE -> DB: Actualiza solicitud.estado = "firmado"
+BE -> DB: Agrega firmante a documento.firmantes[]
+BE -> DB: Crea DocumentoCompartido
+BE -> EMAIL: Notifica al solicitante
+EMAIL --> UserA: "Documento firmado"
+BE --> FE: Firma completada
+FE --> UserB: "Documento firmado exitosamente"
+
+== Flujo 4: Firmas Múltiples ==
+
+UserA -> FE: Ve documento firmado
+FE -> BE: GET /documentos
+BE -> DB: Busca documentos del usuario
+DB --> BE: Documentos con firmantes
+BE --> FE: Lista actualizada
+FE --> UserA: "Firmado por: Usuario B"
+
+UserA -> FE: Puede firmar (botón habilitado)
+UserA -> FE: Selecciona "Firmar"
+FE -> FE: Verifica canUserSign()
+FE -> FE: PDFSignatureViewer
+UserA -> FE: Selecciona nueva posición
+UserA -> FE: Elige certificado
+UserA -> FE: Ingresa contraseña
+FE -> BE: POST /documentos/{id}/firmar
+note right: Nueva firma del propietario
+
+BE -> BE: Verifica que es propietario
+BE -> BE: Verifica que no haya firmado ya
+BE -> PY: Ejecuta pyHanko
+PY -> PY: Firma PDF (segunda firma)
+PY --> BE: PDF firmado
+BE -> DB: Agrega segundo firmante
+DB --> BE: Documento actualizado
+BE --> FE: Firma completada
+FE --> UserA: "Firmado por: Usuario B, Usuario A"
+
+== Estados del Documento ==
+
+note over DB
+**Estados del Documento:**
+
+🟢 **Listo para firmar**
+- firmantes: []
+- solicitudesPendientes: 0
+
+🟡 **Con solicitudes**
+- solicitudesPendientes > 0
+
+�� **Firmado**
+- firmantes: [firmante1, firmante2, ...]
+- "Ya firmaste" si userHasSigned = true
+end note
+
+== Reglas de Permisos ==
+
+note over FE
+**Reglas de Permisos:**
+
+✅ **Puede Firmar:**
+- Propietario: Su documento (una vez)
+- Invitado: Por solicitud (una vez)
+- Solicitudes pendientes: Usuarios con solicitudes
+
+❌ **No Puede Firmar:**
+- Ya firmó: hasUserSigned = true
+- Documento compartido: Sin solicitud
+- No autorizado: Sin permisos
+end note
+@enduml

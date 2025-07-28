@@ -219,7 +219,7 @@ export const documentoService = {
     return response.data
   },
 
-  async firmarDocumento(documentoId, certificadoId, password, nombre, organizacion, email) {
+  async firmarDocumento(documentoId, certificadoId, password, nombre, organizacion, email, x, y, page) {
     if (!checkToken()) return
     const token = localStorage.getItem('token')
     const response = await axios.post(`${API_BASE_URL}/documentos/${documentoId}/firmar`, {
@@ -227,7 +227,10 @@ export const documentoService = {
       password,
       nombre,
       organizacion,
-      email
+      email,
+      x,
+      y,
+      page
     }, {
       headers: {
         'Authorization': `Bearer ${token}`

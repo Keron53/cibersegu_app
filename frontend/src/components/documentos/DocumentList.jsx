@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useContext } from 'react'
 import { motion } from 'framer-motion'
 import { Eye, Download, Signature, Trash2, CheckCircle, PenTool, FileText, User } from 'lucide-react'
 import { documentoService } from '../../services/api'
@@ -6,9 +6,11 @@ import PDFViewer from './PDFViewer.jsx'
 import PDFSignatureViewer from './PDFSignatureViewer.jsx'
 import SignatureConfirmationModal from './SignatureConfirmationModal.jsx'
 import NotificationContainer from '../layout/NotificationContainer.jsx'
+import AuthContext from '../../context/AuthContext.js'
 import QRCode from 'qrcode';
 
 function DocumentList({ documents, onDelete }) {
+  const { user } = useContext(AuthContext)
   const [showSignatureViewer, setShowSignatureViewer] = useState(false)
   const [showViewer, setShowViewer] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState(null)
@@ -25,6 +27,27 @@ function DocumentList({ documents, onDelete }) {
     })
   }
 
+  // Verificar si el usuario actual ya firmó el documento
+  const hasUserSigned = (document) => {
+    if (!user || !document.firmantes) return false
+    
+    return document.firmantes.some(firmante => 
+      firmante.usuarioId && firmante.usuarioId.toString() === user.id
+    )
+  }
+
+  // Verificar si el usuario puede firmar el documento
+  const canUserSign = (document) => {
+    // No puede firmar si ya firmó
+    if (hasUserSigned(document)) return false
+    
+    // No puede firmar si es un documento compartido (debe usar solicitudes)
+    if (document.esCompartido) return false
+    
+    // Puede firmar si es el propietario o si tiene solicitudes pendientes
+    return true
+  }
+
   const getDocumentStatus = (document) => {
     // Verificar si tiene firmantes (nuevo sistema de solicitudes)
     if (document.firmantes && document.firmantes.length > 0) {
@@ -32,14 +55,18 @@ function DocumentList({ documents, onDelete }) {
       const fechaUltimaFirma = document.firmantes[document.firmantes.length - 1]?.fechaFirma;
       const fecha = fechaUltimaFirma ? new Date(fechaUltimaFirma).toLocaleDateString('es-ES') : 'Fecha no disponible';
       
+      // Verificar si el usuario actual ya firmó
+      const userHasSigned = hasUserSigned(document);
+      
       return {
         text: `Firmado por: ${firmantes.join(', ')}`,
-        subtitle: `Fecha: ${fecha} | ${document.firmantes.length} firma(s)`,
+        subtitle: `Fecha: ${fecha} | ${document.firmantes.length} firma(s)${userHasSigned ? ' | Ya firmaste' : ''}`,
         icon: 'CheckCircle',
         className: 'bg-blue-100 dark:bg-blue-800/20 text-blue-700 dark:text-blue-400',
         iconClassName: 'text-blue-600 dark:text-blue-400',
         isSigned: true,
-        firmantes: document.firmantes
+        firmantes: document.firmantes,
+        userHasSigned
       }
     }
     
@@ -185,14 +212,21 @@ function DocumentList({ documents, onDelete }) {
         id: signatureInfo.certificateData._id || signatureInfo.certificateData.id
       } : null
 
-      // Usar el nuevo endpoint que guarda la información de la firma
+      // Extraer coordenadas de la posición de firma
+      const position = signatureInfo.position || {}
+      const { x, y, page } = position
+
+      // Usar el nuevo endpoint que guarda la información de la firma con coordenadas
       const result = await documentoService.firmarDocumento(
         documentId,
         certificateData.id,
         certificatePassword,
         certificateData.nombreComun,
         certificateData.organizacion,
-        certificateData.email
+        certificateData.email,
+        x,
+        y,
+        page
       )
 
       // El PDF ya está firmado y guardado en el servidor
@@ -303,16 +337,22 @@ function DocumentList({ documents, onDelete }) {
                   </motion.button>
 
                   <motion.button
-                    whileHover={{ scale: (doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0) || doc.esCompartido) ? 1 : 1.05 }}
-                    whileTap={{ scale: (doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0) || doc.esCompartido) ? 1 : 0.95 }}
-                    onClick={() => !doc.firmaDigital && !(doc.firmantes && doc.firmantes.length > 0) && !doc.esCompartido && handleSignDocument(doc)}
+                    whileHover={{ scale: canUserSign(doc) ? 1.05 : 1 }}
+                    whileTap={{ scale: canUserSign(doc) ? 0.95 : 1 }}
+                    onClick={() => canUserSign(doc) && handleSignDocument(doc)}
                     className={`p-2 rounded-lg transition-colors ${
-                      (doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0) || doc.esCompartido)
-                        ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed' 
-                        : 'text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-800/20'
+                      canUserSign(doc)
+                        ? 'text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-800/20' 
+                        : 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
                     }`}
-                    title={(doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0)) ? 'Documento ya firmado' : doc.esCompartido ? 'Documento compartido - no puedes firmar' : 'Firmar documento'}
-                    disabled={doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0) || doc.esCompartido}
+                    title={
+                      hasUserSigned(doc) 
+                        ? 'Ya firmaste este documento' 
+                        : doc.esCompartido 
+                          ? 'Documento compartido - usa solicitudes de firma' 
+                          : 'Firmar documento'
+                    }
+                    disabled={!canUserSign(doc)}
                   >
                     <Signature className="w-4 h-4" />
                   </motion.button>

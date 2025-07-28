@@ -303,7 +303,7 @@ const usuarioController = {
         console.log(`👤 Usuario: ${u.nombre} (${u.email}) - Verificado: ${u.emailVerificado}`);
       });
       
-      res.json(usuarios);
+    res.json(usuarios);
     } catch (error) {
       console.error('❌ Error listando usuarios:', error);
       res.status(500).json({ error: 'Error al listar usuarios' });
