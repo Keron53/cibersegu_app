@@ -313,6 +313,33 @@ const solicitudFirmaController = {
         }
       });
 
+      // Crear registro de documento compartido para el firmante
+      const DocumentoCompartido = require('../models/DocumentoCompartido');
+      await DocumentoCompartido.findOneAndUpdate(
+        {
+          documentoId: solicitud.documentoId._id,
+          usuarioId: req.usuario.id
+        },
+        {
+          documentoId: solicitud.documentoId._id,
+          usuarioId: req.usuario.id,
+          tipoAcceso: 'firmante',
+          solicitudFirmaId: solicitud._id,
+          permisos: {
+            ver: true,
+            descargar: true,
+            firmar: false
+          },
+          activo: true
+        },
+        {
+          upsert: true,
+          new: true
+        }
+      );
+
+      console.log('✅ Documento compartido con el firmante');
+
       console.log('✅ Solicitud actualizada como firmada');
 
       // Notificar al solicitante

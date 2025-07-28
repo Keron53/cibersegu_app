@@ -372,17 +372,47 @@ const documentoController = {
         return res.status(401).json({ error: 'Usuario no autenticado' });
       }
 
-      // Filtrar documentos solo del usuario autenticado
-      const documentos = await Documento.find({ 
+      // Obtener documentos propios del usuario
+      const documentosPropios = await Documento.find({ 
         usuario: req.usuario.id,
         estado: 'activo' 
       })
       .populate('usuario', 'nombre email')
       .populate('firmantes.usuarioId', 'nombre email')
       .populate('solicitudesFirma', 'estado firmanteId solicitanteId fechaSolicitud');
-      
+
+      // Obtener documentos compartidos con el usuario
+      const DocumentoCompartido = require('../models/DocumentoCompartido');
+      const documentosCompartidos = await DocumentoCompartido.find({
+        usuarioId: req.usuario.id,
+        activo: true
+      })
+      .populate({
+        path: 'documentoId',
+        populate: [
+          { path: 'usuario', select: 'nombre email' },
+          { path: 'firmantes.usuarioId', select: 'nombre email' },
+          { path: 'solicitudesFirma', select: 'estado firmanteId solicitanteId fechaSolicitud' }
+        ]
+      });
+
+      // Combinar documentos propios y compartidos
+      const todosLosDocumentos = [...documentosPropios];
+
+      // Agregar documentos compartidos (solo si el documento existe y está activo)
+      documentosCompartidos.forEach(compartido => {
+        if (compartido.documentoId && compartido.documentoId.estado === 'activo') {
+          const docObj = compartido.documentoId.toObject();
+          docObj.esCompartido = true;
+          docObj.tipoAcceso = compartido.tipoAcceso;
+          docObj.permisos = compartido.permisos;
+          docObj.fechaAcceso = compartido.fechaAcceso;
+          todosLosDocumentos.push(docObj);
+        }
+      });
+
       // Agregar información adicional sobre firmas
-      const documentosConInfo = documentos.map(doc => {
+      const documentosConInfo = todosLosDocumentos.map(doc => {
         const docObj = doc.toObject();
         
         // Contar firmas realizadas
@@ -447,6 +477,50 @@ const documentoController = {
     } catch (error) {
       console.error('Error al listar documentos firmados:', error);
       res.status(500).json({ error: 'Error al listar documentos firmados' });
+    }
+  },
+
+  // Listar documentos compartidos con el usuario (NUEVO)
+  listarDocumentosCompartidos: async (req, res) => {
+    try {
+      // Verificar que el usuario esté autenticado
+      if (!req.usuario || !req.usuario.id) {
+        return res.status(401).json({ error: 'Usuario no autenticado' });
+      }
+
+      // Obtener documentos compartidos con el usuario
+      const DocumentoCompartido = require('../models/DocumentoCompartido');
+      const documentosCompartidos = await DocumentoCompartido.find({
+        usuarioId: req.usuario.id,
+        activo: true
+      })
+      .populate({
+        path: 'documentoId',
+        populate: [
+          { path: 'usuario', select: 'nombre email' },
+          { path: 'firmantes.usuarioId', select: 'nombre email' },
+          { path: 'solicitudesFirma', select: 'estado firmanteId solicitanteId fechaSolicitud' }
+        ]
+      });
+
+      // Filtrar solo documentos activos y agregar información
+      const documentosConInfo = documentosCompartidos
+        .filter(compartido => compartido.documentoId && compartido.documentoId.estado === 'activo')
+        .map(compartido => {
+          const docObj = compartido.documentoId.toObject();
+          docObj.esCompartido = true;
+          docObj.tipoAcceso = compartido.tipoAcceso;
+          docObj.permisos = compartido.permisos;
+          docObj.fechaAcceso = compartido.fechaAcceso;
+          docObj.numeroFirmas = docObj.firmantes ? docObj.firmantes.length : 0;
+          
+          return docObj;
+        });
+      
+      res.json(documentosConInfo);
+    } catch (error) {
+      console.error('Error al listar documentos compartidos:', error);
+      res.status(500).json({ error: 'Error al listar documentos compartidos' });
     }
   },
 

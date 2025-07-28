@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Eye, Download, Signature, Trash2, CheckCircle, PenTool, FileText } from 'lucide-react'
+import { Eye, Download, Signature, Trash2, CheckCircle, PenTool, FileText, User } from 'lucide-react'
 import { documentoService } from '../../services/api'
 import PDFViewer from './PDFViewer.jsx'
 import PDFSignatureViewer from './PDFSignatureViewer.jsx'
@@ -250,6 +250,14 @@ function DocumentList({ documents, onDelete }) {
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {formatDate(doc.fechaSubida)}
                   </p>
+                  {doc.esCompartido && (
+                    <div className="mt-1">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-800/20 text-purple-700 dark:text-purple-400">
+                        <User className="w-3 h-3 mr-1" />
+                        Compartido por: {doc.usuario?.nombre || 'Desconocido'}
+                      </span>
+                    </div>
+                  )}
                   <div className="mt-2 space-y-1">
                     {(() => {
                       const status = getDocumentStatus(doc)
@@ -295,16 +303,16 @@ function DocumentList({ documents, onDelete }) {
                   </motion.button>
 
                   <motion.button
-                    whileHover={{ scale: (doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0)) ? 1 : 1.05 }}
-                    whileTap={{ scale: (doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0)) ? 1 : 0.95 }}
-                    onClick={() => !doc.firmaDigital && !(doc.firmantes && doc.firmantes.length > 0) && handleSignDocument(doc)}
+                    whileHover={{ scale: (doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0) || doc.esCompartido) ? 1 : 1.05 }}
+                    whileTap={{ scale: (doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0) || doc.esCompartido) ? 1 : 0.95 }}
+                    onClick={() => !doc.firmaDigital && !(doc.firmantes && doc.firmantes.length > 0) && !doc.esCompartido && handleSignDocument(doc)}
                     className={`p-2 rounded-lg transition-colors ${
-                      (doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0))
+                      (doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0) || doc.esCompartido)
                         ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed' 
                         : 'text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-800/20'
                     }`}
-                    title={(doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0)) ? 'Documento ya firmado' : 'Firmar documento'}
-                    disabled={doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0)}
+                    title={(doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0)) ? 'Documento ya firmado' : doc.esCompartido ? 'Documento compartido - no puedes firmar' : 'Firmar documento'}
+                    disabled={doc.firmaDigital || (doc.firmantes && doc.firmantes.length > 0) || doc.esCompartido}
                   >
                     <Signature className="w-4 h-4" />
                   </motion.button>

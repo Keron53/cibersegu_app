@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Eye, Download, CheckCircle, FileText, User } from 'lucide-react'
+import { Eye, Download, FileText, User, Share2 } from 'lucide-react'
 import { documentoService } from '../../services/api'
 import PDFViewer from './PDFViewer.jsx'
 import NotificationContainer from '../layout/NotificationContainer.jsx'
 import Navigation from '../layout/Navigation.jsx'
 
-function DocumentosFirmados() {
+function DocumentosCompartidos() {
   const [documentos, setDocumentos] = useState([])
   const [loading, setLoading] = useState(true)
   const [showViewer, setShowViewer] = useState(false)
@@ -14,18 +14,18 @@ function DocumentosFirmados() {
   const [notifications, setNotifications] = useState([])
 
   useEffect(() => {
-    cargarDocumentosFirmados()
+    cargarDocumentosCompartidos()
   }, [])
 
-  const cargarDocumentosFirmados = async () => {
+  const cargarDocumentosCompartidos = async () => {
     try {
       setLoading(true)
-      const data = await documentoService.listarFirmados()
-      console.log('📄 Documentos firmados cargados:', data)
+      const data = await documentoService.listarCompartidos()
+      console.log('📄 Documentos compartidos cargados:', data)
       setDocumentos(Array.isArray(data) ? data : [])
     } catch (error) {
-      console.error('❌ Error cargando documentos firmados:', error)
-      showNotification('Error al cargar documentos firmados', 'error')
+      console.error('❌ Error cargando documentos compartidos:', error)
+      showNotification('Error al cargar documentos compartidos', 'error')
     } finally {
       setLoading(false)
     }
@@ -89,6 +89,19 @@ function DocumentosFirmados() {
     setSelectedDocument(null)
   }
 
+  const getTipoAccesoLabel = (tipo) => {
+    switch (tipo) {
+      case 'firmante':
+        return 'Firmante'
+      case 'solicitante':
+        return 'Solicitante'
+      case 'invitado':
+        return 'Invitado'
+      default:
+        return 'Usuario'
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -104,21 +117,21 @@ function DocumentosFirmados() {
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Documentos Firmados
+            Documentos Compartidos
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Documentos que has firmado para otros usuarios
+            Documentos que otros usuarios han compartido contigo
           </p>
         </div>
 
       {documentos.length === 0 ? (
         <div className="text-center py-12">
-          <CheckCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <Share2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            No has firmado documentos aún
+            No tienes documentos compartidos
           </h3>
           <p className="text-gray-500 dark:text-gray-400">
-            Los documentos que firmes para otros usuarios aparecerán aquí
+            Los documentos que otros usuarios compartan contigo aparecerán aquí
           </p>
         </div>
       ) : (
@@ -133,8 +146,8 @@ function DocumentosFirmados() {
             >
               <div className="flex items-start space-x-3">
                 <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-800/20 rounded-lg flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-800/20 rounded-lg flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-purple-500 dark:text-purple-400" />
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -145,26 +158,29 @@ function DocumentosFirmados() {
                     Propietario: {doc.usuario?.nombre || 'Desconocido'}
                   </p>
                   
-                  {/* Información de la firma del usuario */}
-                  {doc.miFirma && (
-                    <div className="mt-2">
-                      <div className="flex items-center space-x-1">
-                        <User className="w-3 h-3 text-green-500" />
-                        <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                          Firmado por ti
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {formatDate(doc.miFirma.fechaFirma)}
-                      </p>
-                    </div>
+                  {/* Información de acceso */}
+                  <div className="mt-2">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      doc.tipoAcceso === 'firmante' 
+                        ? 'bg-green-100 dark:bg-green-800/20 text-green-700 dark:text-green-400'
+                        : 'bg-blue-100 dark:bg-blue-800/20 text-blue-700 dark:text-blue-400'
+                    }`}>
+                      <User className="w-3 h-3 mr-1" />
+                      {getTipoAccesoLabel(doc.tipoAcceso)}
+                    </span>
+                  </div>
+                  
+                  {/* Fecha de acceso */}
+                  {doc.fechaAcceso && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Acceso: {formatDate(doc.fechaAcceso)}
+                    </p>
                   )}
                   
-                  {/* Información general de firmas */}
+                  {/* Información de firmas */}
                   {doc.numeroFirmas > 0 && (
                     <div className="mt-2">
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-800/20 text-blue-700 dark:text-blue-400">
-                        <CheckCircle className="w-3 h-3 mr-1" />
                         {doc.numeroFirmas} firma(s) total
                       </span>
                     </div>
@@ -184,15 +200,17 @@ function DocumentosFirmados() {
                     <Eye className="w-4 h-4" />
                   </motion.button>
                   
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleDownload(doc._id, doc.nombre)}
-                    className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-800/20 rounded-lg transition-colors"
-                    title="Descargar documento"
-                  >
-                    <Download className="w-4 h-4" />
-                  </motion.button>
+                  {doc.permisos?.descargar && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleDownload(doc._id, doc.nombre)}
+                      className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-800/20 rounded-lg transition-colors"
+                      title="Descargar documento"
+                    >
+                      <Download className="w-4 h-4" />
+                    </motion.button>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -219,4 +237,4 @@ function DocumentosFirmados() {
   )
 }
 
-export default DocumentosFirmados 
+export default DocumentosCompartidos 

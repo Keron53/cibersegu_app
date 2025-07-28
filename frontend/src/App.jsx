@@ -16,6 +16,7 @@ import EmailVerificationPage from './components/auth/EmailVerificationPage'
 import SolicitudesPendientes from './components/documentos/SolicitudesPendientes'
 import FirmarPorSolicitud from './components/documentos/FirmarPorSolicitud'
 import DocumentosFirmados from './components/documentos/DocumentosFirmados'
+import DocumentosCompartidos from './components/documentos/DocumentosCompartidos'
 import { setSessionExpiredCallback } from './services/api'
 
 function AppContent() {
@@ -47,6 +48,7 @@ function AppContent() {
           <Route path="/solicitudes-pendientes" element={<SolicitudesPendientes />} />
           <Route path="/firmar-documento/:solicitudId" element={<FirmarPorSolicitud />} />
           <Route path="/documentos-firmados" element={<DocumentosFirmados />} />
+          <Route path="/documentos-compartidos" element={<DocumentosCompartidos />} />
         </Routes>
         
         {/* Modal de sesión expirada dentro del Router */}
