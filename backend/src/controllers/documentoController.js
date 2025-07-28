@@ -458,14 +458,27 @@ const documentoController = {
         return res.status(404).json({ error: 'Documento no encontrado' });
       }
 
-      // Verificar que el documento pertenezca al usuario autenticado
-      if (doc.usuario.toString() !== req.usuario.id) {
-        return res.status(403).json({ error: 'No tienes permisos para acceder a este documento' });
+      // Verificar que el documento pertenezca al usuario autenticado O que tenga solicitudes de firma pendientes
+      const isOwner = doc.usuario.toString() === req.usuario.id;
+      
+      if (!isOwner) {
+        // Verificar si el usuario tiene solicitudes de firma pendientes para este documento
+        const SolicitudFirma = require('../models/SolicitudFirma');
+        const solicitudPendiente = await SolicitudFirma.findOne({
+          documentoId: doc._id,
+          firmanteId: req.usuario.id,
+          estado: 'pendiente'
+        });
+        
+        if (!solicitudPendiente) {
+          return res.status(403).json({ error: 'No tienes permisos para acceder a este documento' });
+        }
       }
 
       // Enviar el archivo PDF
       res.sendFile(require('path').resolve(doc.ruta));
     } catch (error) {
+      console.error('Error al obtener documento:', error);
       res.status(500).json({ error: 'Error al obtener el documento' });
     }
   },
@@ -485,9 +498,21 @@ const documentoController = {
         return res.status(404).json({ error: 'Documento no encontrado' });
       }
 
-      // Verificar que el documento pertenezca al usuario autenticado
-      if (doc.usuario.toString() !== req.usuario.id) {
-        return res.status(403).json({ error: 'No tienes permisos para acceder a este documento' });
+      // Verificar que el documento pertenezca al usuario autenticado O que tenga solicitudes de firma pendientes
+      const isOwner = doc.usuario.toString() === req.usuario.id;
+      
+      if (!isOwner) {
+        // Verificar si el usuario tiene solicitudes de firma pendientes para este documento
+        const SolicitudFirma = require('../models/SolicitudFirma');
+        const solicitudPendiente = await SolicitudFirma.findOne({
+          documentoId: doc._id,
+          firmanteId: req.usuario.id,
+          estado: 'pendiente'
+        });
+        
+        if (!solicitudPendiente) {
+          return res.status(403).json({ error: 'No tienes permisos para acceder a este documento' });
+        }
       }
 
       if (!fs.existsSync(doc.ruta)) {

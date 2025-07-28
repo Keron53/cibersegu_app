@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { FileText, User, Clock, CheckCircle, XCircle, AlertCircle, Download } from 'lucide-react';
-import PDFViewer from './PDFViewer';
+import PDFViewerEmbedded from './PDFViewerEmbedded';
 import CertificateList from '../certificados/CertificateList';
 import Navigation from '../layout/Navigation';
 
@@ -91,7 +91,7 @@ function FirmarPorSolicitud() {
       
       // Redirigir después de 2 segundos
       setTimeout(() => {
-        navigate('/documentos');
+        navigate('/home');
       }, 2000);
       
     } catch (error) {
@@ -117,7 +117,7 @@ function FirmarPorSolicitud() {
       
       setSuccess('Solicitud rechazada exitosamente');
       setTimeout(() => {
-        navigate('/documentos');
+        navigate('/home');
       }, 2000);
       
     } catch (error) {
@@ -413,7 +413,7 @@ function FirmarPorSolicitud() {
               </h3>
             </div>
             <div className="h-96 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-              <PDFViewer pdfUrl={solicitud.documentoId.ruta} />
+              <PDFViewerEmbedded documentId={solicitud.documentoId._id} documentName={solicitud.documentoId.nombre} />
             </div>
           </div>
         )}

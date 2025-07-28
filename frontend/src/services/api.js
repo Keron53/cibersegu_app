@@ -112,13 +112,25 @@ export const documentoService = {
 
   async listar() {
     if (!checkToken()) return
-    const response = await axios.get(`${API_BASE_URL}/documentos`)
+    const token = localStorage.getItem('token')
+    const response = await axios.get(`${API_BASE_URL}/documentos`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
     return response.data
   },
 
   async ver(id) {
     if (!checkToken()) return
+    const token = localStorage.getItem('token')
+    console.log('🔍 documentoService.ver() - Token:', token ? `${token.substring(0, 10)}...` : 'null');
+    console.log('🔍 documentoService.ver() - URL:', `${API_BASE_URL}/documentos/${id}`);
+    
     const response = await axios.get(`${API_BASE_URL}/documentos/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
       responseType: 'blob'
     })
     return response.data
@@ -126,13 +138,23 @@ export const documentoService = {
 
   async eliminar(id) {
     if (!checkToken()) return
-    const response = await axios.delete(`${API_BASE_URL}/documentos/${id}`)
+    const token = localStorage.getItem('token')
+    const response = await axios.delete(`${API_BASE_URL}/documentos/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
     return response.data
   },
 
   async firmar(id, signatureInfo) {
     if (!checkToken()) return
-    const response = await axios.post(`${API_BASE_URL}/documentos/${id}/firmar`, signatureInfo)
+    const token = localStorage.getItem('token')
+    const response = await axios.post(`${API_BASE_URL}/documentos/${id}/firmar`, signatureInfo, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
     return response.data
   },
 
@@ -177,19 +199,29 @@ export const documentoService = {
 
   async firmarDocumento(documentoId, certificadoId, password, nombre, organizacion, email) {
     if (!checkToken()) return
+    const token = localStorage.getItem('token')
     const response = await axios.post(`${API_BASE_URL}/documentos/${documentoId}/firmar`, {
       certificadoId,
       password,
       nombre,
       organizacion,
       email
+    }, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
     })
     return response.data
   },
 
   async infoDocumento(id) {
     if (!checkToken()) return
-    const response = await axios.get(`${API_BASE_URL}/documentos/${id}/info`)
+    const token = localStorage.getItem('token')
+    const response = await axios.get(`${API_BASE_URL}/documentos/${id}/info`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
     return response.data
   }
 }
@@ -209,24 +241,43 @@ export const certificadoService = {
   },
 
   async generar(certificateData) {
-    const response = await axios.post(`${API_BASE_URL}/certificados/generar`, certificateData)
+    const token = localStorage.getItem('token')
+    const response = await axios.post(`${API_BASE_URL}/certificados/generar`, certificateData, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
     return response.data
   },
 
   async listar() {
-    const response = await axios.get(`${API_BASE_URL}/certificados`)
+    const token = localStorage.getItem('token')
+    const response = await axios.get(`${API_BASE_URL}/certificados`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
     return response.data
   },
 
   async descargar(id, password) {
+    const token = localStorage.getItem('token')
     const response = await axios.post(`${API_BASE_URL}/certificados/${id}/descargar`, { password }, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
       responseType: 'blob'
     })
     return response.data
   },
 
   async eliminar(id) {
-    const response = await axios.delete(`${API_BASE_URL}/certificados/${id}`)
+    const token = localStorage.getItem('token')
+    const response = await axios.delete(`${API_BASE_URL}/certificados/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
     return response.data
   }
 } 
