@@ -13,6 +13,8 @@ import ProfilePage from './components/profile/ProfilePage'
 import RecuperarContrasenaPage from './components/auth/RecuperarContrasenaPage'
 import PDFValidationPage from './components/validacion/PDFValidationPage'
 import EmailVerificationPage from './components/auth/EmailVerificationPage'
+import SolicitudesPendientes from './components/documentos/SolicitudesPendientes'
+import FirmarPorSolicitud from './components/documentos/FirmarPorSolicitud'
 import { setSessionExpiredCallback } from './services/api'
 
 function AppContent() {
@@ -40,6 +42,9 @@ function AppContent() {
           <Route path="/recuperar-contrasena" element={<RecuperarContrasenaPage />} />
           <Route path="/validar-pdf" element={<PDFValidationPage />} />
           <Route path="/verificar-email" element={<EmailVerificationPage />} />
+          {/* NUEVAS RUTAS PARA SOLICITUDES DE FIRMA */}
+          <Route path="/solicitudes-pendientes" element={<SolicitudesPendientes />} />
+          <Route path="/firmar-documento/:solicitudId" element={<FirmarPorSolicitud />} />
         </Routes>
         
         {/* Modal de sesión expirada dentro del Router */}

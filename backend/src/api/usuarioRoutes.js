@@ -31,8 +31,8 @@ router.put('/cambiar-contrasena', authMiddleware, usuarioController.cambiarContr
 router.post('/solicitar-recuperacion', usuarioController.solicitarRecuperacionContrasena);
 router.post('/restablecer-contrasena', usuarioController.restablecerContrasena);
 
-// Listar usuarios
-router.get('/', usuarioController.listarUsuarios);
+// Listar usuarios (requiere autenticación)
+router.get('/', authMiddleware, usuarioController.listarUsuarios);
 
 // Agregar usuario
 router.post('/', usuarioController.registrar);

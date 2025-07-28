@@ -279,8 +279,35 @@ const usuarioController = {
   },
 
   async listarUsuarios(req, res) {
-    const usuarios = await Usuario.find({}, { password: 0, codigoVerificacion: 0, codigoExpiracion: 0 });
-    res.json(usuarios);
+    try {
+      // Solo usuarios con email verificado
+      const usuarios = await Usuario.find(
+        { 
+          email: { $exists: true, $ne: null, $ne: '' },
+          emailVerificado: true 
+        }, 
+        { 
+          password: 0, 
+          codigoVerificacion: 0, 
+          codigoExpiracion: 0,
+          codigoWhatsApp: 0,
+          codigoWhatsAppExpiracion: 0,
+          tokenRecuperacion: 0,
+          tokenRecuperacionExpiracion: 0,
+          intentosVerificacion: 0
+        }
+      );
+      
+      console.log(`📋 Usuarios encontrados: ${usuarios.length}`);
+      usuarios.forEach(u => {
+        console.log(`👤 Usuario: ${u.nombre} (${u.email}) - Verificado: ${u.emailVerificado}`);
+      });
+      
+      res.json(usuarios);
+    } catch (error) {
+      console.error('❌ Error listando usuarios:', error);
+      res.status(500).json({ error: 'Error al listar usuarios' });
+    }
   },
 
   async obtenerPerfil(req, res) {

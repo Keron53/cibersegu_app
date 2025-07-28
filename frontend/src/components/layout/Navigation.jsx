@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, FileText, Sun, Moon, Upload, Plus, List, User, Shield } from 'lucide-react'
+import { LogOut, FileText, Sun, Moon, Upload, Plus, List, User, Shield, Clock, Send } from 'lucide-react'
 import { useTheme } from '../../context/ThemeContext.jsx'
 
 function Navigation({ onLogout }) {
@@ -54,6 +54,15 @@ function Navigation({ onLogout }) {
             >
               <Shield className="w-4 h-4 mr-2" />
               Validar PDF
+            </button>
+            
+            {/* NUEVOS ENLACES PARA SOLICITUDES DE FIRMA */}
+            <button
+              onClick={() => navigate('/solicitudes-pendientes')}
+              className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <Clock className="w-4 h-4 mr-2" />
+              Solicitudes Pendientes
             </button>
             
             <button
