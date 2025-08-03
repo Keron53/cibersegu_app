@@ -5,6 +5,7 @@ import { documentoService } from '../../services/api'
 import { certificadoService } from '../../services/api'
 import QRCodeGenerator from './QRCodeGenerator'
 import SolicitarFirma from './SolicitarFirma'
+import NoCertificatesModal from './NoCertificatesModal'
 
 // Función utilitaria para generar los datos del QR a partir del certificado y el documento
 function generateQRCodeData(certificateData, documentInfo, userData) {
@@ -48,6 +49,9 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
 
   // Estado para solicitud de firma
   const [showSolicitarFirma, setShowSolicitarFirma] = useState(false)
+  
+  // Estado para el modal de certificados
+  const [showNoCertificatesModal, setShowNoCertificatesModal] = useState(false)
 
   useEffect(() => {
     loadDocument()
@@ -136,7 +140,7 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
 
   const handleStartPositionSelection = () => {
     if (!Array.isArray(certificates) || certificates.length === 0) {
-      alert('No tienes certificados disponibles.\n\nPara firmar documentos necesitas:\n1. Subir un certificado .p12, o\n2. Generar un nuevo certificado\n\nVe a la sección "Mis Certificados" para agregar uno.')
+      setShowNoCertificatesModal(true)
       return
     }
 
@@ -298,7 +302,7 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
     if (!signaturePosition) return
     
     if (!Array.isArray(certificates) || certificates.length === 0) {
-      alert('No tienes certificados disponibles.\n\nPara firmar documentos necesitas:\n1. Subir un certificado .p12, o\n2. Generar un nuevo certificado\n\nVe a la sección "Mis Certificados" para agregar uno.')
+      setShowNoCertificatesModal(true)
       return
     }
     
@@ -836,6 +840,12 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
               </motion.div>
             </motion.div>
           )}
+
+          {/* Modal de certificados no disponibles */}
+          <NoCertificatesModal 
+            isOpen={showNoCertificatesModal}
+            onClose={() => setShowNoCertificatesModal(false)}
+          />
         </motion.div>
       </motion.div>
     </AnimatePresence>

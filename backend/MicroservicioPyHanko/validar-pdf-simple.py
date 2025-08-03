@@ -46,7 +46,7 @@ def validate_pdf_signatures(pdf_path):
             b'Firmado por CiberSegur',
             b'pyHanko',
             b'Digital Sign System',
-            b'Firmado electrónicamente por Digital Sign',
+            b'Firmado electronicamente por Digital Sign',
             # AGREGAR MÁS INDICADORES ESPECÍFICOS DE TU SISTEMA AQUÍ
             # Por ejemplo: b'TuEmpresa', b'TuSistema', etc.
         ]
