@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Upload, Plus, X, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const NoCertificatesModal = ({ isOpen, onClose }) => {
+const NoCertificatesModal = ({ isOpen, onClose, onRequestSignature }) => {
   const navigate = useNavigate();
 
   const handleUploadCertificate = () => {
@@ -18,8 +18,10 @@ const NoCertificatesModal = ({ isOpen, onClose }) => {
 
   const handleRequestSignature = () => {
     onClose();
-    // Aquí podrías navegar a la sección de solicitar firma o cerrar el modal
-    // y permitir que el usuario use la funcionalidad de solicitar firma
+    // Llamar a la función específica para solicitar firma
+    if (onRequestSignature) {
+      onRequestSignature();
+    }
   };
 
   return (

@@ -52,6 +52,9 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
   
   // Estado para el modal de certificados
   const [showNoCertificatesModal, setShowNoCertificatesModal] = useState(false)
+  
+  // Estado para permitir selección de posición sin certificados (para solicitar firma)
+  const [allowPositionSelectionWithoutCertificates, setAllowPositionSelectionWithoutCertificates] = useState(false)
 
   useEffect(() => {
     loadDocument()
@@ -140,6 +143,14 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
 
   const handleStartPositionSelection = () => {
     if (!Array.isArray(certificates) || certificates.length === 0) {
+      if (allowPositionSelectionWithoutCertificates) {
+        // Si el usuario eligió solicitar firma, permitir selección de posición
+        setIsSelectingPosition(true)
+        setSignaturePosition(null)
+        setPreviewPosition(null)
+        console.log('🎯 Modo de selección de posición activado (sin certificados)')
+        return
+      }
       setShowNoCertificatesModal(true)
       return
     }
@@ -302,6 +313,11 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
     if (!signaturePosition) return
     
     if (!Array.isArray(certificates) || certificates.length === 0) {
+      if (allowPositionSelectionWithoutCertificates) {
+        // Si el usuario eligió solicitar firma, mostrar modal de solicitud
+        setShowSolicitarFirma(true)
+        return
+      }
       setShowNoCertificatesModal(true)
       return
     }
@@ -496,14 +512,15 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
                 </div>
               )}
 
-              {isSelectingPosition && (
-                <div className="flex items-center px-3 py-1 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                  <MousePointer className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-1" />
-                  <span className="text-sm text-blue-600 dark:text-blue-400">
-                    Haz clic para posicionar en página {currentPage}
-                  </span>
-                </div>
-              )}
+                             {isSelectingPosition && (
+                 <div className="flex items-center px-3 py-1 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                   <MousePointer className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-1" />
+                   <span className="text-sm text-blue-600 dark:text-blue-400">
+                     Haz clic para posicionar en página {currentPage}
+                     {allowPositionSelectionWithoutCertificates && ' (Solicitar firma)'}
+                   </span>
+                 </div>
+               )}
               
               <button
                 onClick={onClose}
@@ -528,13 +545,13 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
 
               {signaturePosition && (
                 <>
-                  <button
-                    onClick={confirmPosition}
-                    className="flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
-                  >
-                    <Check className="w-4 h-4 mr-2" />
-                    Confirmar Posición
-                  </button>
+                                     <button
+                     onClick={confirmPosition}
+                     className="flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
+                   >
+                     <Check className="w-4 h-4 mr-2" />
+                     {allowPositionSelectionWithoutCertificates ? 'Solicitar Firma' : 'Confirmar Posición'}
+                   </button>
 
                   <button
                     onClick={handleReposition}
@@ -844,7 +861,19 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
           {/* Modal de certificados no disponibles */}
           <NoCertificatesModal 
             isOpen={showNoCertificatesModal}
-            onClose={() => setShowNoCertificatesModal(false)}
+            onClose={() => {
+              setShowNoCertificatesModal(false)
+              // Resetear el estado cuando se cierra el modal
+              setAllowPositionSelectionWithoutCertificates(false)
+            }}
+            onRequestSignature={() => {
+              setShowNoCertificatesModal(false)
+              setAllowPositionSelectionWithoutCertificates(true)
+              // Activar selección de posición inmediatamente
+              setIsSelectingPosition(true)
+              setSignaturePosition(null)
+              setPreviewPosition(null)
+            }}
           />
         </motion.div>
       </motion.div>
