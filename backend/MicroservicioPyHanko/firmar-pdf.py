@@ -115,14 +115,34 @@ def firmar_pdf(cert_path, cert_password, pdf_input, pdf_output,
             # Metadata de la firma
             meta = PdfSignatureMetadata(field_name=field_name)
 
+            # DETECTAR SI ES UNA SOLICITUD DE FIRMA (segunda firma o más)
+            # Si el nombre del campo es Sig2, Sig3, etc., es una solicitud de firma
+            is_solicitud_firma = field_name != "Sig1"
+            print(f">> Es solicitud de firma: {is_solicitud_firma}")
+
+            if is_solicitud_firma:
+                # COORDENADAS PARA SOLICITUD DE FIRMA (lado derecho)
+                fixed_x1 = 380.0  # Más a la derecha
+                fixed_y1 = 112.0  # Misma altura
+                fixed_x2 = 510.0  # 300 + 110 (tamaño del sello)
+                fixed_y2 = 200.0  # 112 + 88
+                print(f">> Usando coordenadas para solicitud de firma: ({fixed_x1}, {fixed_y1}, {fixed_x2}, {fixed_y2})")
+            else:
+                # COORDENADAS PARA PRIMERA FIRMA (lado izquierdo)
+                fixed_x1 = 100.0
+                fixed_y1 = 112.0
+                fixed_x2 = 210.0  # 100 + 110 (tamaño del sello)
+                fixed_y2 = 200.0  # 112 + 88
+                print(f">> Usando coordenadas para primera firma: ({fixed_x1}, {fixed_y1}, {fixed_x2}, {fixed_y2})")
+            
             pdf_signer = PdfSigner(
                 signature_meta=meta,
                 signer=signer,
                 stamp_style=style,
                 new_field_spec=SigFieldSpec(
                     sig_field_name=field_name,
-                    on_page=int(page) - 1,  # Convertir de 1-indexed a 0-indexed
-                    box=(float(x1), float(y1), float(x2), float(y2))
+                    on_page=0,  # Siempre página 1 (0-indexed)
+                    box=(fixed_x1, fixed_y1, fixed_x2, fixed_y2)
                 )
             )
 

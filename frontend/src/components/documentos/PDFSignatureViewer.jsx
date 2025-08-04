@@ -377,7 +377,7 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
       return
     }
     if (!signaturePosition) {
-      alert('Selecciona la posición en el PDF')
+      alert('Debes seleccionar una posición en el PDF antes de firmar. Haz clic en "Seleccionar Posición" y luego haz clic en el PDF donde quieres que aparezca la firma.')
       return
     }
     
@@ -407,6 +407,19 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
       const canvasRect = containerRef.current?.getBoundingClientRect();
       const canvasWidth = canvasRect?.width || 1;
       const canvasHeight = canvasRect?.height || 1;
+      
+      console.log('🎯 Enviando coordenadas al backend:');
+      console.log('  - signaturePosition.x:', signaturePosition.x);
+      console.log('  - signaturePosition.y:', signaturePosition.y);
+      console.log('  - signaturePosition.page:', signaturePosition.page);
+      console.log('  - canvasWidth:', canvasWidth);
+      console.log('  - canvasHeight:', canvasHeight);
+      
+      // Validar que las coordenadas sean números válidos
+      if (isNaN(signaturePosition.x) || isNaN(signaturePosition.y)) {
+        throw new Error('Las coordenadas de posición no son válidas. Por favor selecciona una nueva posición.');
+      }
+      
       const signedPdfBlob = await documentoService.firmarQRNode(
         pdfFile,
         certFile,
@@ -426,8 +439,20 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
       setSignedPdfUrl(signedPdfUrl)
       setMessage('Documento firmado exitosamente')
     } catch (err) {
-      setError('Error al firmar el documento: ' + (err?.response?.data?.error || err.message))
-      console.error(err)
+      console.error('Error al firmar documento:', err);
+      
+      // Manejar errores específicos
+      if (err?.response?.data?.error) {
+        if (err.response.data.error.includes('coordenadas')) {
+          setError('Error de posicionamiento: ' + err.response.data.error + '. Por favor selecciona una nueva posición.');
+        } else {
+          setError('Error al firmar el documento: ' + err.response.data.error);
+        }
+      } else if (err.message) {
+        setError('Error al firmar el documento: ' + err.message);
+      } else {
+        setError('Error desconocido al firmar el documento');
+      }
     } finally {
       setSigning(false)
     }

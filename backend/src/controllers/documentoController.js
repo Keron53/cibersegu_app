@@ -77,13 +77,8 @@ const documentoController = {
         console.error('No se pudo extraer nombre/organización del certificado:', e);
       }
 
-      // Leer coordenadas y página del body
-      const x = req.body.x ? parseFloat(req.body.x) : 40;
-      const y = req.body.y ? parseFloat(req.body.y) : 40;
-      const page = req.body.page ? parseInt(req.body.page) : 1;
-      const canvasWidth = req.body.canvasWidth ? parseFloat(req.body.canvasWidth) : 1;
-      const canvasHeight = req.body.canvasHeight ? parseFloat(req.body.canvasHeight) : 1;
-      const qrSize = req.body.qrSize ? parseFloat(req.body.qrSize) : 100;
+      // COORDENADAS TOTALMENTE FIJAS - Hardcodeadas en el script Python
+      console.log('📊 Posición fija hardcodeada en Python: (40, 96.7) - 2 cm más arriba');
 
       // Crear archivos temporales para pyHanko
       const tempPdfInput = tmp.tmpNameSync({ postfix: '.pdf' });
@@ -111,26 +106,8 @@ const documentoController = {
         throw new Error('Certificado CA no encontrado');
       }
 
-      // Calcular coordenadas PDF (convertir de canvas a PDF)
-      const pdfDoc = await PDFDocument.load(fs.readFileSync(tempPdfInput));
-      const pages = pdfDoc.getPages();
-      const targetPage = pages[(page - 1) >= 0 ? (page - 1) : 0];
-      const { width: pageWidth, height: pageHeight } = targetPage.getSize();
-
-      // Conversión de coordenadas del canvas (frontend) a PDF (backend)
-      const realX = (x / canvasWidth) * pageWidth;
-      const realY = ((canvasHeight - y) / canvasHeight) * pageHeight;
-
-      // Clamp para que el QR nunca se salga del margen
-      const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
-      const clampedX = clamp(realX, 0, pageWidth - qrSize);
-      const clampedY = clamp(realY, 0, pageHeight - qrSize);
-
-      // Calcular coordenadas del rectángulo para pyHanko (x1, y1, x2, y2)
-      const x1 = clampedX;
-      const y1 = clampedY;
-      const x2 = clampedX + qrSize;
-      const y2 = clampedY + qrSize;
+      // COORDENADAS TOTALMENTE FIJAS - El script Python las ignora y usa coordenadas hardcodeadas
+      console.log('📊 Coordenadas fijas hardcodeadas en Python: (40, 96.7, 140, 196.7)');
 
       // Ruta al script de Python
       const pythonScriptPath = path.join(__dirname, '../../MicroservicioPyHanko/firmar-pdf.py');
@@ -155,8 +132,8 @@ const documentoController = {
         throw new Error(`Certificado no compatible con pyHanko: ${testError.message}`);
       }
 
-      // Ejecutar el script de Python con pyHanko
-      const command = `python "${pythonScriptPath}" "${tempCert}" "${passphrase}" "${tempPdfInput}" "${tempPdfOutput}" "${page}" "${x1}" "${y1}" "${x2}" "${y2}" "${tempCaCert}"`;
+      // Ejecutar el script de Python con pyHanko (coordenadas fijas hardcodeadas en Python)
+      const command = `python "${pythonScriptPath}" "${tempCert}" "${passphrase}" "${tempPdfInput}" "${tempPdfOutput}" "1" "0" "0" "0" "0" "${tempCaCert}"`;
       
       console.log('Ejecutando comando pyHanko:', command);
       
@@ -294,8 +271,10 @@ const documentoController = {
         throw new Error(`Script de Python no encontrado: ${pythonScriptPath}`);
       }
       
-      // Usar coordenadas más apropiadas para el sello de firma
-      const command = `python "${pythonScriptPath}" "${tempCert}" "${password}" "${tempPdfInput}" "${tempPdfOutput}" "1" "50" "50" "250" "150" "${tempCaCert}"`;
+             // COORDENADAS TOTALMENTE FIJAS - El script Python las ignora y usa coordenadas hardcodeadas
+       console.log('📊 Coordenadas fijas hardcodeadas en Python: (40, 96.7, 140, 196.7)');
+       
+       const command = `python "${pythonScriptPath}" "${tempCert}" "${password}" "${tempPdfInput}" "${tempPdfOutput}" "1" "0" "0" "0" "0" "${tempCaCert}"`;
       
       console.log('📋 Comando ejecutado:', command);
       
@@ -355,9 +334,9 @@ const documentoController = {
             email: req.usuario.email,
             fechaFirma: new Date(),
             posicion: {
-              x: x || 50,
-              y: y || 50,
-              page: page || 1
+              x: 40,
+              y: 96.7,
+              page: 1
             }
           }
         }

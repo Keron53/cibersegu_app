@@ -12,10 +12,10 @@ fields:
   signatures:
     - name: "Firma_Responsable"
       page: 1
-      box: [100, 500, 250, 550]  # [x1, y1, x2, y2]
+      box: [40, 96.7, 140, 196.7]  # [x1, y1, x2, y2] - 2 cm más arriba que la posición anterior
     - name: "Firma_Aprobador"
       page: 2
-      box: [300, 400, 450, 450]
+      box: [40, 96.7, 140, 196.7]  # [x1, y1, x2, y2] - 2 cm más arriba que la posición anterior
 
 stamp-styles:
     default:
