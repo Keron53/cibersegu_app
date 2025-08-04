@@ -6,6 +6,7 @@ import { authService } from '../../services/api'
 import LoadingSpinner from './LoadingSpinner'
 import PasswordPolicy from './PasswordPolicy'
 import ForgotPasswordModal from './ForgotPasswordModal'
+import PasswordErrorModal from './PasswordErrorModal'
 
 function LoginForm() {
   const [formData, setFormData] = useState({
@@ -17,6 +18,8 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false)
+  const [showPasswordErrorModal, setShowPasswordErrorModal] = useState(false)
+  const [passwordErrorMessage, setPasswordErrorMessage] = useState('')
   
   const navigate = useNavigate()
   
@@ -92,10 +95,29 @@ function LoginForm() {
       // Manejar errores específicos del backend
       const backendMsg = error.response?.data?.mensaje || error.response?.data?.error || error.message || 'Error al iniciar sesión. Por favor, intenta de nuevo.'
       
-      setErrors({
-        form: backendMsg,
-        type: 'error'
-      })
+      // Detectar si es un error de credenciales incorrectas
+      const isPasswordError = 
+        backendMsg.toLowerCase().includes('credenciales') ||
+        backendMsg.toLowerCase().includes('incorrectas') ||
+        backendMsg.toLowerCase().includes('password') ||
+        backendMsg.toLowerCase().includes('contraseña') ||
+        backendMsg.toLowerCase().includes('usuario') ||
+        backendMsg.toLowerCase().includes('no encontrado') ||
+        error.response?.status === 401 ||
+        error.response?.status === 400
+      
+      if (isPasswordError) {
+        // Mostrar modal específico para errores de contraseña
+        setPasswordErrorMessage(backendMsg)
+        setShowPasswordErrorModal(true)
+        setErrors({}) // Limpiar errores del formulario
+      } else {
+        // Mostrar error normal en el formulario
+        setErrors({
+          form: backendMsg,
+          type: 'error'
+        })
+      }
     } finally {
       setIsLoading(false)
     }
@@ -192,6 +214,13 @@ function LoginForm() {
       <ForgotPasswordModal
         isOpen={showForgotPasswordModal}
         onClose={() => setShowForgotPasswordModal(false)}
+      />
+
+      {/* Modal de Error de Contraseña */}
+      <PasswordErrorModal
+        isOpen={showPasswordErrorModal}
+        onClose={() => setShowPasswordErrorModal(false)}
+        errorMessage={passwordErrorMessage}
       />
     </>
   )
