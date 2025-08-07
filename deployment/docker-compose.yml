@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # Base de datos MongoDB
+  mongodb:
+    image: mongo:6.0
+    container_name: cibersegu_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin
+      MONGO_INITDB_DATABASE: digital_sign
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d
+    ports:
+      - "27017:27017"
+    networks:
+      - cibersegu_network
+
+  # Backend Node.js
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: cibersegu_backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://admin:tu_password_seguro_aqui@mongodb:27017/digital_sign?authSource=admin
+      - JWT_SECRET=authSecret
+      - EMAIL_USER=tu-email@gmail.com
+      - EMAIL_PASS=tu-contraseña-de-aplicación
+      - FRONTEND_URL=https://tu-dominio.com
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_certs:/app/CrearCACentral
+    depends_on:
+      - mongodb
+    networks:
+      - cibersegu_network
+    expose:
+      - "3001"
+
+  # Frontend React
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: cibersegu_frontend
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=https://tu-dominio.com/api
+    volumes:
+      - frontend_dist:/app/dist
+    networks:
+      - cibersegu_network
+    expose:
+      - "80"
+
+  # Nginx Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: cibersegu_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/ssl:ro
+      - frontend_dist:/var/www/frontend/dist:ro
+      - backend_uploads:/var/www/backend/uploads:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - cibersegu_network
+
+  # Fail2ban para protección adicional
+  fail2ban:
+    image: crazymax/fail2ban:latest
+    container_name: cibersegu_fail2ban
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./fail2ban:/data
+      - nginx_logs:/var/log/nginx:ro
+    environment:
+      - TZ=UTC
+    networks:
+      - cibersegu_network
+
+volumes:
+  mongodb_data:
+  backend_uploads:
+  backend_certs:
+  frontend_dist:
+  nginx_logs:
+
+networks:
+  cibersegu_network:
+    driver: bridge 

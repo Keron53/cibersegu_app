@@ -34,6 +34,7 @@ El siguiente diagrama muestra el flujo completo de la aplicación, incluyendo la
 - **Recuperación de contraseña**: Enlace seguro por email con expiración de 1 hora
 - **Cambio de contraseña**: Desde el perfil del usuario con validación de contraseña actual
 - **Sesiones seguras**: JWT con invalidación de tokens al cerrar sesión
+- **Modal de error de contraseña**: Interfaz específica para credenciales incorrectas con consejos útiles
 
 ### 📧 Sistema de Email Integrado
 - **Verificación de registro**: Email automático con código de confirmación
@@ -74,6 +75,7 @@ El siguiente diagrama muestra el flujo completo de la aplicación, incluyendo la
 - **Historial de firmas**: Lista completa de quién firmó y cuándo
 - **Documentos compartidos**: Los firmantes pueden ver documentos después de firmar
 - **Contador de firmas**: Muestra el número total de firmas en el documento
+- **Posicionamiento automático**: Las firmas se posicionan automáticamente para evitar superposición
 
 ### 🛡️ Seguridad y Privacidad
 - **Filtrado por usuario**: Cada usuario solo ve sus propios documentos
@@ -90,6 +92,195 @@ El siguiente diagrama muestra el flujo completo de la aplicación, incluyendo la
 - **Python** 3.8+ y pip
 - **MongoDB** (local o Atlas)
 
+## ☁️ Despliegue en Azure VM
+
+### Prerrequisitos para Azure
+
+- **VM de Azure** con Ubuntu 20.04 LTS o superior
+- **Dominio** (opcional, para SSL automático)
+- **Puertos abiertos**: 22 (SSH), 80 (HTTP), 443 (HTTPS)
+
+### Opción 1: Despliegue Automatizado (Recomendado)
+
+#### **1. Crear VM en Azure**
+```bash
+# Especificaciones recomendadas:
+# - Sistema: Ubuntu 20.04 LTS
+# - Tamaño: Standard_B2s (2 vCPU, 4 GB RAM)
+# - Disco: 30 GB mínimo
+# - Puertos: 22, 80, 443
+```
+
+#### **2. Conectar y subir proyecto**
+```bash
+# Conectar a la VM
+ssh tu-usuario@tu-ip-azure
+
+# Subir proyecto desde tu máquina local
+scp -r ./cibersegu_app tu-usuario@tu-ip-azure:/tmp/
+```
+
+#### **3. Configurar variables**
+```bash
+# Editar variables en deployment/scripts/deploy.sh
+DOMAIN="tu-dominio.com"                    # Tu dominio real
+EMAIL="tu-email@gmail.com"                  # Email para notificaciones
+MONGODB_PASSWORD="password_muy_seguro_123" # Contraseña MongoDB
+JWT_SECRET="jwt_secret_super_seguro_2024"  # Clave JWT
+EMAIL_PASSWORD="tu-contraseña-de-aplicación" # Contraseña Gmail
+```
+
+#### **4. Ejecutar despliegue**
+```bash
+# Dar permisos y ejecutar
+chmod +x deployment/scripts/deploy.sh
+sudo ./deployment/scripts/deploy.sh
+```
+
+#### **5. Configurar SSL (si tienes dominio)**
+```bash
+# Después de configurar DNS
+sudo ./deployment/scripts/install-letsencrypt.sh tu-dominio.com tu-email@gmail.com
+```
+
+### Opción 2: Despliegue Sin Dominio
+
+Para pruebas o desarrollo sin dominio:
+
+```bash
+# Usar script simplificado
+chmod +x deployment/scripts/deploy-simple.sh
+sudo ./deployment/scripts/deploy-simple.sh
+```
+
+**Resultado**: Aplicación disponible en `http://tu-ip-azure`
+
+### Configuración de DNS (Hostinger, GoDaddy, etc.)
+
+#### **Para Hostinger:**
+1. Panel Hostinger → Dominios → Tu dominio
+2. DNS → Agregar registro A
+3. Configurar:
+   ```
+   Tipo: A
+   Nombre: @ (o deja vacío)
+   Valor: TU_IP_DE_AZURE
+   TTL: 300
+   ```
+
+#### **Para otros proveedores:**
+- **GoDaddy**: Panel → DNS → Agregar registro A
+- **Namecheap**: Panel → DNS → Agregar registro A
+- **Cloudflare**: DNS → Agregar registro A
+
+### Software Instalado Automáticamente
+
+El script de despliegue instala:
+
+- ✅ **Docker** y **Docker Compose**
+- ✅ **Nginx** con proxy reverso
+- ✅ **MongoDB** en contenedor
+- ✅ **Node.js** y **Python pyHanko** en contenedores
+- ✅ **Fail2ban** para protección contra ataques
+- ✅ **Firewall (UFW)** configurado
+- ✅ **Certbot** para SSL automático
+- ✅ **Backup automático** diario
+
+### Protecciones Implementadas
+
+#### **Rate Limiting:**
+- **API general**: 10 requests/segundo
+- **Login/Registro**: 5 requests/minuto
+- **Uploads**: 2 requests/segundo
+
+#### **Fail2ban Protection:**
+- **HTTP Auth**: Bloquea intentos de login fallidos
+- **Rate Limiting**: Bloquea IPs que exceden límites
+- **Bad Bots**: Bloquea bots maliciosos
+- **No Script**: Bloquea ataques de inyección
+
+#### **Headers de Seguridad:**
+- `X-Frame-Options`: Previene clickjacking
+- `X-XSS-Protection`: Protección XSS
+- `X-Content-Type-Options`: Previene MIME sniffing
+- `Strict-Transport-Security`: Fuerza HTTPS
+- `Content-Security-Policy`: Política de contenido seguro
+
+### Comandos de Administración
+
+```bash
+# Ver estado de servicios
+cd /var/www/cibersegu/deployment
+docker-compose ps
+
+# Ver logs en tiempo real
+docker-compose logs -f
+
+# Reiniciar servicios
+docker-compose restart
+
+# Actualizar aplicación
+git pull && docker-compose up -d --build
+
+# Backup manual
+/usr/local/bin/cibersegu-backup.sh
+
+# Verificar SSL
+sudo certbot renew --dry-run
+```
+
+### Monitoreo y Logs
+
+```bash
+# Health check
+curl https://tu-dominio.com/health
+
+# Ver logs de Nginx
+tail -f /var/log/nginx/access.log
+tail -f /var/log/nginx/error.log
+
+# Ver logs de Docker
+docker-compose logs -f backend
+docker-compose logs -f nginx
+
+# Ver IPs baneadas por Fail2ban
+sudo fail2ban-client status nginx-http-auth
+```
+
+### Troubleshooting
+
+#### **Problemas Comunes:**
+
+**Servicios no inician:**
+```bash
+# Verificar logs
+docker-compose logs
+
+# Verificar puertos
+netstat -tlnp
+
+# Reiniciar Docker
+sudo systemctl restart docker
+```
+
+**Error de SSL:**
+```bash
+# Verificar certificados
+openssl x509 -in ssl/tu-dominio.crt -text -noout
+
+# Regenerar certificados
+sudo ./deployment/scripts/install-letsencrypt.sh tu-dominio.com tu-email@gmail.com
+```
+
+**DNS no funciona:**
+```bash
+# Verificar resolución
+nslookup tu-dominio.com
+dig tu-dominio.com
+
+# Esperar propagación (hasta 24 horas)
+```
+
 ### Instalación del Backend
 
 ```bash
@@ -99,23 +290,81 @@ npm install
 
 ### Instalación de pyHanko (Python)
 
-**Linux/Mac:**
+#### **Linux/Mac:**
 ```bash
 cd backend/MicroservicioPyHanko
 chmod +x install.sh
 ./install.sh
 ```
 
-**Windows:**
+#### **Windows:**
 ```cmd
 cd backend\MicroservicioPyHanko
 install.bat
 ```
 
-**Manual:**
+#### **Manual:**
 ```bash
 cd backend/MicroservicioPyHanko
 pip install -r requirements.txt
+```
+
+#### **Solución para errores de entorno virtual:**
+
+Si encuentras el error: *"Tu sistema no tiene instalado el paquete necesario para crear entornos virtuales"*
+
+**Ubuntu/Debian:**
+```bash
+# Instalar paquete para entornos virtuales
+sudo apt update && sudo apt install python3.12-venv
+
+# Crear entorno virtual
+python3 -m venv env
+
+# Activar entorno virtual
+source env/bin/activate
+
+# Instalar pyHanko
+pip install pyhanko
+```
+
+**CentOS/RHEL:**
+```bash
+# Instalar paquete para entornos virtuales
+sudo yum install python3-venv
+
+# Crear entorno virtual
+python3 -m venv env
+
+# Activar entorno virtual
+source env/bin/activate
+
+# Instalar pyHanko
+pip install pyhanko
+```
+
+**macOS:**
+```bash
+# Instalar con Homebrew
+brew install python3
+
+# Crear entorno virtual
+python3 -m venv env
+
+# Activar entorno virtual
+source env/bin/activate
+
+# Instalar pyHanko
+pip install pyhanko
+```
+
+#### **Verificación de instalación:**
+```bash
+# Verificar que pyHanko esté instalado
+python3 -c "import pyhanko; print('pyHanko instalado correctamente')"
+
+# Verificar versión
+python3 -c "import pyhanko; print(pyhanko.__version__)"
 ```
 
 **Nota importante:** Los certificados generados con el sistema anterior pueden no ser compatibles con pyHanko debido a caracteres especiales. Para obtener firmas válidas, usa el nuevo endpoint `/api/certificados/generate-pyhanko` que genera certificados compatibles.
@@ -208,8 +457,22 @@ El sistema ahora utiliza **pyHanko** (Python) para crear firmas digitales válid
 3. **Firma con pyHanko**: Se ejecuta el microservicio Python que:
    - Crea una firma digital criptográficamente válida
    - Integra un QR code con los datos del firmante
-   - Posiciona el sello visual en las coordenadas exactas
+   - Posiciona el sello visual en coordenadas fijas optimizadas
 4. **Descarga**: El PDF firmado se descarga automáticamente
+
+### 🎯 Sistema de Posicionamiento de Firmas
+
+#### **Coordenadas Fijas Optimizadas:**
+- **Primera firma**: Posición izquierda `(100, 112, 210, 200)`
+- **Solicitudes de firma**: Posición derecha `(380, 112, 510, 200)`
+- **Detección automática**: El sistema detecta si es primera firma o solicitud
+- **Evita superposición**: Las firmas múltiples se posicionan automáticamente
+
+#### **Lógica de Posicionamiento:**
+- **Sig1 (Primera firma)**: Lado izquierdo del documento
+- **Sig2, Sig3, etc. (Solicitudes)**: Lado derecho del documento
+- **Coordenadas hardcodeadas**: Posiciones fijas para consistencia
+- **Tamaño estándar**: 110x88 puntos (aproximadamente 3.9x3.1 cm)
 
 ### 🔄 Flujo de Solicitudes de Firma (NUEVO)
 
@@ -304,9 +567,10 @@ El sistema ahora utiliza **pyHanko** (Python) para crear firmas digitales válid
 
 - ✅ **Firma Válida**: Adobe y otros lectores reconocen la firma como válida
 - ✅ **QR Integrado**: El QR es parte del sello oficial de la firma
-- ✅ **Posicionamiento Preciso**: El usuario elige exactamente dónde aparece
+- ✅ **Posicionamiento Automático**: Las firmas se posicionan automáticamente para evitar superposición
 - ✅ **Datos del Certificado**: Nombre y organización se extraen automáticamente
-- ✅ **Tamaño Configurable**: El usuario puede ajustar el tamaño del QR
+- ✅ **Coordenadas Fijas**: Posiciones optimizadas para consistencia visual
+- ✅ **Detección Inteligente**: El sistema detecta si es primera firma o solicitud
 
 ### Estructura del Sello Visual
 
@@ -386,7 +650,7 @@ El sistema limpia automáticamente los datos para compatibilidad:
 ### Archivos del Sistema
 
 **Backend:**
-- `backend/src/controllers/documentoController.js`: Controlador principal de documentos
+- `backend/src/controllers/documentoController.js`: Controlador principal de documentos con coordenadas fijas
 - `backend/src/controllers/usuarioController.js`: Controlador de usuarios y autenticación
 - `backend/src/controllers/validacionController.js`: Controlador de validación de PDFs
 - `backend/src/controllers/solicitudFirmaController.js`: Controlador de solicitudes de firma (NUEVO)
@@ -396,12 +660,13 @@ El sistema limpia automáticamente los datos para compatibilidad:
 - `backend/src/middleware/auth.js`: Middleware de autenticación JWT
 - `backend/src/config/email.js`: Configuración de email
 - `backend/src/utils/pdfValidator.js`: Utilidad para validar PDFs firmados
-- `backend/MicroservicioPyHanko/firmar-pdf.py`: Script de Python para pyHanko
+- `backend/MicroservicioPyHanko/firmar-pdf.py`: Script de Python para pyHanko con posicionamiento automático
 - `backend/MicroservicioPyHanko/requirements.txt`: Dependencias Python
 - `backend/CrearCACentral/ca.crt`: Certificado CA del sistema (no se sube al repo)
 
 **Frontend:**
-- `frontend/src/components/auth/LoginForm.jsx`: Formulario de login con recuperación
+- `frontend/src/components/auth/LoginForm.jsx`: Formulario de login con modal de error de contraseña
+- `frontend/src/components/auth/PasswordErrorModal.jsx`: Modal específico para errores de credenciales
 - `frontend/src/components/auth/RegisterForm.jsx`: Registro con verificación de email
 - `frontend/src/components/auth/ForgotPasswordModal.jsx`: Modal de recuperación
 - `frontend/src/components/auth/RecuperarContrasenaPage.jsx`: Página de restablecimiento
@@ -488,13 +753,14 @@ El sistema limpia automáticamente los datos para compatibilidad:
 ### Notas Técnicas
 
 - El certificado CA del sistema se copia temporalmente para cada firma
-- Las coordenadas se convierten de canvas (frontend) a PDF (backend)
-- El sistema mantiene compatibilidad con la interfaz existente
+- Las coordenadas están hardcodeadas en el script Python para consistencia
+- El sistema detecta automáticamente si es primera firma o solicitud de firma
 - Los archivos temporales se limpian automáticamente después de cada firma
 - Los tokens de recuperación se invalidan automáticamente después de su uso
 - Las contraseñas se encriptan con bcrypt antes de almacenarse
 - Los emails de verificación expiran después de 15 minutos
 - El sistema soporta modo oscuro y claro en toda la interfaz
+- El modal de error de contraseña detecta automáticamente errores de credenciales
 
 ## 🔧 API Endpoints
 
@@ -578,6 +844,18 @@ Si el firmante no recibe el email:
 1. Verificar configuración de email en `.env`
 2. Verificar que el firmante tenga email verificado
 3. Revisar logs del servidor para errores de email
+
+**Modal de Error de Contraseña No Aparece:**
+Si el modal de error de contraseña no se muestra:
+1. Verificar que el backend esté enviando el mensaje "Credenciales inválidas"
+2. Verificar que el frontend esté detectando correctamente los errores de credenciales
+3. Revisar la consola del navegador para errores JavaScript
+
+**Firmas Se Superponen:**
+Si las firmas aparecen una encima de otra:
+1. Verificar que el script Python esté usando las coordenadas fijas correctas
+2. Verificar que la detección de primera firma vs solicitud funcione correctamente
+3. Revisar los logs del backend para ver qué coordenadas se están usando
 
 ### Scripts de Diagnóstico
 

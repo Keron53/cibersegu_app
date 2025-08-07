@@ -1,0 +1,47 @@
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 5
+banaction = iptables-allports
+
+[nginx-http-auth]
+enabled = true
+filter = nginx-http-auth
+logpath = /var/log/nginx/error.log
+maxretry = 3
+
+[nginx-limit-req]
+enabled = true
+filter = nginx-limit-req
+logpath = /var/log/nginx/error.log
+maxretry = 3
+
+[nginx-botsearch]
+enabled = true
+filter = nginx-botsearch
+logpath = /var/log/nginx/access.log
+maxretry = 2
+
+[nginx-badbots]
+enabled = true
+filter = nginx-badbots
+logpath = /var/log/nginx/access.log
+maxretry = 2
+
+[nginx-noscript]
+enabled = true
+filter = nginx-noscript
+logpath = /var/log/nginx/access.log
+maxretry = 2
+
+[nginx-proxy]
+enabled = true
+filter = nginx-proxy
+logpath = /var/log/nginx/access.log
+maxretry = 3
+
+[nginx-req-limit]
+enabled = true
+filter = nginx-req-limit
+logpath = /var/log/nginx/error.log
+maxretry = 3 
