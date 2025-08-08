@@ -49,12 +49,15 @@ const PDFValidationPage = () => {
         const formData = new FormData();
         formData.append('pdf', selectedFile);
 
-        response = await fetch('http://localhost:3001/api/validacion/validar-pdf', {
+        response = await fetch('/api/validacion/validar-pdf', {
           method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
           body: formData
         });
       } else {
-        response = await fetch('http://localhost:3001/api/validacion/validar-pdf-url', {
+        response = await fetch('/api/validacion/validar-pdf-url', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

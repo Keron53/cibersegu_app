@@ -33,30 +33,25 @@ function CertificateList() {
       setLoading(true)
       setError('')
       
-      const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:3001/api/certificados', {
+      const response = await fetch('/api/certificados', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
-      })
+      });
 
-      const result = await response.json()
-
-      if (response.ok) {
-        // El nuevo backend devuelve directamente el array de certificados
-        setCertificates(Array.isArray(result) ? result : [])
-      } else {
-        setError(result.error || 'Error al cargar certificados')
-        setCertificates([]) // Asegurar que siempre sea un array
+      if (!response.ok) {
+        throw new Error('Error al cargar certificados');
       }
-    } catch (err) {
-      setError('Error al conectar con el servidor')
-      console.error(err)
-      setCertificates([]) // Asegurar que siempre sea un array
+
+      const data = await response.json();
+      setCertificates(data);
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Error al cargar certificados');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleDownload = (certificate) => {
     setSelectedCertificate(certificate)
@@ -74,7 +69,7 @@ function CertificateList() {
       setError('')
 
       const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:3001/api/certificados/download/${selectedCertificate._id}`, {
+      const response = await fetch(`/api/certificados/download/${selectedCertificate._id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -124,7 +119,7 @@ function CertificateList() {
       setError('')
 
       const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:3001/api/certificados/${certificateToDelete._id}`, {
+      const response = await fetch(`/api/certificados/${certificateToDelete._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

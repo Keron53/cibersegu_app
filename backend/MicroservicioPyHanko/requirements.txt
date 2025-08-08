@@ -1,3 +1,5 @@
 pyhanko>=0.29.1
 cryptography>=3.4.8
-reportlab>=4.0.0 
+reportlab>=4.0.0
+qrcode>=7.3
+Pillow>=8.0.0 

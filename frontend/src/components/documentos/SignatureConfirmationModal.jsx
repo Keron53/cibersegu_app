@@ -70,7 +70,7 @@ function SignatureConfirmationModal({ signatureInfo, onClose, onConfirm }) {
       }
 
       // Validar la contraseña llamando al backend
-      const response = await fetch(`http://localhost:3001/api/certificados/${certificateId}/validate-password`, {
+      const response = await fetch(`/api/certificados/${certificateId}/validate-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -57,7 +57,7 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
     setUsernameStatus('checking');
     
     try {
-      const response = await fetch('http://localhost:3001/api/usuarios/check-username', {
+      const response = await fetch('/api/usuarios/check-username', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -149,7 +149,7 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
       console.log('📝 Enviando registro de usuario...');
       console.log('📝 Datos del formulario:', formData);
       
-      const response = await fetch('http://localhost:3001/api/usuarios/registro-whatsapp', {
+      const response = await fetch('/api/usuarios/registro-whatsapp', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -199,7 +199,7 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
       console.log('🔍 Enviando verificación de WhatsApp...');
       console.log('📱 Datos enviados:', verificationData);
       
-      const response = await fetch('http://localhost:3001/api/usuarios/verificar-whatsapp', {
+      const response = await fetch('/api/usuarios/verificar-whatsapp', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -233,7 +233,7 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3001/api/usuarios/reenviar-codigo-whatsapp', {
+      const response = await fetch('/api/usuarios/reenviar-codigo-whatsapp', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

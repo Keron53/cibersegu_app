@@ -78,7 +78,7 @@ const ChangePasswordModal = ({ isOpen, onClose, onSuccess }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/api/usuarios/cambiar-contrasena', {
+      const response = await fetch('/api/usuarios/cambiar-contrasena', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -65,7 +65,7 @@ const RecuperarContrasenaPage = () => {
     setSuccess('');
 
     try {
-      const response = await fetch('http://localhost:3001/api/usuarios/restablecer-contrasena', {
+      const response = await fetch('/api/usuarios/restablecer-contrasena', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

@@ -7,7 +7,7 @@ import CertificateList from '../certificados/CertificateList';
 import Navigation from '../layout/Navigation';
 
 // Configurar axios para incluir el token automáticamente
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = '/api';
 
 function FirmarPorSolicitud() {
   const { solicitudId } = useParams();

@@ -18,8 +18,13 @@ const checkToken = () => {
 axios.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token')
-    if (token) {
+    console.log('🔐 Axios interceptor - Token encontrado:', token ? `${token.substring(0, 10)}...` : 'null');
+    
+    if (token && token !== 'null' && token !== 'undefined') {
       config.headers.Authorization = `Bearer ${token}`
+      console.log('🔐 Axios interceptor - Authorization header configurado');
+    } else {
+      console.warn('⚠️ Axios interceptor - No hay token válido en localStorage');
     }
     return config
   },

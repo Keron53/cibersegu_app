@@ -22,7 +22,7 @@ function PDFViewerEmbedded({ documentId, documentName }) {
       
       // Primero probar si podemos acceder a usuarios (para verificar autenticación)
       try {
-        const response = await fetch('http://localhost:3001/api/usuarios', {
+        const response = await fetch('/api/usuarios', {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }

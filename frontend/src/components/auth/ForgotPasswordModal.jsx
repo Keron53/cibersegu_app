@@ -36,7 +36,7 @@ const ForgotPasswordModal = ({ isOpen, onClose }) => {
     setSuccess('');
 
     try {
-      const response = await fetch('http://localhost:3001/api/usuarios/solicitar-recuperacion', {
+      const response = await fetch('/api/usuarios/solicitar-recuperacion', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -45,56 +45,45 @@ const ForgotPasswordModal = ({ isOpen, onClose }) => {
       });
 
       const data = await response.json();
-
-      if (response.ok) {
-        setSuccess('Si el email está registrado, recibirás un enlace de recuperación');
-        setTimeout(() => {
-          onClose();
-        }, 3000);
+      
+      if (data.success) {
+        setStep('code');
+        setEmail(email);
+        setSuccess('Código de recuperación enviado a tu email');
       } else {
-        setError(data.mensaje || 'Error al procesar la solicitud');
+        setError(data.mensaje || 'Error al enviar código de recuperación');
       }
-    } catch (err) {
-      setError('Error de conexión. Intenta nuevamente.');
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Error al enviar código de recuperación');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResetSubmit = async (e) => {
+  const handleResetPassword = async (e) => {
     e.preventDefault();
     
-    if (!newPassword) {
-      setError('La nueva contraseña es requerida');
+    if (!newPassword || !confirmPassword) {
+      setError('Todos los campos son requeridos');
       return;
     }
-    if (newPassword.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres');
-      return;
-    }
-    if (!/[A-Z]/.test(newPassword)) {
-      setError('La contraseña debe contener al menos una letra mayúscula');
-      return;
-    }
-    if (!/[a-z]/.test(newPassword)) {
-      setError('La contraseña debe contener al menos una letra minúscula');
-      return;
-    }
-    if (!/\d/.test(newPassword)) {
-      setError('La contraseña debe contener al menos un número');
-      return;
-    }
+    
     if (newPassword !== confirmPassword) {
       setError('Las contraseñas no coinciden');
       return;
     }
-
+    
+    if (newPassword.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+    
     setLoading(true);
     setError('');
-    setSuccess('');
-
+    
     try {
-      const response = await fetch('http://localhost:3001/api/usuarios/restablecer-contrasena', {
+      const response = await fetch('/api/usuarios/restablecer-contrasena', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -231,7 +220,7 @@ const ForgotPasswordModal = ({ isOpen, onClose }) => {
               </form>
             ) : (
               // Reset Step
-              <form onSubmit={handleResetSubmit} className="space-y-4">
+              <form onSubmit={handleResetPassword} className="space-y-4">
                 <div className="text-center mb-6">
                   <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mb-4">
                     <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />

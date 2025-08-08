@@ -3,7 +3,7 @@ import axios from 'axios';
 import { User, FileText, Send, AlertCircle, CheckCircle } from 'lucide-react';
 
 // Configurar axios para incluir el token automáticamente
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = '/api';
 
 function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
   const [usuarios, setUsuarios] = useState([]);

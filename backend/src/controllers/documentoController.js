@@ -225,15 +225,36 @@ const documentoController = {
         tamanioDatos: certificado.datosCifrados ? certificado.datosCifrados.length : 0
       });
 
-      const certBuffer = CertificateManager.decryptCertificate(
-        certificado.datosCifrados, 
-        certificado.encryptionSalt, 
-        certificado.encryptionKey, 
-        password
-      );
+      let certBuffer;
+      try {
+        certBuffer = CertificateManager.decryptCertificate(
+          certificado.datosCifrados, 
+          certificado.encryptionSalt, 
+          certificado.encryptionKey, 
+          password
+        );
+        console.log('✅ Certificado descifrado, tamaño:', certBuffer.length);
+        
+        // Verificar que el buffer no esté vacío
+        if (!certBuffer || certBuffer.length === 0) {
+          throw new Error('El certificado descifrado está vacío');
+        }
+        
+        // Verificar que el buffer tenga el formato PKCS#12 correcto
+        if (certBuffer.length < 4) {
+          throw new Error('El certificado descifrado es demasiado pequeño para ser un PKCS#12 válido');
+        }
+        
+        // Verificar que comience con la secuencia PKCS#12 (0x30)
+        if (certBuffer[0] !== 0x30) {
+          console.warn('⚠️ El certificado descifrado no parece tener el formato PKCS#12 correcto');
+        }
+        
+      } catch (decryptError) {
+        console.error('❌ Error descifrando certificado:', decryptError.message);
+        throw new Error(`Error descifrando certificado: ${decryptError.message}`);
+      }
 
-      console.log('✅ Certificado descifrado, tamaño:', certBuffer.length);
-      
       // Crear archivos temporales
       const tempPdfInput = tmp.tmpNameSync({ postfix: '.pdf' });
       const tempPdfOutput = tmp.tmpNameSync({ postfix: '.pdf' });

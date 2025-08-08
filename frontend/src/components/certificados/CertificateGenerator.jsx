@@ -67,7 +67,7 @@ function CertificateGenerator() {
 
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:3001/api/certificados/generate', {
+      const response = await fetch('/api/certificados/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -100,7 +100,7 @@ function CertificateGenerator() {
       
       // Descargar el certificado usando el endpoint de descarga
       const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:3001/api/certificados/download/${generatedCertificate.id}`, {
+      const response = await fetch(`/api/certificados/download/${generatedCertificate.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

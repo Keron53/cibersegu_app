@@ -35,8 +35,8 @@ services:
       - NODE_ENV=production
       - MONGODB_URI=mongodb://admin:MongoDB2024%21%40%23Seguro@mongodb:27017/firmasDB?authSource=admin
       - JWT_SECRET=jwt_secret_super_seguro_para_af_systems_2024
-      - EMAIL_USER=16cardenas16@gmail.com
-      - EMAIL_PASS=2514jajaJAJA@
+      - EMAIL_USER=ticscatolica@gmail.com
+      - EMAIL_PASS=lhdqqmywxvhltjwl
       - FRONTEND_URL=https://af-systemstechnology.com
     volumes:
       - backend_uploads:/app/uploads

@@ -21,14 +21,16 @@ const certificadoController = {
       }
 
       const fileBuffer = fs.readFileSync(req.file.path);
-      const encryptedData = CertificateManager.encryptCertificate(fileBuffer, password);
+      const encryptedResult = CertificateManager.encryptCertificate(fileBuffer, password);
 
       const certificate = new Certificate({
-        usuario: req.usuario.id,
+        userId: req.usuario.id,
         nombreComun: req.file.originalname.replace('.p12', ''),
         organizacion: '',
         email: '',
-        datosCifrados: encryptedData,
+        datosCifrados: encryptedResult.encryptedData,
+        encryptionSalt: encryptedResult.salt,
+        encryptionKey: encryptedResult.iv,
         originalFilename: req.file.originalname
       });
 
