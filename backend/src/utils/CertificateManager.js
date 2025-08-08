@@ -186,17 +186,49 @@ class CertificateManager {
       console.log('📊 Salt:', salt);
       console.log('📊 IV:', iv);
       console.log('📊 Password length:', password ? password.length : 0);
+      console.log('📊 Encrypted data length:', encryptedData ? encryptedData.length : 0);
+      
+      // Validar que los datos estén en el formato correcto
+      if (!encryptedData || !Buffer.isBuffer(encryptedData)) {
+        throw new Error('Los datos cifrados no son un buffer válido');
+      }
+      
+      if (!salt || typeof salt !== 'string') {
+        throw new Error('El salt no es una cadena válida');
+      }
+      
+      if (!iv || typeof iv !== 'string') {
+        throw new Error('El IV no es una cadena válida');
+      }
+      
+      if (!password || typeof password !== 'string') {
+        throw new Error('La contraseña no es una cadena válida');
+      }
       
       const saltBuffer = Buffer.from(salt, 'hex');
       const ivBuffer = Buffer.from(iv, 'hex');
-      const derivedKey = crypto.pbkdf2Sync(password, saltBuffer, 100000, 32, 'sha256');
       
+      console.log('🔑 Salt buffer length:', saltBuffer.length);
+      console.log('🔑 IV buffer length:', ivBuffer.length);
+      
+      const derivedKey = crypto.pbkdf2Sync(password, saltBuffer, 100000, 32, 'sha256');
       console.log('🔑 Derived key length:', derivedKey.length);
       
       const decipher = crypto.createDecipheriv('aes-256-cbc', derivedKey, ivBuffer);
       
       const decrypted = Buffer.concat([decipher.update(encryptedData), decipher.final()]);
       console.log('✅ Certificado descifrado exitosamente, tamaño:', decrypted.length);
+      
+      // Verificar que el certificado descifrado tenga el formato PKCS#12 correcto
+      if (decrypted.length < 4) {
+        throw new Error('El certificado descifrado es demasiado pequeño');
+      }
+      
+      // Verificar que comience con la secuencia PKCS#12 (0x30)
+      if (decrypted[0] !== 0x30) {
+        console.warn('⚠️ El certificado descifrado no parece tener el formato PKCS#12 correcto (primer byte:', decrypted[0], ')');
+        // No lanzar error aquí, solo advertencia
+      }
       
       return decrypted;
     } catch (error) {
@@ -205,7 +237,10 @@ class CertificateManager {
         hasSalt: !!salt,
         hasIv: !!iv,
         hasPassword: !!password,
-        encryptedDataLength: encryptedData ? encryptedData.length : 0
+        encryptedDataLength: encryptedData ? encryptedData.length : 0,
+        saltType: typeof salt,
+        ivType: typeof iv,
+        passwordType: typeof password
       });
       
       // Si es un error de descifrado, intentar devolver los datos sin descifrar
