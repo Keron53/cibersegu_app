@@ -92,7 +92,7 @@ El siguiente diagrama muestra el flujo completo de la aplicación, incluyendo la
 - **Python** 3.8+ y pip
 - **MongoDB** (local o Atlas)
 
-## Despliegue en Azure (Guía rápida)
+## Despliegue en Azure (Guía actualizada)
 
 > Esta guía resume el despliegue de la plataforma (frontend + backend + MongoDB + Nginx + Fail2ban) en una VM Ubuntu usando Docker Compose.
 
@@ -134,7 +134,7 @@ sudo ./scripts/health-check.sh
 sudo ./scripts/db-diagnostic.sh
 ```
 
-### 5) Certificados SSL (Let’s Encrypt)
+### 5) Certificados SSL (Let's Encrypt)
 Si el puerto 80 está ocupado por el Nginx del contenedor, usa modo standalone para emitir y copia al volumen `deployment/ssl`:
 ```bash
 cd /tmp/cibersegu_app/deployment
@@ -204,7 +204,8 @@ sudo docker-compose up -d frontend nginx
   - `backend/MicroservicioPyHanko/requirements.txt`: añade `qrcode[pil]==7.4.2`.
   - Rebuild backend.
 - Email 535 (Gmail): usar App Password de la misma cuenta y configurar `EMAIL_HOST/PORT/SECURE`. Verifica dentro del contenedor con `env`.
-- WhatsApp 500 (UltraMsg): si la instancia está “Stopped due to non-payment”, reactivar o usar email mientras tanto.
+- WhatsApp 500 (UltraMsg): si la instancia está "Stopped due to non-payment", reactivar o usar email mientras tanto.
+- **Error de certificado PKCS#12**: Verificar que el certificado se esté descifrando correctamente. Revisar logs del backend para detalles.
 
 ### 9) Comandos útiles
 ```bash
@@ -222,7 +223,18 @@ sudo docker-compose up -d backend
 sudo ./scripts/quick-health.sh
 sudo ./scripts/health-check.sh
 sudo ./scripts/db-diagnostic.sh
+
+# Copiar archivos actualizados al contenedor
+sudo docker cp /tmp/cibersegu_app/backend/src/utils/CertificateManager.js cibersegu_backend:/app/src/utils/
+sudo docker-compose restart backend
 ```
+
+### 10) Configuración actual del sistema
+- **Email**: `ticscatolica@gmail.com` (configurado)
+- **MongoDB**: `mongodb://admin:MongoDB2024!@#Seguro@mongodb:27017/firmasDB?authSource=admin`
+- **JWT Secret**: `jwt_secret_super_seguro_para_af_systems_2024`
+- **Frontend URL**: `https://af-systemstechnology.com`
+- **API URL**: `https://af-systemstechnology.com/api`
 
 ---
 
@@ -273,7 +285,7 @@ El sistema ahora utiliza **pyHanko** (Python) para crear firmas digitales válid
 ### 🎯 Sistema de Posicionamiento de Firmas
 
 #### **Coordenadas Fijas Optimizadas:**
-- **Primera firma**: Posición izquierda `(100, 112, 210, 200)`
+- **Primera firma**: Posición izquierda `(40, 96.7, 140, 196.7)`
 - **Solicitudes de firma**: Posición derecha `(380, 112, 510, 200)`
 - **Detección automática**: El sistema detecta si es primera firma o solicitud
 - **Evita superposición**: Las firmas múltiples se posicionan automáticamente
@@ -404,6 +416,8 @@ El sello incluye:
 **Microservicio Python:**
 - `pyhanko>=1.8.0` (firma digital)
 - `cryptography>=3.4.8` (operaciones criptográficas)
+- `qrcode>=7.3` (generación de códigos QR)
+- `Pillow>=8.0.0` (procesamiento de imágenes)
 
 ### Instalación de Python
 
@@ -470,6 +484,7 @@ El sistema limpia automáticamente los datos para compatibilidad:
 - `backend/src/middleware/auth.js`: Middleware de autenticación JWT
 - `backend/src/config/email.js`: Configuración de email
 - `backend/src/utils/pdfValidator.js`: Utilidad para validar PDFs firmados
+- `backend/src/utils/CertificateManager.js`: Gestión de certificados digitales
 - `backend/MicroservicioPyHanko/firmar-pdf.py`: Script de Python para pyHanko con posicionamiento automático
 - `backend/MicroservicioPyHanko/requirements.txt`: Dependencias Python
 - `backend/CrearCACentral/ca.crt`: Certificado CA del sistema (no se sube al repo)
@@ -667,20 +682,31 @@ Si las firmas aparecen una encima de otra:
 2. Verificar que la detección de primera firma vs solicitud funcione correctamente
 3. Revisar los logs del backend para ver qué coordenadas se están usando
 
+**Error de Certificado PKCS#12:**
+```
+Could not load key material from PKCS#12 file
+ValueError: Could not deserialize PKCS12 data
+```
+**Solución:** 
+1. Verificar que el certificado se esté descifrando correctamente
+2. Revisar los logs del backend para detalles del error
+3. Asegurarse de que la contraseña del certificado sea correcta
+4. Verificar que el certificado no esté corrupto
+
 ### Scripts de Diagnóstico
 
-El proyecto incluye scripts de diagnóstico en el directorio `backend/`:
-- `verify-env.js` - Verificar variables de entorno
-- `test-system.js` - Probar funcionalidades del sistema
-- `clear-test-users.js` - Limpiar usuarios de prueba
-- `debug-registration.js` - Diagnosticar problemas de registro
-- `test-validation.js` - Probar funcionalidad de validación de PDFs
+El proyecto incluye scripts de diagnóstico en el directorio `deployment/scripts/`:
+- `quick-health.sh` - Verificación rápida del sistema
+- `health-check.sh` - Verificación completa de salud
+- `db-diagnostic.sh` - Diagnóstico de la base de datos
+- `deploy.sh` - Script de despliegue completo
+- `deploy-simple.sh` - Script de despliegue simplificado
 
-**Uso del script de validación:**
+**Uso de los scripts:**
 ```bash
-# Probar validación básica
-node test-validation.js
-
-# Probar con un PDF firmado específico
-node test-validation.js ruta/al/archivo-firmado.pdf
+cd /tmp/cibersegu_app/deployment
+sudo chmod +x scripts/*.sh
+sudo ./scripts/quick-health.sh
+sudo ./scripts/health-check.sh
+sudo ./scripts/db-diagnostic.sh
 ```
