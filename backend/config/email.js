@@ -5,18 +5,14 @@
 // 3. Usar esa contraseña aquí
 
 module.exports = {
-  // Configuración de Gmail
   gmail: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
   },
-  
-  // Configuración del remitente
-  from: process.env.EMAIL_USER,
-  
-  // Configuración de la aplicación
-  appName: 'Digital Sign',
-  appUrl: process.env.APP_URL || 'http://localhost:3000'
+  ultramsg: {
+    token: process.env.ULTRAMSG_TOKEN || '',
+    instance_id: process.env.ULTRAMSG_INSTANCE_ID || ''
+  }
 };
 
 /*

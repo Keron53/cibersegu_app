@@ -8,11 +8,11 @@ set -e
 echo "🚀 Iniciando despliegue del Sistema de Firmas Electrónicas..."
 
 # Variables de configuración
-DOMAIN="tu-dominio.com"
-EMAIL="tu-email@gmail.com"
-MONGODB_PASSWORD="tu_password_seguro_aqui"
-JWT_SECRET="tu_jwt_secret_muy_seguro_aqui"
-EMAIL_PASSWORD="tu-contraseña-de-aplicación"
+DOMAIN="af-systemstechnology.com"
+EMAIL="16cardenas16@gmail.com"
+MONGODB_PASSWORD="MongoDB2024!@#Seguro"
+JWT_SECRET="jwt_secret_super_seguro_para_af_systems_2024"
+EMAIL_PASSWORD="2514jajaJAJA@"
 
 # Colores para output
 RED='\033[0;31m'

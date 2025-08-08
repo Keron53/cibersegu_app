@@ -92,329 +92,139 @@ El siguiente diagrama muestra el flujo completo de la aplicación, incluyendo la
 - **Python** 3.8+ y pip
 - **MongoDB** (local o Atlas)
 
-## ☁️ Despliegue en Azure VM
+## Despliegue en Azure (Guía rápida)
 
-### Prerrequisitos para Azure
+> Esta guía resume el despliegue de la plataforma (frontend + backend + MongoDB + Nginx + Fail2ban) en una VM Ubuntu usando Docker Compose.
 
-- **VM de Azure** con Ubuntu 20.04 LTS o superior
-- **Dominio** (opcional, para SSL automático)
-- **Puertos abiertos**: 22 (SSH), 80 (HTTP), 443 (HTTPS)
+### 1) Requisitos
+- Ubuntu 20.04+ (VM en Azure)
+- Puertos abiertos en Azure NSG/Subred: 22, 80, 443 (inbound)
+- Dominio apuntando a la IP pública (ej.: af-systemstechnology.com)
+- Docker y docker-compose instalados (los scripts ya los instalan si hace falta)
 
-### Opción 1: Despliegue Automatizado (Recomendado)
+### 2) Estructura en la VM
+Coloca el proyecto en `/tmp/cibersegu_app` (o `/var/www/cibersegu`). Los archivos clave:
+- `deployment/docker-compose.yml`
+- `deployment/nginx.conf`
+- `deployment/scripts/*.sh`
+- `backend/Dockerfile`, `frontend/Dockerfile`
 
-#### **1. Crear VM en Azure**
+### 3) Levantar servicios (con sudo)
 ```bash
-# Especificaciones recomendadas:
-# - Sistema: Ubuntu 20.04 LTS
-# - Tamaño: Standard_B2s (2 vCPU, 4 GB RAM)
-# - Disco: 30 GB mínimo
-# - Puertos: 22, 80, 443
+cd /tmp/cibersegu_app/deployment
+sudo docker-compose down
+sudo docker-compose build --no-cache
+sudo docker-compose up -d
+sudo docker-compose ps
 ```
 
-#### **2. Conectar y subir proyecto**
+### 4) Health checks
 ```bash
-# Conectar a la VM
-ssh tu-usuario@tu-ip-azure
-
-# Subir proyecto desde tu máquina local
-scp -r ./cibersegu_app tu-usuario@tu-ip-azure:/tmp/
+# Nginx (proxy)
+sudo curl -sk -H 'Host: af-systemstechnology.com' https://localhost/health
+# Backend API
+sudo curl -sk -H 'Host: af-systemstechnology.com' https://localhost/api/health | jq . || sudo curl -sk -H 'Host: af-systemstechnology.com' https://localhost/api/health
 ```
-
-#### **3. Configurar variables**
+Scripts útiles:
 ```bash
-# Editar variables en deployment/scripts/deploy.sh
-DOMAIN="tu-dominio.com"                    # Tu dominio real
-EMAIL="tu-email@gmail.com"                  # Email para notificaciones
-MONGODB_PASSWORD="password_muy_seguro_123" # Contraseña MongoDB
-JWT_SECRET="jwt_secret_super_seguro_2024"  # Clave JWT
-EMAIL_PASSWORD="tu-contraseña-de-aplicación" # Contraseña Gmail
+cd /tmp/cibersegu_app/deployment
+sudo chmod +x scripts/*.sh
+sudo ./scripts/quick-health.sh
+sudo ./scripts/health-check.sh
+sudo ./scripts/db-diagnostic.sh
 ```
 
-#### **4. Ejecutar despliegue**
+### 5) Certificados SSL (Let’s Encrypt)
+Si el puerto 80 está ocupado por el Nginx del contenedor, usa modo standalone para emitir y copia al volumen `deployment/ssl`:
 ```bash
-# Dar permisos y ejecutar
-chmod +x deployment/scripts/deploy.sh
-sudo ./deployment/scripts/deploy.sh
+cd /tmp/cibersegu_app/deployment
+# parar solo nginx del compose
+sudo docker-compose stop nginx
+# emitir cert (requiere DNS al día)
+sudo certbot certonly --standalone \
+  -d af-systemstechnology.com -d www.af-systemstechnology.com \
+  --email TU_EMAIL --agree-tos --no-eff-email
+# copiar al volumen que usa Nginx del compose
+sudo mkdir -p ssl/certs ssl/private
+sudo cp /etc/letsencrypt/live/af-systemstechnology.com/fullchain.pem ssl/certs/tu-dominio.crt
+sudo cp /etc/letsencrypt/live/af-systemstechnology.com/privkey.pem   ssl/private/tu-dominio.key
+# reactivar nginx
+sudo docker-compose up -d --force-recreate --no-deps nginx
 ```
-
-#### **5. Configurar SSL (si tienes dominio)**
+Renovación automática (cron de root):
 ```bash
-# Después de configurar DNS
-sudo ./deployment/scripts/install-letsencrypt.sh tu-dominio.com tu-email@gmail.com
+# editar crontab: sudo crontab -e
+0 3 * * * /usr/bin/certbot renew --quiet \
+  --pre-hook "/usr/local/bin/docker-compose -f /tmp/cibersegu_app/deployment/docker-compose.yml stop nginx" \
+  --deploy-hook "cp /etc/letsencrypt/live/af-systemstechnology.com/fullchain.pem /tmp/cibersegu_app/deployment/ssl/certs/tu-dominio.crt; cp /etc/letsencrypt/live/af-systemstechnology.com/privkey.pem /tmp/cibersegu_app/deployment/ssl/private/tu-dominio.key" \
+  --post-hook "/usr/local/bin/docker-compose -f /tmp/cibersegu_app/deployment/docker-compose.yml up -d nginx"
 ```
+(Usa `/usr/bin/docker compose` si tu entorno no tiene `docker-compose` clásico.)
 
-### Opción 2: Despliegue Sin Dominio
-
-Para pruebas o desarrollo sin dominio:
-
+### 6) Variables sensibles (no commitear)
+Crea `deployment/docker-compose.override.yml` en la VM para credenciales (usa tus propios valores):
+```yaml
+services:
+  backend:
+    environment:
+      # Mongo (ejemplo)
+      - MONGODB_URI=mongodb://<USER>:<URL_ENCODED_PASSWORD>@mongodb:27017/firmasDB?authSource=admin
+      # Email (Gmail con App Password de 16 caracteres sin espacios)
+      - EMAIL_USER=<EMAIL_USER>
+      - EMAIL_PASS=<EMAIL_APP_PASSWORD>
+      - EMAIL_HOST=smtp.gmail.com
+      - EMAIL_PORT=465
+      - EMAIL_SECURE=true
+      # WhatsApp (UltraMsg)
+      - ULTRAMSG_INSTANCE=<ULTRAMSG_INSTANCE_ID>
+      - ULTRAMSG_TOKEN=<ULTRAMSG_TOKEN>
+```
+Aplicar cambios:
 ```bash
-# Usar script simplificado
-chmod +x deployment/scripts/deploy-simple.sh
-sudo ./deployment/scripts/deploy-simple.sh
+cd /tmp/cibersegu_app/deployment
+sudo docker-compose up -d --force-recreate backend
 ```
 
-**Resultado**: Aplicación disponible en `http://tu-ip-azure`
-
-### Configuración de DNS (Hostinger, GoDaddy, etc.)
-
-#### **Para Hostinger:**
-1. Panel Hostinger → Dominios → Tu dominio
-2. DNS → Agregar registro A
-3. Configurar:
-   ```
-   Tipo: A
-   Nombre: @ (o deja vacío)
-   Valor: TU_IP_DE_AZURE
-   TTL: 300
-   ```
-
-#### **Para otros proveedores:**
-- **GoDaddy**: Panel → DNS → Agregar registro A
-- **Namecheap**: Panel → DNS → Agregar registro A
-- **Cloudflare**: DNS → Agregar registro A
-
-### Software Instalado Automáticamente
-
-El script de despliegue instala:
-
-- ✅ **Docker** y **Docker Compose**
-- ✅ **Nginx** con proxy reverso
-- ✅ **MongoDB** en contenedor
-- ✅ **Node.js** y **Python pyHanko** en contenedores
-- ✅ **Fail2ban** para protección contra ataques
-- ✅ **Firewall (UFW)** configurado
-- ✅ **Certbot** para SSL automático
-- ✅ **Backup automático** diario
-
-### Protecciones Implementadas
-
-#### **Rate Limiting:**
-- **API general**: 10 requests/segundo
-- **Login/Registro**: 5 requests/minuto
-- **Uploads**: 2 requests/segundo
-
-#### **Fail2ban Protection:**
-- **HTTP Auth**: Bloquea intentos de login fallidos
-- **Rate Limiting**: Bloquea IPs que exceden límites
-- **Bad Bots**: Bloquea bots maliciosos
-- **No Script**: Bloquea ataques de inyección
-
-#### **Headers de Seguridad:**
-- `X-Frame-Options`: Previene clickjacking
-- `X-XSS-Protection`: Protección XSS
-- `X-Content-Type-Options`: Previene MIME sniffing
-- `Strict-Transport-Security`: Fuerza HTTPS
-- `Content-Security-Policy`: Política de contenido seguro
-
-### Comandos de Administración
-
+### 7) Frontend detrás de Nginx
+- El frontend se sirve vía el contenedor `frontend` (Nginx interno). El proxy principal `deployment/nginx.conf` redirige `/` a `frontend:80` y `/api/` a `backend:3001`.
+- Asegúrate de que el frontend no use `http://localhost:3001`. En `frontend/src/services/api.js` se usa `VITE_API_URL` o por defecto `/api`.
+- Rebuild frontend cuando cambies assets:
 ```bash
-# Ver estado de servicios
-cd /var/www/cibersegu/deployment
-docker-compose ps
-
-# Ver logs en tiempo real
-docker-compose logs -f
-
-# Reiniciar servicios
-docker-compose restart
-
-# Actualizar aplicación
-git pull && docker-compose up -d --build
-
-# Backup manual
-/usr/local/bin/cibersegu-backup.sh
-
-# Verificar SSL
-sudo certbot renew --dry-run
+cd /tmp/cibersegu_app/deployment
+sudo docker-compose build --no-cache frontend
+sudo docker-compose up -d frontend nginx
 ```
 
-### Monitoreo y Logs
+### 8) Troubleshooting rápido
+- Backend reinicia con error `buffermaxentries`: reconstruye con el `db.js` actualizado y `--no-cache`.
+- 404 en `/api/usuarios/registro`: revisa `deployment/nginx.conf` para que los `location` de login/registro NO estén anidados y tengan `proxy_pass`.
+- 403 al probar con curl: envía un User-Agent de navegador (`-A 'Mozilla/5.0'`) o ajusta el bloqueo de UAs en `nginx.conf`.
+- Firma 500 por `qpdf`/`qrcode`:
+  - `backend/Dockerfile`: añade `qpdf` al `apt-get install`.
+  - `backend/MicroservicioPyHanko/requirements.txt`: añade `qrcode[pil]==7.4.2`.
+  - Rebuild backend.
+- Email 535 (Gmail): usar App Password de la misma cuenta y configurar `EMAIL_HOST/PORT/SECURE`. Verifica dentro del contenedor con `env`.
+- WhatsApp 500 (UltraMsg): si la instancia está “Stopped due to non-payment”, reactivar o usar email mientras tanto.
 
+### 9) Comandos útiles
 ```bash
-# Health check
-curl https://tu-dominio.com/health
+# Estado / logs
+cd /tmp/cibersegu_app/deployment
+sudo docker-compose ps
+sudo docker-compose logs -f backend
+sudo docker-compose logs -f nginx
 
-# Ver logs de Nginx
-tail -f /var/log/nginx/access.log
-tail -f /var/log/nginx/error.log
+# Reconstruir servicios puntuales
+sudo docker-compose build --no-cache backend
+sudo docker-compose up -d backend
 
-# Ver logs de Docker
-docker-compose logs -f backend
-docker-compose logs -f nginx
-
-# Ver IPs baneadas por Fail2ban
-sudo fail2ban-client status nginx-http-auth
+# Diagnóstico rápido
+sudo ./scripts/quick-health.sh
+sudo ./scripts/health-check.sh
+sudo ./scripts/db-diagnostic.sh
 ```
 
-### Troubleshooting
-
-#### **Problemas Comunes:**
-
-**Servicios no inician:**
-```bash
-# Verificar logs
-docker-compose logs
-
-# Verificar puertos
-netstat -tlnp
-
-# Reiniciar Docker
-sudo systemctl restart docker
-```
-
-**Error de SSL:**
-```bash
-# Verificar certificados
-openssl x509 -in ssl/tu-dominio.crt -text -noout
-
-# Regenerar certificados
-sudo ./deployment/scripts/install-letsencrypt.sh tu-dominio.com tu-email@gmail.com
-```
-
-**DNS no funciona:**
-```bash
-# Verificar resolución
-nslookup tu-dominio.com
-dig tu-dominio.com
-
-# Esperar propagación (hasta 24 horas)
-```
-
-### Instalación del Backend
-
-```bash
-cd backend
-npm install
-```
-
-### Instalación de pyHanko (Python)
-
-#### **Linux/Mac:**
-```bash
-cd backend/MicroservicioPyHanko
-chmod +x install.sh
-./install.sh
-```
-
-#### **Windows:**
-```cmd
-cd backend\MicroservicioPyHanko
-install.bat
-```
-
-#### **Manual:**
-```bash
-cd backend/MicroservicioPyHanko
-pip install -r requirements.txt
-```
-
-#### **Solución para errores de entorno virtual:**
-
-Si encuentras el error: *"Tu sistema no tiene instalado el paquete necesario para crear entornos virtuales"*
-
-**Ubuntu/Debian:**
-```bash
-# Instalar paquete para entornos virtuales
-sudo apt update && sudo apt install python3.12-venv
-
-# Crear entorno virtual
-python3 -m venv env
-
-# Activar entorno virtual
-source env/bin/activate
-
-# Instalar pyHanko
-pip install pyhanko
-```
-
-**CentOS/RHEL:**
-```bash
-# Instalar paquete para entornos virtuales
-sudo yum install python3-venv
-
-# Crear entorno virtual
-python3 -m venv env
-
-# Activar entorno virtual
-source env/bin/activate
-
-# Instalar pyHanko
-pip install pyhanko
-```
-
-**macOS:**
-```bash
-# Instalar con Homebrew
-brew install python3
-
-# Crear entorno virtual
-python3 -m venv env
-
-# Activar entorno virtual
-source env/bin/activate
-
-# Instalar pyHanko
-pip install pyhanko
-```
-
-#### **Verificación de instalación:**
-```bash
-# Verificar que pyHanko esté instalado
-python3 -c "import pyhanko; print('pyHanko instalado correctamente')"
-
-# Verificar versión
-python3 -c "import pyhanko; print(pyhanko.__version__)"
-```
-
-**Nota importante:** Los certificados generados con el sistema anterior pueden no ser compatibles con pyHanko debido a caracteres especiales. Para obtener firmas válidas, usa el nuevo endpoint `/api/certificados/generate-pyhanko` que genera certificados compatibles.
-
-### Instalación del Frontend
-
-```bash
-cd frontend
-npm install
-```
-
-### Configuración de la Base de Datos
-
-1. Asegúrate de que MongoDB esté ejecutándose
-2. El sistema creará automáticamente la CA interna en `backend/CrearCACentral/`
-
-### Configuración de Email (Opcional)
-
-Para habilitar las funcionalidades de email (verificación y recuperación de contraseña):
-
-1. **Activar verificación en 2 pasos** en tu cuenta de Gmail
-2. **Generar contraseña de aplicación** en configuración de seguridad
-3. **Crear archivo `.env`** en el directorio `backend/`:
-
-```env
-EMAIL_USER=tu-email@gmail.com
-EMAIL_PASS=tu-contraseña-de-aplicación
-MONGODB_URI=mongodb://localhost:27017/digital_sign
-JWT_SECRET=mi_clave_secreta
-```
-
-**Nota:** Si no configuras el email, el registro funcionará pero sin verificación automática.
-
-### Ejecución
-
-**Backend:**
-```bash
-cd backend
-npm start
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm run dev
-```
-
-El sistema estará disponible en:
-- Frontend: http://localhost:5173
-- Backend: http://localhost:3001
+---
 
 ## 🔐 Firma Digital con pyHanko
 

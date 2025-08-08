@@ -163,9 +163,39 @@ sudo crontab -e
 
 ## 📊 Monitoreo
 
-### Health Check
+### Health Checks
+
+#### Verificación rápida
 ```bash
-curl https://tu-dominio.com/health
+# Script rápido
+./scripts/quick-health.sh
+
+# Verificación completa
+./scripts/health-check.sh
+```
+
+#### Endpoints de Health Check
+```bash
+# Backend API
+curl http://localhost:3001/api/health
+
+# Frontend
+curl http://localhost:80/health
+
+# Nginx Proxy
+curl http://localhost:80/health
+
+# MongoDB
+docker exec cibersegu_mongodb mongosh --eval "db.adminCommand('ping')"
+```
+
+#### Verificar estado de contenedores
+```bash
+# Ver todos los contenedores
+docker-compose ps
+
+# Ver health checks específicos
+docker-compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Health}}"
 ```
 
 ### Métricas básicas

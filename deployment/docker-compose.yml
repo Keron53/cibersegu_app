@@ -8,8 +8,8 @@ services:
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: admin
-      MONGO_INITDB_DATABASE: digital_sign
+      MONGO_INITDB_ROOT_PASSWORD: MongoDB2024!@#Seguro
+      MONGO_INITDB_DATABASE: firmasDB
     volumes:
       - mongodb_data:/data/db
       - ./mongo-init:/docker-entrypoint-initdb.d
@@ -17,6 +17,12 @@ services:
       - "27017:27017"
     networks:
       - cibersegu_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Backend Node.js
   backend:
@@ -27,20 +33,27 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - MONGODB_URI=mongodb://admin:tu_password_seguro_aqui@mongodb:27017/digital_sign?authSource=admin
-      - JWT_SECRET=authSecret
-      - EMAIL_USER=tu-email@gmail.com
-      - EMAIL_PASS=tu-contraseña-de-aplicación
-      - FRONTEND_URL=https://tu-dominio.com
+      - MONGODB_URI=mongodb://admin:MongoDB2024%21%40%23Seguro@mongodb:27017/firmasDB?authSource=admin
+      - JWT_SECRET=jwt_secret_super_seguro_para_af_systems_2024
+      - EMAIL_USER=16cardenas16@gmail.com
+      - EMAIL_PASS=2514jajaJAJA@
+      - FRONTEND_URL=https://af-systemstechnology.com
     volumes:
       - backend_uploads:/app/uploads
       - backend_certs:/app/CrearCACentral
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     networks:
       - cibersegu_network
     expose:
       - "3001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Frontend React
   frontend:
@@ -50,13 +63,22 @@ services:
     container_name: cibersegu_frontend
     restart: unless-stopped
     environment:
-      - VITE_API_URL=https://tu-dominio.com/api
+      - VITE_API_URL=https://af-systemstechnology.com/api
     volumes:
       - frontend_dist:/app/dist
     networks:
       - cibersegu_network
     expose:
       - "80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Nginx Proxy
   nginx:
@@ -73,10 +95,18 @@ services:
       - backend_uploads:/var/www/backend/uploads:ro
       - nginx_logs:/var/log/nginx
     depends_on:
-      - frontend
-      - backend
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
     networks:
       - cibersegu_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Fail2ban para protección adicional
   fail2ban:

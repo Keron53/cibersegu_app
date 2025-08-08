@@ -8,8 +8,8 @@ set -e
 echo "🔐 Instalando certificados SSL con Let's Encrypt..."
 
 # Variables
-DOMAIN=${1:-"tu-dominio.com"}
-EMAIL=${2:-"tu-email@gmail.com"}
+DOMAIN=${1:-"af-systemstechnology.com"}
+EMAIL=${2:-"16cardenas16@gmail.com"}
 
 # Colores para output
 RED='\033[0;31m'

@@ -8,11 +8,11 @@ set -e
 echo "🚀 Iniciando despliegue SIMPLIFICADO del Sistema de Firmas Electrónicas..."
 
 # Variables de configuración SIMPLIFICADAS
-IP_PUBLICA=$(curl -s ifconfig.me)
-EMAIL="tu-email@gmail.com"
-MONGODB_PASSWORD="password123"
-JWT_SECRET="mi_secret_jwt_2024"
-EMAIL_PASSWORD="tu-contraseña-de-aplicación"
+IP_PUBLICA="20.206.200.40"
+EMAIL="16cardenas16@gmail.com"
+MONGODB_PASSWORD="MongoDB2024!@#Seguro"
+JWT_SECRET="jwt_secret_super_seguro_para_af_systems_2024"
+EMAIL_PASSWORD="2514jajaJAJA@"
 
 # Colores para output
 RED='\033[0;31m'
