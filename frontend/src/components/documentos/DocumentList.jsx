@@ -51,7 +51,9 @@ function DocumentList({ documents, onDelete }) {
   const getDocumentStatus = (document) => {
     // Verificar si tiene firmantes (nuevo sistema de solicitudes)
     if (document.firmantes && document.firmantes.length > 0) {
-      const firmantes = document.firmantes.map(f => f.nombre || f.usuarioId?.nombre || 'Firmante desconocido');
+      const firmantes = Array.isArray(document.firmantes)
+        ? document.firmantes.map(f => f?.nombre || f?.usuarioId?.nombre || 'Firmante desconocido')
+        : [];
       const fechaUltimaFirma = document.firmantes[document.firmantes.length - 1]?.fechaFirma;
       const fecha = fechaUltimaFirma ? new Date(fechaUltimaFirma).toLocaleDateString('es-ES') : 'Fecha no disponible';
       
@@ -244,7 +246,15 @@ function DocumentList({ documents, onDelete }) {
     }
   }
 
-  if (documents.length === 0) {
+  const list = Array.isArray(documents)
+    ? documents
+    : Array.isArray(documents?.documentos)
+      ? documents.documentos
+      : Array.isArray(documents?.data)
+        ? documents.data
+        : [];
+
+  if (list.length === 0) {
     return (
       <div className="p-8 text-center">
         <FileText className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
@@ -258,12 +268,12 @@ function DocumentList({ documents, onDelete }) {
     <div>
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Mis Documentos</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-300">{documents.length} documento{documents.length !== 1 ? 's' : ''}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-300">{list.length} documento{list.length !== 1 ? 's' : ''}</p>
       </div>
       
       <div className="p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {documents.map((doc, index) => (
+          {list.map((doc, index) => (
             <motion.div
               key={doc._id}
               initial={{ opacity: 0, y: 20 }}
