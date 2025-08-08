@@ -1,3 +1,4 @@
+import React from 'react'
 import { motion } from 'framer-motion'
 import LoginForm from '../auth/LoginForm'
 import Logo from '../layout/Logo'

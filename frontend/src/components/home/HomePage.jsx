@@ -22,11 +22,15 @@ function HomePage() {
   const loadDocuments = async () => {
     try {
       setLoading(true)
+      console.log('🔍 HomePage - Iniciando carga de documentos...')
       const docs = await documentoService.listar()
+      console.log('📦 HomePage - Documentos recibidos:', docs)
+      console.log('📋 HomePage - Tipo de docs:', typeof docs)
+      console.log('📋 HomePage - Es array?', Array.isArray(docs))
       setDocuments(docs)
       setError(null)
     } catch (error) {
-      console.error('Error al cargar documentos:', error)
+      console.error('❌ HomePage - Error al cargar documentos:', error)
       setError('Error al cargar los documentos')
     } finally {
       setLoading(false)

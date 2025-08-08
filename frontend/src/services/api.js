@@ -113,7 +113,7 @@ export const documentoService = {
   },
 
   async listar() {
-    if (!checkToken()) return
+    if (!checkToken()) return []
     const token = localStorage.getItem('token')
     const response = await axios.get(`${API_BASE_URL}/documentos`, {
       headers: {
@@ -124,7 +124,7 @@ export const documentoService = {
   },
 
   async listarFirmados() {
-    if (!checkToken()) return
+    if (!checkToken()) return []
     const token = localStorage.getItem('token')
     const response = await axios.get(`${API_BASE_URL}/documentos/firmados`, {
       headers: {
@@ -135,7 +135,7 @@ export const documentoService = {
   },
 
   async listarCompartidos() {
-    if (!checkToken()) return
+    if (!checkToken()) return []
     const token = localStorage.getItem('token')
     const response = await axios.get(`${API_BASE_URL}/documentos/compartidos`, {
       headers: {
@@ -278,6 +278,7 @@ export const certificadoService = {
   },
 
   async listar() {
+    if (!checkToken()) return []
     const token = localStorage.getItem('token')
     const response = await axios.get(`${API_BASE_URL}/certificados`, {
       headers: {
