@@ -71,20 +71,19 @@ chmod +x /usr/local/bin/docker-compose
 # Crear directorio del proyecto
 print_status "Creando estructura de directorios..."
 mkdir -p /var/www/cibersegu
-cd /var/www/cibersegu
 
-# Clonar o copiar el proyecto
-if [ -d "/tmp/cibersegu_app" ]; then
-    print_status "Copiando proyecto desde /tmp..."
-    cp -r /tmp/cibersegu_app/* .
-else
-    print_status "Descargando proyecto desde GitHub..."
-    git clone https://github.com/tu-usuario/cibersegu-app.git .
+# Verificar que el proyecto existe
+if [ ! -d "/home/santiago/cibersegu_app" ]; then
+    print_error "Directorio /home/santiago/cibersegu_app no encontrado"
+    exit 1
 fi
 
-# Crear directorio de deployment
-mkdir -p deployment
-cd deployment
+# Copiar el proyecto desde el directorio actual
+print_status "Copiando proyecto desde directorio actual..."
+cp -r /home/santiago/cibersegu_app/* /var/www/cibersegu/
+
+# Ir al directorio de deployment
+cd /var/www/cibersegu/deployment
 
 # Crear certificados SSL (self-signed para desarrollo)
 print_status "Generando certificados SSL..."
@@ -106,15 +105,24 @@ EOF
 
 # Actualizar configuración de Nginx con el dominio real
 print_status "Configurando Nginx..."
-sed -i "s/tu-dominio.com/$DOMAIN/g" nginx.conf
+if [ -f "nginx.conf" ]; then
+    sed -i "s/tu-dominio.com/$DOMAIN/g" nginx.conf
+else
+    print_warning "Archivo nginx.conf no encontrado, usando configuración por defecto"
+fi
 
 # Actualizar docker-compose con las variables reales
 print_status "Configurando Docker Compose..."
-sed -i "s/tu_password_seguro_aqui/$MONGODB_PASSWORD/g" docker-compose.yml
-sed -i "s/tu_jwt_secret_muy_seguro_aqui/$JWT_SECRET/g" docker-compose.yml
-sed -i "s/tu-email@gmail.com/$EMAIL/g" docker-compose.yml
-sed -i "s/tu-contraseña-de-aplicación/$EMAIL_PASSWORD/g" docker-compose.yml
-sed -i "s/tu-dominio.com/$DOMAIN/g" docker-compose.yml
+if [ -f "docker-compose.yml" ]; then
+    sed -i "s/tu_password_seguro_aqui/$MONGODB_PASSWORD/g" docker-compose.yml
+    sed -i "s/tu_jwt_secret_muy_seguro_aqui/$JWT_SECRET/g" docker-compose.yml
+    sed -i "s/tu-email@gmail.com/$EMAIL/g" docker-compose.yml
+    sed -i "s/tu-contraseña-de-aplicación/$EMAIL_PASSWORD/g" docker-compose.yml
+    sed -i "s/tu-dominio.com/$DOMAIN/g" docker-compose.yml
+else
+    print_error "Archivo docker-compose.yml no encontrado"
+    exit 1
+fi
 
 # Configurar firewall
 print_status "Configurando firewall..."

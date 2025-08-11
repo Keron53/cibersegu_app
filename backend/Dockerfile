@@ -40,7 +40,9 @@ RUN pip install --no-cache-dir -r MicroservicioPyHanko/requirements.txt
 # Copiar código fuente
 COPY src ./src
 COPY config ./config/
-COPY CrearCACentral ./CrearCACentral/
+
+# Crear directorio CrearCACentral si no existe
+RUN mkdir -p CrearCACentral
 
 # Crear directorio de uploads
 RUN mkdir -p uploads

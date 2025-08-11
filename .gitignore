@@ -137,6 +137,45 @@ backend/ca.key
 backend/ca.crt
 backend/openssl.conf
 
+# SSL Certificates (Let's Encrypt and self-signed)
+deployment/ssl/
+deployment/ssl/certs/
+deployment/ssl/private/
+*.crt
+*.key
+*.pem
+*.p12
+*.pfx
+*.cer
+*.der
+*.crt
+*.key
+*.pem
+*.p12
+*.pfx
+*.cer
+*.der
+
+# Let's Encrypt certificates
+/etc/letsencrypt/
+letsencrypt/
+
+# Environment and configuration files
+.env
+.env.*
+*.env
+config.env
+production.env
+staging.env
+
+# Docker secrets and sensitive files
+docker-compose.override.yml
+docker-compose.prod.yml
+secrets/
+*.secret
+*.key
+*.pem
+
 # Temporary files
 *.tmp
 *.temp
