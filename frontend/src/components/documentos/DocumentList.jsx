@@ -185,6 +185,12 @@ function DocumentList({ documents, onDelete }) {
     setShowConfirmationModal(true)
   }
 
+  const handleSignatureSuccess = (message) => {
+    showNotification(message, 'success', 8000)
+    // Recargar la lista de documentos para mostrar el nuevo estado
+    window.location.reload()
+  }
+
   const handleCloseViewer = () => {
     setShowViewer(false)
     setSelectedDocument(null)
@@ -230,19 +236,90 @@ function DocumentList({ documents, onDelete }) {
         y,
         page
       )
-
-      // El PDF ya está firmado y guardado en el servidor
-      // No descargar automáticamente
-
+      
+      // Si llegamos aquí, la firma fue exitosa
       setShowConfirmationModal(false)
       setSignatureInfo(null)
-      showNotification('✅ Documento firmado correctamente', 'success', 8000)
       
-      // Recargar la lista de documentos para mostrar el nuevo estado
-      window.location.reload()
+      // Devolver el resultado para que el modal maneje el éxito
+      return result
     } catch (error) {
-      console.error('Error al firmar documento:', error)
-      showNotification('Error al firmar el documento', 'error', 10000)
+      console.error('Error al firmar documento:', error);
+      
+      // Extraer información del error
+      const errorResponse = error.response?.data || {};
+      const errorMessage = error.message || '';
+      const errorMessageLower = errorMessage.toLowerCase();
+      const errorData = typeof errorResponse === 'string' ? errorResponse : JSON.stringify(errorResponse);
+      
+      // Mensaje de error por defecto
+      let userFriendlyMessage = 'Error al firmar el documento';
+      
+      // Verificar si es un error de PKCS#12 (contraseña incorrecta o certificado inválido)
+      const isPkcs12Error = 
+        errorMessageLower.includes('pkcs12') || 
+        errorMessageLower.includes('deserializar') || 
+        errorMessageLower.includes('incorrecta') ||
+        errorMessageLower.includes('contraseña') || 
+        errorMessageLower.includes('password') ||
+        errorMessageLower.includes('could not deserialize') ||
+        errorMessageLower.includes('invalid password') ||
+        (error.response && 
+         error.response.data && 
+         typeof error.response.data === 'string' && 
+         error.response.data.toLowerCase().includes('pkcs12')) ||
+        (error.response?.data?.error && 
+         error.response.data.error.toString().toLowerCase().includes('pkcs12'));
+      
+      if (isPkcs12Error) {
+        userFriendlyMessage = '❌ La contraseña del certificado es incorrecta o el certificado no es válido. Por favor, verifica la contraseña e inténtalo de nuevo.';
+      } 
+      // Manejar otros códigos de estado HTTP
+      else if (error.response) {
+        switch (error.response.status) {
+          case 400:
+            userFriendlyMessage = '❌ Solicitud incorrecta. Verifica los datos e inténtalo de nuevo.';
+            break;
+          case 401:
+            userFriendlyMessage = '❌ No autorizado. Por favor, inicia sesión nuevamente.';
+            break;
+          case 403:
+            userFriendlyMessage = '❌ No tienes permiso para realizar esta acción.';
+            break;
+          case 404:
+            userFriendlyMessage = '❌ Recurso no encontrado.';
+            break;
+          case 500:
+            userFriendlyMessage = '❌ Error en el servidor al procesar la firma. Por favor, inténtalo de nuevo más tarde.';
+            break;
+          case 503:
+            userFriendlyMessage = '❌ El servicio no está disponible en este momento. Por favor, inténtalo más tarde.';
+            break;
+          default:
+            userFriendlyMessage = `❌ Error del servidor (${error.response.status}): ${error.response.statusText}`;
+        }
+      } 
+      // Manejar errores de red
+      else if (error.request) {
+        userFriendlyMessage = '❌ No se pudo conectar con el servidor. Verifica tu conexión a internet e inténtalo de nuevo.';
+      }
+      
+      // Registrar detalles completos del error para depuración
+      console.error('Detalles completos del error:', {
+        message: error.message,
+        response: errorResponse,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: errorData,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers
+        }
+      });
+      
+      // Mostrar notificación al usuario
+      showNotification(userFriendlyMessage, 'error', 10000);
     }
   }
 
@@ -406,6 +483,7 @@ function DocumentList({ documents, onDelete }) {
       {showConfirmationModal && signatureInfo && (
         <SignatureConfirmationModal
           signatureInfo={signatureInfo}
+          onSuccess={handleSignatureSuccess}
           onClose={handleCloseConfirmationModal}
           onConfirm={handleConfirmSignature}
         />

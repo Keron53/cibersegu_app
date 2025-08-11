@@ -4,7 +4,7 @@ import { X, Check, FileText, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-re
 import QRCodeGenerator from './QRCodeGenerator'
 import { useNavigate } from 'react-router-dom'
 
-function SignatureConfirmationModal({ signatureInfo, onClose, onConfirm }) {
+function SignatureConfirmationModal({ signatureInfo, onClose, onConfirm, onSuccess }) {
   const navigate = useNavigate()
   
   // Debug: Log de los datos recibidos
@@ -30,11 +30,13 @@ function SignatureConfirmationModal({ signatureInfo, onClose, onConfirm }) {
   console.log('Datos del certificado:', certificateData)
   console.log('Datos de firma:', signatureData)
   const [certificatePassword, setCertificatePassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [passwordError, setPasswordError] = useState('')
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [isValidating, setIsValidating] = useState(false)
   const [isSigning, setIsSigning] = useState(false)
   const [showDownloadModal, setShowDownloadModal] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const formatDate = (timestamp) => {
     return new Date(timestamp).toLocaleString('es-ES', {
@@ -96,25 +98,98 @@ function SignatureConfirmationModal({ signatureInfo, onClose, onConfirm }) {
   }
 
   const handleConfirm = async () => {
-    const isValid = await validatePassword()
-    if (isValid) {
-      setIsSigning(true)
-      setPasswordError('')
+    if (!certificatePassword) {
+      setPasswordError('Por favor, ingresa la contraseña del certificado')
+      return
+    }
+
+    setIsLoading(true)
+    setPasswordError('')
+
+    try {
+      // Pasar la contraseña validada al callback
+      const result = await onConfirm(certificatePassword);
       
-      try {
-        // Pasar la contraseña validada al callback
-        await onConfirm(certificatePassword)
+      // Si llegamos aquí, la firma fue exitosa
+      if (result) {
+        setShowSuccessModal(true);
         
-        // Simular un pequeño delay para mostrar la animación
-        await new Promise(resolve => setTimeout(resolve, 1500))
+        // Mostrar notificación de éxito si existe el callback
+        if (typeof onSuccess === 'function') {
+          onSuccess('✅ Documento firmado correctamente');
+        }
         
-        // Mostrar modal de descarga en lugar de redirigir
-        setShowDownloadModal(true)
-      } catch (error) {
-        console.error('Error durante la firma:', error)
-        setPasswordError('❌ Error durante la firma del documento')
-        setIsSigning(false)
+        // Cerrar el modal de confirmación después de un breve retraso
+        setTimeout(() => {
+          if (typeof onClose === 'function') {
+            onClose();
+          }
+          // Recargar la página después de cerrar el modal
+          window.location.reload();
+        }, 1500);
+        
+        return true; // Indicar que la firma fue exitosa
       }
+      
+      // Si llegamos aquí, hubo un error en la firma
+      throw new Error('Error al firmar el documento');
+      
+    } catch (error) {
+      console.error('Error durante la firma:', error);
+      
+      // Manejar diferentes tipos de errores
+      let errorMessage = 'Error durante la firma del documento';
+      const errorLower = error.message ? error.message.toLowerCase() : '';
+      
+      // Verificar primero los errores específicos de PKCS#12
+      if (errorLower.includes('pkcs12') || 
+          errorLower.includes('deserializar') || 
+          errorLower.includes('incorrecta') ||
+          errorLower.includes('contraseña') || 
+          errorLower.includes('password') ||
+          errorLower.includes('could not deserialize') ||
+          errorLower.includes('invalid password')) {
+        errorMessage = '❌ La contraseña del certificado es incorrecta o el certificado no es válido. Por favor, verifica la contraseña e inténtalo de nuevo.';
+      } 
+      // Otros tipos de errores
+      else if (errorLower.includes('certificado') || errorLower.includes('certificate')) {
+        errorMessage = '❌ Error con el certificado. Verifica que sea válido y esté correctamente cargado.';
+      } else if (errorLower.includes('tiempo de espera') || 
+                errorLower.includes('timeout') ||
+                errorLower.includes('conexión')) {
+        errorMessage = '❌ Tiempo de espera agotado. Por favor, verifica tu conexión e inténtalo de nuevo.';
+      } else if (errorLower.includes('servidor') || (error.response && error.response.status === 500)) {
+        errorMessage = '❌ Error en el servidor al procesar la firma. Por favor, inténtalo de nuevo más tarde.';
+      } else if (error.message) {
+        errorMessage = `❌ Vuelva a ingresar la contraseña del certificado.`;
+      }
+      
+      setPasswordError(errorMessage);
+      
+      // Hacer scroll al mensaje de error para que sea visible
+      setTimeout(() => {
+        const errorElement = document.getElementById('password-error');
+        if (errorElement) {
+          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      
+      return false; // Indicar que hubo un error
+      
+      setPasswordError(errorMessage)
+      
+      // Hacer scroll al mensaje de error para que sea visible
+      setTimeout(() => {
+        const errorElement = document.getElementById('password-error')
+        if (errorElement) {
+          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 100)
+      
+      // Indicar que hubo un error
+      return false;
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -320,12 +395,12 @@ function SignatureConfirmationModal({ signatureInfo, onClose, onConfirm }) {
                           passwordError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
                         }`}
                         placeholder="Ingresa la contraseña del certificado"
-                        disabled={isValidating || isSigning}
+                        disabled={isValidating || isSigning || isLoading}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        disabled={isValidating || isSigning}
+                        disabled={isValidating || isSigning || isLoading}
                         className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -346,22 +421,20 @@ function SignatureConfirmationModal({ signatureInfo, onClose, onConfirm }) {
             <div className="flex items-center justify-end p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0" style={{ minHeight: '60px' }}>
               <button
                 onClick={handleConfirm}
-                disabled={isValidating || isSigning || !certificatePassword.trim()}
-                className={`flex items-center px-4 py-2 font-medium rounded-lg transition-colors ${
-                  isValidating || isSigning || !certificatePassword.trim()
-                    ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                    : 'bg-primary hover:bg-primary-dark dark:bg-primary-light dark:hover:bg-primary text-white'
+                disabled={isValidating || isSigning || !certificatePassword.trim() || isLoading}
+                className={`px-4 py-2 rounded-md text-white ${
+                  isValidating || isSigning || isLoading || !certificatePassword.trim()
+                    ? 'bg-blue-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
-                {isValidating ? (
+                {isValidating || isSigning || isLoading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Validando...
-                  </>
-                ) : isSigning ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Firmando documento...
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    {isValidating ? 'Validando...' : 'Firmando...'}
                   </>
                 ) : (
                   <>
