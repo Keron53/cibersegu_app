@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from 'react'
 
-const SessionContext = createContext()
+export const SessionContext = createContext() // <-- Agrega esta línea
 
 export const useSession = () => {
   const context = useContext(SessionContext)
@@ -32,4 +32,4 @@ export const SessionProvider = ({ children }) => {
       {children}
     </SessionContext.Provider>
   )
-} 
+}

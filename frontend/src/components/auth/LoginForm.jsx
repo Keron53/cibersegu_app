@@ -1,12 +1,12 @@
-import React, { useState } from 'react'
+import React, { useState, useContext } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate, Link } from 'react-router-dom'
-import InputField from './InputField'
 import { authService } from '../../services/api'
 import LoadingSpinner from './LoadingSpinner'
 import PasswordPolicy from './PasswordPolicy'
 import ForgotPasswordModal from './ForgotPasswordModal'
 import PasswordErrorModal from './PasswordErrorModal'
+import { SessionContext } from '../../context/SessionContext'
 
 function LoginForm() {
   const [formData, setFormData] = useState({
@@ -21,6 +21,7 @@ function LoginForm() {
   const [showPasswordErrorModal, setShowPasswordErrorModal] = useState(false)
   const [passwordErrorMessage, setPasswordErrorMessage] = useState('')
   
+  const { hideSessionExpiredModal } = useContext(SessionContext)
   const navigate = useNavigate()
   
   const handleChange = (e) => {
@@ -107,12 +108,11 @@ function LoginForm() {
         error.response?.status === 400
       
       if (isPasswordError) {
-        // Mostrar modal específico para errores de contraseña
+        hideSessionExpiredModal() // Cierra el modal de sesión expirada
         setPasswordErrorMessage(backendMsg)
         setShowPasswordErrorModal(true)
-        setErrors({}) // Limpiar errores del formulario
+        setErrors({})
       } else {
-        // Mostrar error normal en el formulario
         setErrors({
           form: backendMsg,
           type: 'error'
@@ -150,25 +150,40 @@ function LoginForm() {
         )}
         
         <div className="space-y-5">
-          <InputField
-            type="text"
-            name="username"
-            label="Nombre de Usuario"
-            value={formData.username}
-            onChange={handleChange}
-            error={errors.username}
-            autoComplete="username"
-          />
-          
-          <InputField
-            type="password"
-            name="password"
-            label="Contraseña"
-            value={formData.password}
-            onChange={handleChange}
-            error={errors.password}
-            autoComplete="current-password"
-          />
+          <div className="mb-4">
+            <label
+              htmlFor="username"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              Nombre de Usuario
+            </label>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              value={formData.username}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoComplete="username"
+            />
+          </div>
+          <div className="mb-4">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              Contraseña
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              value={formData.password}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoComplete="current-password"
+            />
+          </div>
           
           <div className="text-right">
             <button
