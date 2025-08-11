@@ -807,6 +807,75 @@ const usuarioController = {
         mensaje: 'Error al verificar disponibilidad' 
       });
     }
+  },
+
+  async checkEmailAvailability(req, res) {
+    const { email } = req.body;
+    
+    try {
+      if (!email) {
+        return res.status(400).json({ 
+          mensaje: 'Email es requerido' 
+        });
+      }
+
+      // Validar formato de email
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ 
+          mensaje: 'Formato de email inválido' 
+        });
+      }
+
+      // Buscar usuario
+      const usuario = await Usuario.findOne({ email: email.toLowerCase() });
+      
+      res.json({ 
+        available: !usuario,
+        email: email.toLowerCase()
+      });
+      
+    } catch (error) {
+      console.error('Error verificando disponibilidad de email:', error);
+      res.status(500).json({ 
+        mensaje: 'Error al verificar disponibilidad' 
+      });
+    }
+  },
+
+  async checkTelefonoAvailability(req, res) {
+    const { telefono } = req.body;
+    
+    try {
+      if (!telefono) {
+        return res.status(400).json({ 
+          mensaje: 'Teléfono es requerido' 
+        });
+      }
+
+      // Limpiar el teléfono (remover espacios, guiones, paréntesis)
+      const telefonoLimpio = telefono.replace(/[\s\-\(\)]/g, '');
+      
+      // Validar formato básico de teléfono
+      if (telefonoLimpio.length < 10) {
+        return res.status(400).json({ 
+          mensaje: 'El teléfono debe tener al menos 10 dígitos' 
+        });
+      }
+
+      // Buscar usuario por teléfono
+      const usuario = await Usuario.findOne({ telefono: telefonoLimpio });
+      
+      res.json({ 
+        available: !usuario,
+        telefono: telefonoLimpio
+      });
+      
+    } catch (error) {
+      console.error('Error verificando disponibilidad de teléfono:', error);
+      res.status(500).json({ 
+        mensaje: 'Error al verificar disponibilidad' 
+      });
+    }
   }
 };
 

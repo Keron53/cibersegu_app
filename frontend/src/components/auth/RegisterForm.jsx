@@ -25,6 +25,11 @@ function RegisterForm() {
     codigo: ''
   })
   
+  // Estados para validación en tiempo real
+  const [usernameStatus, setUsernameStatus] = useState('') // 'available', 'unavailable', 'checking'
+  const [emailStatus, setEmailStatus] = useState('') // 'available', 'unavailable', 'checking'
+  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false)
+  
   const { login } = useContext(AuthContext)
   const navigate = useNavigate()
   
@@ -41,6 +46,26 @@ function RegisterForm() {
         [name]: ''
       })
     }
+    
+    // Validar usuario en tiempo real
+    if (name === 'username' && value.length >= 3) {
+      checkUsernameAvailability(value);
+    } else if (name === 'username') {
+      setUsernameStatus('');
+    }
+    
+    // Validar email en tiempo real
+    if (name === 'email' && value.includes('@') && value.includes('.')) {
+      checkEmailAvailability(value);
+    } else if (name === 'email') {
+      setEmailStatus('');
+    }
+    
+    // Mostrar requisitos de contraseña SOLO cuando se empiece a escribir
+    if (name === 'password') {
+      const shouldShow = value.length > 0;
+      setShowPasswordRequirements(shouldShow);
+    }
   }
 
   const handleVerificationChange = (e) => {
@@ -50,6 +75,74 @@ function RegisterForm() {
       [name]: value
     })
   }
+
+  // Función para verificar disponibilidad del usuario
+  const checkUsernameAvailability = async (username) => {
+    if (username.length < 3) return;
+    
+    setUsernameStatus('checking');
+    
+    try {
+      const response = await fetch('/api/usuarios/check-username', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username: username.toLowerCase() })
+      });
+
+      if (!response.ok) {
+        console.error('❌ Error en respuesta:', response.status, response.statusText);
+        setUsernameStatus('');
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setUsernameStatus(data.available ? 'available' : 'unavailable');
+      } else {
+        setUsernameStatus('');
+      }
+    } catch (error) {
+      console.error('❌ Error verificando usuario:', error);
+      setUsernameStatus('');
+    }
+  };
+
+  // Función para verificar disponibilidad del email
+  const checkEmailAvailability = async (email) => {
+    if (!email.includes('@') || !email.includes('.')) return;
+    
+    setEmailStatus('checking');
+    
+    try {
+      const response = await fetch('/api/usuarios/check-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: email.toLowerCase() })
+      });
+
+      if (!response.ok) {
+        console.error('❌ Error en respuesta:', response.status, response.statusText);
+        setEmailStatus('');
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setEmailStatus(data.available ? 'available' : 'unavailable');
+      } else {
+        setEmailStatus('');
+      }
+    } catch (error) {
+      console.error('❌ Error verificando email:', error);
+      setEmailStatus('');
+    }
+  };
   
   const validate = () => {
     const newErrors = {}
@@ -62,12 +155,20 @@ function RegisterForm() {
       newErrors.username = 'El nombre de usuario es requerido'
     } else if (formData.username.length < 3) {
       newErrors.username = 'El nombre de usuario debe tener al menos 3 caracteres'
+    } else if (usernameStatus === 'unavailable') {
+      newErrors.username = 'El nombre de usuario ya está en uso. Por favor elige otro.'
+    } else if (usernameStatus === 'checking') {
+      newErrors.username = 'Espera mientras verificamos la disponibilidad del usuario.'
     }
     
     if (!formData.email.trim()) {
       newErrors.email = 'El email es requerido'
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'El formato del email no es válido'
+    } else if (emailStatus === 'unavailable') {
+      newErrors.email = 'El email ya está registrado. Por favor usa otro email.'
+    } else if (emailStatus === 'checking') {
+      newErrors.email = 'Espera mientras verificamos la disponibilidad del email.'
     }
     
     if (!formData.password) {
@@ -281,25 +382,75 @@ function RegisterForm() {
           autoComplete="name"
         />
 
-        <InputField
-          type="text"
-          name="username"
-          label="Nombre de Usuario"
-          value={formData.username}
-          onChange={handleChange}
-          error={errors.username}
-          autoComplete="username"
-        />
+        <div className="relative">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Nombre de Usuario
+          </label>
+          <input
+            type="text"
+            name="username"
+            value={formData.username}
+            onChange={handleChange}
+            placeholder="usuario123"
+            autoComplete="username"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+          />
+          {usernameStatus === 'checking' && (
+            <p className="text-xs text-blue-500 mt-1">
+              Verificando disponibilidad...
+            </p>
+          )}
+          {usernameStatus === 'available' && (
+            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+              ✓ Nombre de usuario disponible
+            </p>
+          )}
+          {usernameStatus === 'unavailable' && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+              ✗ Nombre de usuario no disponible
+            </p>
+          )}
+          {errors.username && (
+            <p className="text-xs text-red-500 mt-1">
+              {errors.username}
+            </p>
+          )}
+        </div>
 
-        <InputField
-          type="email"
-          name="email"
-          label="Email"
-          value={formData.email}
-          onChange={handleChange}
-          error={errors.email}
-          autoComplete="email"
-        />
+        <div className="relative">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Email
+          </label>
+          <input
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            placeholder="usuario@ejemplo.com"
+            autoComplete="email"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+          />
+          {emailStatus === 'checking' && (
+            <p className="text-xs text-blue-500 mt-1">
+              Verificando disponibilidad...
+            </p>
+          )}
+          {emailStatus === 'available' && (
+            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+              ✓ Email disponible
+            </p>
+          )}
+          {emailStatus === 'unavailable' && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+              ✗ Email no disponible
+            </p>
+          )}
+          {errors.email && (
+            <p className="text-xs text-red-500 mt-1">
+              {errors.email}
+            </p>
+          )}
+        </div>
         
         <InputField
           type="password"
@@ -330,7 +481,7 @@ function RegisterForm() {
         <motion.button
           type="submit"
           className="primary-button"
-          disabled={isLoading}
+          disabled={isLoading || usernameStatus === 'unavailable' || usernameStatus === 'checking' || emailStatus === 'unavailable' || emailStatus === 'checking'}
           whileTap={{ scale: 0.97 }}
         >
           {isLoading ? (
@@ -338,6 +489,12 @@ function RegisterForm() {
               <LoadingSpinner className="mr-2" />
               Registrando...
             </span>
+          ) : usernameStatus === 'checking' || emailStatus === 'checking' ? (
+            'Verificando disponibilidad...'
+          ) : usernameStatus === 'unavailable' ? (
+            'Usuario no disponible'
+          ) : emailStatus === 'unavailable' ? (
+            'Email no disponible'
           ) : (
             'Registrarse'
           )}

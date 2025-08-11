@@ -25,6 +25,7 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
   
   // Nuevos estados para validación en tiempo real
   const [usernameStatus, setUsernameStatus] = useState(''); // 'available', 'unavailable', 'checking'
+  const [telefonoStatus, setTelefonoStatus] = useState(''); // 'available', 'unavailable', 'checking'
   const [showPasswordRequirements, setShowPasswordRequirements] = useState(false); // Inicialmente oculto
 
   const handleInputChange = (e) => {
@@ -40,6 +41,13 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
       checkUsernameAvailability(value);
     } else if (name === 'username') {
       setUsernameStatus('');
+    }
+    
+    // Validar teléfono en tiempo real
+    if (name === 'telefono' && value.length >= 10) {
+      checkTelefonoAvailability(value);
+    } else if (name === 'telefono') {
+      setTelefonoStatus('');
     }
     
     // Mostrar requisitos de contraseña SOLO cuando se empiece a escribir
@@ -84,6 +92,40 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
     }
   };
 
+  // Función para verificar disponibilidad del teléfono
+  const checkTelefonoAvailability = async (telefono) => {
+    if (telefono.length < 10) return;
+    
+    setTelefonoStatus('checking');
+    
+    try {
+      const response = await fetch('/api/usuarios/check-telefono', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ telefono: telefono })
+      });
+
+      if (!response.ok) {
+        console.error('❌ Error en respuesta:', response.status, response.statusText);
+        setTelefonoStatus('');
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setTelefonoStatus(data.available ? 'available' : 'unavailable');
+      } else {
+        setTelefonoStatus('');
+      }
+    } catch (error) {
+      console.error('❌ Error verificando teléfono:', error);
+      setTelefonoStatus('');
+    }
+  };
+
   const validateForm = () => {
     if (!formData.nombre || !formData.username || !formData.telefono || !formData.password || !formData.confirmPassword) {
       setError('Todos los campos son requeridos');
@@ -99,6 +141,18 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
     // Verificar si el usuario está siendo verificado
     if (usernameStatus === 'checking') {
       setError('Espera mientras verificamos la disponibilidad del usuario.');
+      return false;
+    }
+
+    // Verificar si el teléfono ya existe
+    if (telefonoStatus === 'unavailable') {
+      setError('El número de teléfono ya está registrado. Por favor usa otro número.');
+      return false;
+    }
+
+    // Verificar si el teléfono está siendo verificado
+    if (telefonoStatus === 'checking') {
+      setError('Espera mientras verificamos la disponibilidad del teléfono.');
       return false;
     }
 
@@ -468,6 +522,21 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
+            {telefonoStatus === 'checking' && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Verificando disponibilidad...
+              </p>
+            )}
+            {telefonoStatus === 'available' && (
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                Número de teléfono disponible.
+              </p>
+            )}
+            {telefonoStatus === 'unavailable' && (
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                Número de teléfono ya registrado.
+              </p>
+            )}
           </div>
 
           <div>
@@ -535,12 +604,13 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
 
           <button
             type="submit"
-            disabled={loading || usernameStatus === 'unavailable' || usernameStatus === 'checking'}
+            disabled={loading || usernameStatus === 'unavailable' || usernameStatus === 'checking' || telefonoStatus === 'unavailable' || telefonoStatus === 'checking'}
             className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? 'Registrando...' : 
-             usernameStatus === 'checking' ? 'Verificando usuario...' :
+             usernameStatus === 'checking' || telefonoStatus === 'checking' ? 'Verificando disponibilidad...' :
              usernameStatus === 'unavailable' ? 'Usuario no disponible' :
+             telefonoStatus === 'unavailable' ? 'Teléfono no disponible' :
              'Registrarse con WhatsApp'}
           </button>
 

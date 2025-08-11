@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 
-function InputField({ type, name, label, value, onChange, error, autoComplete }) {
+function InputField({ type, name, label, value, onChange, error, autoComplete, status, placeholder }) {
   const [isFocused, setIsFocused] = useState(false)
   const [isFilled, setIsFilled] = useState(false)
   
@@ -45,6 +45,40 @@ function InputField({ type, name, label, value, onChange, error, autoComplete })
           transition={{ duration: 0.2 }}
         >
           {error}
+        </motion.div>
+      )}
+      
+      {/* Indicadores de estado para validación en tiempo real */}
+      {status === 'checking' && (
+        <motion.div
+          className="text-blue-500 text-xs mt-1"
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          Verificando disponibilidad...
+        </motion.div>
+      )}
+      
+      {status === 'available' && (
+        <motion.div
+          className="text-green-500 text-xs mt-1"
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          ✓ Disponible
+        </motion.div>
+      )}
+      
+      {status === 'unavailable' && (
+        <motion.div
+          className="text-red-500 text-xs mt-1"
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          ✗ No disponible
         </motion.div>
       )}
     </div>

@@ -7,8 +7,10 @@ const authMiddleware = require('../middleware/auth');
 router.post('/registro', usuarioController.registrar);
 router.post('/login', usuarioController.login);
 
-// Verificación de disponibilidad de usuario
+// Verificación de disponibilidad de usuario, email y teléfono
 router.post('/check-username', usuarioController.checkUsernameAvailability);
+router.post('/check-email', usuarioController.checkEmailAvailability);
+router.post('/check-telefono', usuarioController.checkTelefonoAvailability);
 
 // Verificación de email
 router.post('/verificar-email', usuarioController.verificarEmail);
