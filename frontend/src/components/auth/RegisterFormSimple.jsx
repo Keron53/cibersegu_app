@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import PasswordStrengthBar from './PasswordStrengthBar';
 import SuccessModal from './SuccessModal';
@@ -19,7 +19,86 @@ const RegisterFormSimple = ({ onSwitchToWhatsApp }) => {
   const [error, setError] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState(''); // 'available', 'unavailable', 'checking'
+  const [emailStatus, setEmailStatus] = useState(''); // 'available', 'unavailable', 'checking', 'invalid'
+  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
   const navigate = useNavigate();
+
+  // Función para verificar disponibilidad del usuario
+  const checkUsernameAvailability = async (username) => {
+    if (username.length < 3) {
+      setUsernameStatus('');
+      return;
+    }
+    
+    setUsernameStatus('checking');
+    
+    try {
+      const response = await fetch('/api/usuarios/check-username', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username: username.toLowerCase() })
+      });
+
+      if (!response.ok) {
+        console.error('❌ Error en respuesta:', response.status, response.statusText);
+        setUsernameStatus('');
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setUsernameStatus(data.available ? 'available' : 'unavailable');
+      } else {
+        setUsernameStatus('');
+      }
+    } catch (error) {
+      console.error('❌ Error verificando usuario:', error);
+      setUsernameStatus('');
+    }
+  };
+
+  // Función para verificar disponibilidad del email
+  const checkEmailAvailability = async (email) => {
+    // Validar formato básico de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailStatus('invalid');
+      return;
+    }
+    
+    setEmailStatus('checking');
+    
+    try {
+      const response = await fetch('/api/usuarios/check-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: email.toLowerCase() })
+      });
+
+      if (!response.ok) {
+        console.error('❌ Error en respuesta:', response.status, response.statusText);
+        setEmailStatus('');
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setEmailStatus(data.available ? 'available' : 'unavailable');
+      } else {
+        setEmailStatus('');
+      }
+    } catch (error) {
+      console.error('❌ Error verificando email:', error);
+      setEmailStatus('');
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -28,11 +107,56 @@ const RegisterFormSimple = ({ onSwitchToWhatsApp }) => {
       [name]: value
     }));
     setError('');
+    
+    // Validar usuario en tiempo real
+    if (name === 'username') {
+      checkUsernameAvailability(value);
+    }
+    
+    // Validar email en tiempo real
+    if (name === 'email') {
+      checkEmailAvailability(value);
+    }
+    
+    // Mostrar requisitos de contraseña cuando se empiece a escribir
+    if (name === 'password') {
+      setShowPasswordRequirements(value.length > 0);
+    }
   };
 
   const validateForm = () => {
     if (!formData.nombre || !formData.username || !formData.email || !formData.password || !formData.confirmPassword) {
       setError('Todos los campos son requeridos');
+      return false;
+    }
+
+    // Verificar si el usuario ya existe
+    if (usernameStatus === 'unavailable') {
+      setError('El nombre de usuario ya está en uso. Por favor elige otro.');
+      return false;
+    }
+
+    // Verificar si el usuario está siendo verificado
+    if (usernameStatus === 'checking') {
+      setError('Espera mientras verificamos la disponibilidad del usuario.');
+      return false;
+    }
+
+    // Verificar si el email ya existe
+    if (emailStatus === 'unavailable') {
+      setError('El correo electrónico ya está registrado. Por favor usa otro correo.');
+      return false;
+    }
+
+    // Verificar si el email es inválido
+    if (emailStatus === 'invalid') {
+      setError('Por favor ingresa un correo electrónico válido.');
+      return false;
+    }
+
+    // Verificar si el email está siendo verificado
+    if (emailStatus === 'checking') {
+      setError('Espera mientras verificamos la disponibilidad del correo electrónico.');
       return false;
     }
 
@@ -153,14 +277,37 @@ const RegisterFormSimple = ({ onSwitchToWhatsApp }) => {
             </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                name="username"
-                value={formData.username}
-                onChange={handleInputChange}
-                placeholder="usuario123"
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  placeholder="usuario123"
+                  className={`w-full pl-10 pr-10 py-2 border ${usernameStatus === 'unavailable' ? 'border-red-500' : usernameStatus === 'available' ? 'border-green-500' : 'border-gray-300 dark:border-gray-600'} rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white`}
+                />
+                {usernameStatus === 'checking' && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                  </div>
+                )}
+                {usernameStatus === 'available' && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-500">
+                    <CheckCircle className="h-5 w-5" />
+                  </div>
+                )}
+                {usernameStatus === 'unavailable' && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-red-500">
+                    <XCircle className="h-5 w-5" />
+                  </div>
+                )}
+              </div>
+              {usernameStatus === 'available' && (
+                <p className="mt-1 text-xs text-green-500">Nombre de usuario disponible</p>
+              )}
+              {usernameStatus === 'unavailable' && (
+                <p className="mt-1 text-xs text-red-500">Este nombre de usuario ya está en uso</p>
+              )}
             </div>
           </div>
 
@@ -170,14 +317,40 @@ const RegisterFormSimple = ({ onSwitchToWhatsApp }) => {
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                placeholder="tu@email.com"
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-              />
+              <div className="relative">
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="tu@email.com"
+                  className={`w-full pl-10 pr-10 py-2 border ${emailStatus === 'unavailable' || emailStatus === 'invalid' ? 'border-red-500' : emailStatus === 'available' ? 'border-green-500' : 'border-gray-300 dark:border-gray-600'} rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white`}
+                />
+                {emailStatus === 'checking' && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                  </div>
+                )}
+                {emailStatus === 'available' && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-500">
+                    <CheckCircle className="h-5 w-5" />
+                  </div>
+                )}
+                {(emailStatus === 'unavailable' || emailStatus === 'invalid') && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-red-500">
+                    <XCircle className="h-5 w-5" />
+                  </div>
+                )}
+              </div>
+              {emailStatus === 'available' && (
+                <p className="mt-1 text-xs text-green-500">Correo electrónico disponible</p>
+              )}
+              {emailStatus === 'unavailable' && (
+                <p className="mt-1 text-xs text-red-500">Este correo electrónico ya está registrado</p>
+              )}
+              {emailStatus === 'invalid' && (
+                <p className="mt-1 text-xs text-red-500">Por favor ingresa un correo electrónico válido</p>
+              )}
             </div>
           </div>
 
