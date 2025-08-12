@@ -215,9 +215,6 @@ const documentoController = {
       }
 
       console.log('✅ Certificado encontrado:', certificado.nombreComun);
-
-      // Descargar el certificado
-      console.log('🔐 Descifrando certificado...');
       console.log('📊 Datos del certificado:', {
         tieneDatosCifrados: !!certificado.datosCifrados,
         tieneSalt: !!certificado.encryptionSalt,
@@ -225,6 +222,35 @@ const documentoController = {
         tamanioDatos: certificado.datosCifrados ? certificado.datosCifrados.length : 0
       });
 
+      // Validar la contraseña primero
+      console.log('🔑 Validando contraseña del certificado...');
+      try {
+        const validation = await CertificateManager.validatePassword(
+          certificado.datosCifrados,
+          certificado.encryptionSalt,
+          certificado.encryptionKey,
+          password
+        );
+
+        if (!validation.valid) {
+          console.error('❌ Validación de contraseña fallida:', validation.error || 'Contraseña incorrecta');
+          return res.status(401).json({ 
+            error: validation.error || 'Contraseña incorrecta',
+            code: 'INVALID_PASSWORD'
+          });
+        }
+        console.log('✅ Contraseña validada correctamente');
+      } catch (validationError) {
+        console.error('❌ Error en validación de contraseña:', validationError.message);
+        return res.status(401).json({ 
+          error: 'Error al validar la contraseña',
+          code: 'VALIDATION_ERROR',
+          details: process.env.NODE_ENV === 'development' ? validationError.message : undefined
+        });
+      }
+
+      // Si la validación es exitosa, proceder con el descifrado completo
+      console.log('🔓 Descifrando certificado...');
       let certBuffer;
       try {
         certBuffer = CertificateManager.decryptCertificate(
@@ -233,6 +259,7 @@ const documentoController = {
           certificado.encryptionKey, 
           password
         );
+        
         console.log('✅ Certificado descifrado, tamaño:', certBuffer.length);
         
         // Verificar que el buffer no esté vacío
@@ -251,8 +278,12 @@ const documentoController = {
         }
         
       } catch (decryptError) {
-        console.error('❌ Error descifrando certificado:', decryptError.message);
-        throw new Error(`Error descifrando certificado: ${decryptError.message}`);
+        console.error('❌ Error descifrando certificado después de validación exitosa:', decryptError.message);
+        return res.status(500).json({ 
+          error: 'Contraseña incorrecta',
+          code: 'DECRYPTION_ERROR',
+          details: process.env.NODE_ENV === 'development' ? decryptError.message : undefined
+        });
       }
 
       // Crear archivos temporales

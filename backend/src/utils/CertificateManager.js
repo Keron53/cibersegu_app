@@ -173,6 +173,68 @@ class CertificateManager {
     };
   }
 
+  // Validar la contraseña sin descifrar completamente el certificado
+  static async validatePassword(encryptedData, salt, iv, password) {
+    try {
+      // Si no hay salt o iv, es un certificado del sistema (no cifrado)
+      if (!salt || !iv) {
+        console.log('🔓 Certificado del sistema detectado (sin cifrado)');
+        return { valid: true };
+      }
+
+      console.log('🔐 Validando contraseña del certificado...');
+      
+      // Validar que los parámetros sean correctos
+      if (!encryptedData || !Buffer.isBuffer(encryptedData)) {
+        throw new Error('Datos cifrados no válidos');
+      }
+      
+      if (!salt || typeof salt !== 'string') {
+        throw new Error('Salt no válido');
+      }
+      
+      if (!iv || typeof iv !== 'string') {
+        throw new Error('IV no válido');
+      }
+      
+      if (!password || typeof password !== 'string') {
+        throw new Error('Contraseña no válida');
+      }
+      
+      const saltBuffer = Buffer.from(salt, 'hex');
+      const ivBuffer = Buffer.from(iv, 'hex');
+      
+      // Derivar la clave usando PBKDF2
+      const derivedKey = crypto.pbkdf2Sync(password, saltBuffer, 100000, 32, 'sha256');
+      
+      // Crear un decipher para validar la contraseña
+      const decipher = crypto.createDecipheriv('aes-256-cbc', derivedKey, ivBuffer);
+      
+      try {
+        // Intentar descifrar solo una pequeña porción para validar la contraseña
+        const chunkSize = Math.min(32, encryptedData.length);
+        decipher.update(encryptedData.slice(0, chunkSize));
+        
+        // Si llegamos aquí, la contraseña es válida
+        console.log('✅ Contraseña válida');
+        return { valid: true };
+      } catch (decryptError) {
+        if (decryptError.code === 'ERR_OSSL_BAD_DECRYPT') {
+          console.log('❌ Contraseña incorrecta');
+          return { valid: false, error: 'Contraseña incorrecta' };
+        }
+        throw decryptError;
+      }
+    } catch (error) {
+      console.error('❌ Error validando contraseña:', error.message);
+      return { 
+        valid: false, 
+        error: 'Error validando la contraseña',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
   // Descifrar un buffer de certificado
   static decryptCertificate(encryptedData, salt, iv, password) {
     try {
@@ -243,12 +305,18 @@ class CertificateManager {
         passwordType: typeof password
       });
       
-      // Si es un error de descifrado, intentar devolver los datos sin descifrar
+      // Si es un error de descifrado, lanzar un error específico
       if (error.code === 'ERR_OSSL_BAD_DECRYPT') {
-        console.log('⚠️ Error de descifrado, intentando usar datos sin cifrar...');
-        return encryptedData;
+        console.error('❌ Error de descifrado: La contraseña es incorrecta o el certificado está dañado');
+        const err = new Error('La contraseña es incorrecta o el certificado está dañado');
+        err.code = 'INVALID_PASSWORD';
+        throw err;
       }
       
+      // Para otros errores, incluir más detalles en desarrollo
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Error al descifrar el certificado:', error);
+      }
       throw error;
     }
   }

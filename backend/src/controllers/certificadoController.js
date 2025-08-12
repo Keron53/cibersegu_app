@@ -234,6 +234,101 @@ DNS.2 = 127.0.0.1
   downloadCertificate: async (req, res) => {
     try {
       const { certificateId } = req.params;
+      const { password, validateOnly } = req.body;
+
+      if (!password) {
+        return res.status(400).json({ error: 'La contraseña es requerida' });
+      }
+
+      console.log('🔍 Buscando certificado:', certificateId);
+      const certificate = await Certificate.findOne({ 
+        _id: certificateId, 
+        userId: req.usuario.id 
+      });
+
+      if (!certificate) {
+        console.error('❌ Certificado no encontrado');
+        return res.status(404).json({ error: 'Certificado no encontrado' });
+      }
+
+      try {
+        console.log('🔑 Validando contraseña...');
+        // Primero validamos la contraseña usando el método de validación
+        const validation = await CertificateManager.validatePassword(
+          certificate.datosCifrados,
+          certificate.encryptionSalt,
+          certificate.encryptionKey,
+          password
+        );
+
+        if (!validation.valid) {
+          console.error('❌ Validación de contraseña fallida');
+          throw new Error('Contraseña incorrecta');
+        }
+
+        console.log('✅ Contraseña validada correctamente');
+
+        // Si solo es validación, retornar éxito
+        if (validateOnly) {
+          return res.json({ valid: true });
+        }
+        
+        // Si es descarga real, descifrar y enviar el archivo
+        console.log('🔓 Descifrando certificado...');
+        const decryptedData = CertificateManager.decryptCertificate(
+          certificate.datosCifrados, 
+          certificate.encryptionSalt, 
+          certificate.encryptionKey, 
+          password
+        );
+
+        console.log('✅ Certificado descifrado correctamente');
+        
+        console.log('📥 Enviando archivo de certificado...');
+        res.setHeader('Content-Type', 'application/x-pkcs12');
+        res.setHeader('Content-Disposition', `attachment; filename="${certificate.originalFilename || 'certificado.p12'}"`);
+        res.send(decryptedData);
+
+      } catch (error) {
+        console.error('❌ Error al validar o descifrar certificado:', {
+          error: error.message,
+          stack: error.stack,
+          hasSalt: !!certificate?.encryptionSalt,
+          hasKey: !!certificate?.encryptionKey,
+          hasData: !!certificate?.datosCifrados,
+          dataLength: certificate?.datosCifrados?.length
+        });
+        
+        const errorMessage = error.message.includes('Contraseña incorrecta')
+        if (validateOnly) {
+          return res.status(401).json({ 
+            valid: false, 
+            error: errorMessage
+          });
+        }
+        return res.status(401).json({ 
+          error: errorMessage
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ Error en downloadCertificate:', {
+        error: error.message,
+        stack: error.stack,
+        params: req.params,
+        body: req.body
+      });
+      res.status(500).json({ 
+        error: 'Error al procesar la solicitud de descarga',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  },
+
+  // Eliminar certificado
+  deleteCertificate: async (req, res) => {
+    try {
+      const { certificateId } = req.params;
       const { password } = req.body;
 
       if (!password) {
@@ -249,40 +344,27 @@ DNS.2 = 127.0.0.1
         return res.status(404).json({ error: 'Certificado no encontrado' });
       }
 
-      const decryptedData = CertificateManager.decryptCertificate(
-        certificate.datosCifrados, 
-        certificate.encryptionSalt, 
-        certificate.encryptionKey, 
-        password
-      );
-      
-      res.setHeader('Content-Type', 'application/x-pkcs12');
-      res.setHeader('Content-Disposition', `attachment; filename="${certificate.originalFilename}"`);
-      res.send(decryptedData);
+      try {
+        // Validar la contraseña antes de eliminar
+        CertificateManager.decryptCertificate(
+          certificate.datosCifrados,
+          certificate.encryptionSalt,
+          certificate.encryptionKey,
+          password
+        );
 
-    } catch (error) {
-      console.error('Error al descargar certificado:', error);
-      res.status(500).json({ error: 'Error al descargar certificado' });
-    }
-  },
+        // Si la contraseña es correcta, proceder con la eliminación
+        await Certificate.findByIdAndDelete(certificateId);
+        res.json({ message: 'Certificado eliminado correctamente' });
 
-  // Eliminar certificado
-  deleteCertificate: async (req, res) => {
-    try {
-      const { certificateId } = req.params;
-      const certificate = await Certificate.findOneAndDelete({ 
-        _id: certificateId, 
-        userId: req.usuario.id 
-      });
-
-      if (!certificate) {
-        return res.status(404).json({ error: 'Certificado no encontrado' });
+      } catch (decryptError) {
+        console.error('Error al validar contraseña para eliminación:', decryptError);
+        res.status(401).json({ error: 'Contraseña incorrecta' });
       }
 
-      res.json({ message: 'Certificado eliminado correctamente' });
     } catch (error) {
       console.error('Error al eliminar certificado:', error);
-      res.status(500).json({ error: 'Error al eliminar certificado' });
+      res.status(500).json({ error: 'Error al procesar la solicitud de eliminación' });
     }
   },
 

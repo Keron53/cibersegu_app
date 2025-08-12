@@ -58,16 +58,90 @@ function CertificateList() {
     setShowPasswordModal(true)
   }
 
+  const validateCertificatePassword = async (certificateId, password) => {
+    try {
+      const token = localStorage.getItem('token')
+      
+      // Primero intentamos con el endpoint de validación dedicado
+      try {
+        const validationResponse = await fetch(`/api/certificados/${certificateId}/validate-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ password })
+        });
+
+        if (validationResponse.ok) {
+          return { valid: true };
+        }
+
+        // Si el endpoint de validación falla, continuamos con el método alternativo
+        const result = await validationResponse.json();
+        return { 
+          valid: false, 
+          error: result.error || 'La contraseña es incorrecta'
+        };
+      } catch (validationError) {
+        console.warn('Error usando el endpoint de validación, intentando con descarga...', validationError);
+      }
+
+      // Método alternativo usando el endpoint de descarga con validateOnly
+      const response = await fetch(`/api/certificados/download/${certificateId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ password, validateOnly: true })
+      });
+
+      if (response.status === 200) {
+        return { valid: true };
+      }
+
+      // Si llegamos aquí, hubo un error
+      const result = await response.json().catch(() => ({}));
+      return { 
+        valid: false, 
+        error: result.error === 'Contraseña incorrecta' || response.status === 401
+          ? 'La contraseña es incorrecta' 
+          : result.error || 'Error al validar la contraseña' 
+      };
+    } catch (error) {
+      console.error('Error validando contraseña:', error);
+      return { 
+        valid: false, 
+        error: error.message && error.message.includes('Failed to fetch')
+          ? 'Error de conexión al servidor' 
+          : 'Error al validar la contraseña' 
+      };
+    }
+  };
+
   const confirmDownload = async () => {
+    if (!selectedCertificate) return
+
     if (!password.trim()) {
       setError('La contraseña es obligatoria')
       return
     }
 
     try {
-      setDownloadingId(selectedCertificate.id)
+      setDownloadingId(selectedCertificate._id)
       setError('')
+      setMessage('')
 
+      // Validate password first
+      const validation = await validateCertificatePassword(selectedCertificate._id, password)
+      
+      if (!validation.valid) {
+        setError(validation.error || 'La contraseña es incorrecta')
+        return
+      }
+
+      // If validation passes, proceed with download
       const token = localStorage.getItem('token')
       const response = await fetch(`/api/certificados/download/${selectedCertificate._id}`, {
         method: 'POST',
@@ -78,29 +152,36 @@ function CertificateList() {
         body: JSON.stringify({ password })
       })
 
-      if (response.ok) {
-        // Crear blob y descargar
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = selectedCertificate.originalFilename || `${selectedCertificate.nombreComun || 'certificado'}.p12`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        window.URL.revokeObjectURL(url)
-        
-        setMessage('Certificado descargado exitosamente')
-        setShowPasswordModal(false)
-        setPassword('')
-        setSelectedCertificate(null)
-      } else {
-        const result = await response.json()
-        setError(result.error || 'Error al descargar el certificado')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Contraseña incorrecta')
       }
-    } catch (err) {
-      setError('Error al conectar con el servidor')
-      console.error(err)
+
+      // Only proceed with download if we get a successful response
+      const blob = await response.blob()
+      
+      // Check if the response is actually a JSON error (which would mean the download failed)
+      if (blob.type === 'application/json') {
+        const errorData = JSON.parse(await blob.text())
+        throw new Error(errorData.error || 'Contraseña incorrecta')
+      }
+
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = selectedCertificate.originalFilename || `${selectedCertificate.nombreComun || 'certificado'}.p12`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      
+      setMessage('✅ Certificado descargado exitosamente')
+      setShowPasswordModal(false)
+      setPassword('')
+      setSelectedCertificate(null)
+    } catch (error) {
+      console.error('Contraseña incorrecta:', error)
+      setError(error.message || 'Contraseña incorrecta. Por favor, inténtalo de nuevo.')
     } finally {
       setDownloadingId(null)
     }
@@ -108,37 +189,57 @@ function CertificateList() {
 
   const handleDelete = (certificate) => {
     setCertificateToDelete(certificate)
-    setShowDeleteModal(true)
+    setShowPasswordModal(true) // Show password modal for delete as well
   }
 
   const confirmDelete = async () => {
     if (!certificateToDelete) return
 
+    if (!password.trim()) {
+      setError('La contraseña es obligatoria')
+      return
+    }
+
     try {
       setDeletingId(certificateToDelete._id)
       setError('')
+      setMessage('')
 
+      // First validate the password
+      const validation = await validateCertificatePassword(certificateToDelete._id, password)
+      
+      if (!validation.valid) {
+        setError(validation.error || 'La contraseña es incorrecta')
+        setDeletingId(null)
+        return
+      }
+
+      // If password is valid, proceed with delete
       const token = localStorage.getItem('token')
       const response = await fetch(`/api/certificados/${certificateToDelete._id}`, {
         method: 'DELETE',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify({ password }) // Send password for validation
       })
 
       const result = await response.json()
 
       if (response.ok) {
         setCertificates(certificates.filter(cert => cert._id !== certificateToDelete._id))
-        setMessage('Certificado eliminado exitosamente')
+        setMessage('✅ Certificado eliminado exitosamente')
+        setShowPasswordModal(false)
         setShowDeleteModal(false)
         setCertificateToDelete(null)
+        setPassword('')
       } else {
-        setError(result.error || 'Error al eliminar el certificado')
+        throw new Error(result.error || 'Error al eliminar el certificado')
       }
-    } catch (err) {
-      setError('Error al conectar con el servidor')
-      console.error(err)
+    } catch (error) {
+      console.error('Error al eliminar el certificado:', error)
+      setError(error.message || 'Error al eliminar el certificado. Por favor, inténtalo de nuevo.')
     } finally {
       setDeletingId(null)
     }
@@ -282,45 +383,60 @@ function CertificateList() {
         </div>
       </div>
 
-      {/* Modal de contraseña */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Ingresa la contraseña del certificado
+      {/* Modal de confirmación de contraseña */}
+      {showPasswordModal && (selectedCertificate || certificateToDelete) && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4 dark:text-white">
+              {certificateToDelete ? 'Confirmar eliminación' : 'Confirmar descarga'}
             </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-              Para descargar{' '}
-              <span className="font-semibold text-primary dark:text-primary-light">
-                {selectedCertificate ? generateCertificateDisplayName(selectedCertificate) : 'Certificado'}
-              </span>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              {certificateToDelete 
+                ? 'Por favor, ingresa la contraseña del certificado para confirmar la eliminación.'
+                : 'Por favor, ingresa la contraseña del certificado para continuar con la descarga.'}
             </p>
-            
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4"
               placeholder="Contraseña del certificado"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-4"
+              autoComplete="current-password"
             />
-            
-            <div className="flex justify-end space-x-3">
+            {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+            {message && <p className="text-green-500 text-sm mb-4">{message}</p>}
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => {
                   setShowPasswordModal(false)
+                  setShowDeleteModal(false)
                   setPassword('')
+                  setError('')
                   setSelectedCertificate(null)
+                  setCertificateToDelete(null)
                 }}
-                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white transition-colors"
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
               >
                 Cancelar
               </button>
               <button
-                onClick={confirmDownload}
-                disabled={downloadingId === selectedCertificate?._id}
-                className="px-4 py-2 bg-primary hover:bg-primary-dark dark:bg-primary-light dark:hover:bg-primary text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                onClick={certificateToDelete ? confirmDelete : confirmDownload}
+                disabled={downloadingId || deletingId}
+                className={`px-4 py-2 text-white rounded ${
+                  (downloadingId || deletingId) 
+                    ? 'bg-blue-400' 
+                    : certificateToDelete 
+                      ? 'bg-red-600 hover:bg-red-700' 
+                      : 'bg-blue-600 hover:bg-blue-700'
+                }`}
               >
-                {downloadingId === selectedCertificate?._id ? 'Descargando...' : 'Descargar'}
+                {deletingId 
+                  ? 'Eliminando...' 
+                  : downloadingId 
+                    ? 'Descargando...' 
+                    : certificateToDelete 
+                      ? 'Eliminar' 
+                      : 'Descargar'}
               </button>
             </div>
           </div>
