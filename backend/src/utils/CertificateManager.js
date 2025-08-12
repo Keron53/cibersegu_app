@@ -132,7 +132,19 @@ class CertificateManager {
 
 
 
-    await certificate.save();
+    const savedCertificate = await certificate.save();
+    
+    // Retornar los metadatos del certificado guardado
+    return {
+      _id: savedCertificate._id,
+      nombreComun: savedCertificate.nombreComun,
+      organizacion: savedCertificate.organizacion,
+      email: savedCertificate.email,
+      numeroSerie: savedCertificate.numeroSerie,
+      fechaVencimiento: savedCertificate.fechaVencimiento,
+      activo: savedCertificate.activo,
+      originalFilename: savedCertificate.originalFilename
+    };
   }
 
   // Recuperar y descifrar el archivo .p12 usando la clave derivada
@@ -278,12 +290,23 @@ class CertificateManager {
       
       const decipher = crypto.createDecipheriv('aes-256-cbc', derivedKey, ivBuffer);
       
-      const decrypted = Buffer.concat([decipher.update(encryptedData), decipher.final()]);
-      console.log('✅ Certificado descifrado exitosamente, tamaño:', decrypted.length);
+      let decrypted;
+      try {
+        decrypted = Buffer.concat([decipher.update(encryptedData), decipher.final()]);
+        console.log('✅ Certificado descifrado exitosamente, tamaño:', decrypted.length);
+      } catch (decryptError) {
+        console.error('❌ Error al descifrar el certificado:', decryptError.message);
+        if (decryptError.message.includes('bad decrypt') || 
+            decryptError.message.includes('wrong final block length') ||
+            decryptError.message.includes('Invalid key length')) {
+          throw new Error('Contraseña incorrecta');
+        }
+        throw new Error('No se pudo descifrar el certificado: ' + decryptError.message);
+      }
       
       // Verificar que el certificado descifrado tenga el formato PKCS#12 correcto
       if (decrypted.length < 4) {
-        throw new Error('El certificado descifrado es demasiado pequeño');
+        throw new Error('El certificado descifrado es demasiado pequeño o está corrupto');
       }
       
       // Verificar que comience con la secuencia PKCS#12 (0x30)

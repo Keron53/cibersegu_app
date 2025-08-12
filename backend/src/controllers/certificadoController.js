@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
+const forge = require('node-forge');
 const CertificateManager = require('../utils/CertificateManager');
 const Usuario = require('../models/Usuario');
 const Certificate = require('../models/Certificate');
@@ -10,48 +11,81 @@ const os = require('os');
 const certificadoController = {
   // Subir certificado existente
   uploadCertificate: async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se subió ningún archivo' });
+    }
+
+    const { password } = req.body;
+    if (!password) {
+      return res.status(400).json({ error: 'La contraseña es requerida' });
+    }
+
     try {
-      if (!req.file) {
-        return res.status(400).json({ error: 'No se subió ningún archivo' });
-      }
-
-      const { password } = req.body;
-      if (!password) {
-        return res.status(400).json({ error: 'La contraseña es requerida' });
-      }
-
-      const fileBuffer = fs.readFileSync(req.file.path);
-      const encryptedResult = CertificateManager.encryptCertificate(fileBuffer, password);
-
-      const certificate = new Certificate({
-        userId: req.usuario.id,
-        nombreComun: req.file.originalname.replace('.p12', ''),
-        organizacion: '',
-        email: '',
-        datosCifrados: encryptedResult.encryptedData,
-        encryptionSalt: encryptedResult.salt,
-        encryptionKey: encryptedResult.iv,
-        originalFilename: req.file.originalname
-      });
-
-      await certificate.save();
+      // Usar CertificateManager para validar y almacenar el certificado
+      const certificateMetadata = await CertificateManager.encryptAndStoreCertificate(
+        req.file.path,
+        password,
+        req.usuario.id,
+        req.file.originalname
+      );
 
       // Limpiar archivo temporal
-      fs.unlinkSync(req.file.path);
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
 
-      res.json({
-        message: 'Certificado subido exitosamente',
+      // Si llegamos aquí, el certificado se validó y almacenó correctamente
+      res.status(201).json({
+        message: 'Certificado subido correctamente',
         certificate: {
-          id: certificate._id,
-          nombreComun: certificate.nombreComun,
-          organizacion: certificate.organizacion,
-          email: certificate.email,
-          originalFilename: certificate.originalFilename
+          id: certificateMetadata._id,
+          nombre: certificateMetadata.nombreComun,
+          organizacion: certificateMetadata.organizacion,
+          email: certificateMetadata.email,
+          fechaVencimiento: certificateMetadata.fechaVencimiento,
+          activo: certificateMetadata.activo
         }
       });
     } catch (error) {
-      console.error('Error al subir certificado:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      console.error('Error al subir el certificado:', error);
+      
+      // Limpiar archivo temporal en caso de error
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      
+      // Mapear errores específicos a mensajes amigables
+      let errorMessage = 'Error al procesar el certificado';
+      let statusCode = 400;
+      
+      // Errores de contraseña
+      if (error.message.includes('incorrect password') || 
+          error.message.includes('Invalid password') ||
+          error.message === 'Contraseña incorrecta' ||
+          error.message.includes('invalid password')) {
+        errorMessage = 'La contraseña del certificado es incorrecta';
+        statusCode = 401;
+      } 
+      // Errores de formato de archivo
+      else if (error.message.includes('Invalid PKCS12 data') || 
+              error.message.includes('Not enough data to read') ||
+              error.message.includes('Invalid encoding')) {
+        errorMessage = 'El archivo no es un certificado PKCS#12 válido o está dañado';
+      } 
+      // Errores de clave privada faltante
+      else if (error.message.includes('no contiene una clave privada') ||
+              error.message.includes('no contiene claves privadas')) {
+        errorMessage = 'El archivo no contiene una clave privada. Asegúrese de que el archivo .p12 incluya tanto el certificado como la clave privada.';
+      } 
+      // Errores de certificado faltante
+      else if (error.message.includes('no contiene certificados válidos')) {
+        errorMessage = 'El archivo no contiene certificados válidos. Verifique que el archivo sea un certificado PKCS#12 (.p12) correcto.';
+      }
+      
+      res.status(statusCode).json({ 
+        error: errorMessage,
+        code: statusCode === 401 ? 'INVALID_PASSWORD' : 'INVALID_CERTIFICATE'
+      });
     }
   },
 
@@ -254,8 +288,14 @@ DNS.2 = 127.0.0.1
       try {
         console.log('🔑 Validando contraseña...');
         // Primero validamos la contraseña usando el método de validación
+        const encryptedData = certificate.certificateData || certificate.datosCifrados;
+        if (!encryptedData) {
+          console.error('❌ No se encontraron datos cifrados en el certificado');
+          throw new Error('Datos del certificado no válidos');
+        }
+        
         const validation = await CertificateManager.validatePassword(
-          certificate.datosCifrados,
+          encryptedData,
           certificate.encryptionSalt,
           certificate.encryptionKey,
           password
@@ -274,13 +314,18 @@ DNS.2 = 127.0.0.1
         }
         
         // Si es descarga real, descifrar y enviar el archivo
-        console.log('🔓 Descifrando certificado...');
+        console.log('🔓 Descargando y descifrando certificado...');
+        
         const decryptedData = CertificateManager.decryptCertificate(
-          certificate.datosCifrados, 
+          certificate.certificateData || certificate.datosCifrados, 
           certificate.encryptionSalt, 
           certificate.encryptionKey, 
           password
         );
+        
+        if (!decryptedData) {
+          throw new Error('No se pudieron descifrar los datos del certificado');
+        }
 
         console.log('✅ Certificado descifrado correctamente');
         
@@ -295,8 +340,9 @@ DNS.2 = 127.0.0.1
           stack: error.stack,
           hasSalt: !!certificate?.encryptionSalt,
           hasKey: !!certificate?.encryptionKey,
-          hasData: !!certificate?.datosCifrados,
-          dataLength: certificate?.datosCifrados?.length
+          hasData: !!(certificate?.certificateData || certificate?.datosCifrados),
+          dataLength: certificate?.certificateData?.length || certificate?.datosCifrados?.length,
+          fields: Object.keys(certificate ? certificate.toObject() : {})
         });
         
         const errorMessage = error.message.includes('Contraseña incorrecta')
@@ -346,20 +392,53 @@ DNS.2 = 127.0.0.1
 
       try {
         // Validar la contraseña antes de eliminar
-        CertificateManager.decryptCertificate(
-          certificate.datosCifrados,
-          certificate.encryptionSalt,
-          certificate.encryptionKey,
-          password
-        );
+        const certData = certificate.certificateData || certificate.datosCifrados;
+        if (!certData) {
+          console.error('❌ No se encontraron datos cifrados en el certificado');
+          return res.status(400).json({ error: 'El certificado no contiene datos válidos' });
+        }
+        
+        console.log('🔑 Intentando validar contraseña para eliminar certificado:', certificateId);
+        
+        // Verificar que la contraseña es correcta
+        try {
+          const decrypted = CertificateManager.decryptCertificate(
+            certData,
+            certificate.encryptionSalt,
+            certificate.encryptionKey,
+            password
+          );
+          
+          if (!decrypted) {
+            throw new Error('No se pudo validar el certificado');
+          }
+          
+          console.log('✅ Contraseña validada correctamente, procediendo a eliminar...');
+          
+          // Si la contraseña es correcta, proceder con la eliminación
+          await Certificate.findByIdAndDelete(certificateId);
+          console.log('✅ Certificado eliminado correctamente');
+          return res.json({ message: 'Certificado eliminado correctamente' });
+          
+        } catch (decryptError) {
+          console.error('❌ Error al validar contraseña:', decryptError);
+          // Verificar si es un error de contraseña incorrecta
+          if (decryptError.message.includes('Contraseña incorrecta')) {
+            return res.status(401).json({ error: 'Contraseña incorrecta' });
+          }
+          // Otros errores de validación
+          return res.status(400).json({ 
+            error: 'Error al validar el certificado',
+            details: decryptError.message 
+          });
+        }
 
-        // Si la contraseña es correcta, proceder con la eliminación
-        await Certificate.findByIdAndDelete(certificateId);
-        res.json({ message: 'Certificado eliminado correctamente' });
-
-      } catch (decryptError) {
-        console.error('Error al validar contraseña para eliminación:', decryptError);
-        res.status(401).json({ error: 'Contraseña incorrecta' });
+      } catch (error) {
+        console.error('❌ Error inesperado al eliminar certificado:', error);
+        res.status(500).json({ 
+          error: 'Error al procesar la solicitud',
+          details: error.message 
+        });
       }
 
     } catch (error) {
