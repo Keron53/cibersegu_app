@@ -54,6 +54,10 @@ function CertificateList() {
   };
 
   const handleDownload = (certificate) => {
+    // Reset all states when starting a new operation
+    setError('')
+    setMessage('')
+    setPassword('')
     setSelectedCertificate(certificate)
     setShowPasswordModal(true)
   }
@@ -123,6 +127,10 @@ function CertificateList() {
   const confirmDownload = async () => {
     if (!selectedCertificate) return
 
+    // Reset messages when starting the operation
+    setError('')
+    setMessage('')
+
     if (!password.trim()) {
       setError('La contraseña es obligatoria')
       return
@@ -176,9 +184,15 @@ function CertificateList() {
       window.URL.revokeObjectURL(url)
       
       setMessage('✅ Certificado descargado exitosamente')
-      setShowPasswordModal(false)
-      setPassword('')
-      setSelectedCertificate(null)
+      const closeModal = () => {
+        setShowPasswordModal(false)
+        setPassword('')
+        setError('')
+        setMessage('')
+        setSelectedCertificate(null)
+        setCertificateToDelete(null)
+      }
+      closeModal()
     } catch (error) {
       console.error('Contraseña incorrecta:', error)
       setError(error.message || 'Contraseña incorrecta. Por favor, inténtalo de nuevo.')
@@ -188,12 +202,20 @@ function CertificateList() {
   }
 
   const handleDelete = (certificate) => {
+    // Reset all states when starting a delete operation
+    setError('')
+    setMessage('')
+    setPassword('')
     setCertificateToDelete(certificate)
-    setShowPasswordModal(true) // Show password modal for delete as well
+    setShowPasswordModal(true)
   }
 
   const confirmDelete = async () => {
     if (!certificateToDelete) return
+
+    // Reset messages when starting the operation
+    setError('')
+    setMessage('')
 
     if (!password.trim()) {
       setError('La contraseña es obligatoria')
