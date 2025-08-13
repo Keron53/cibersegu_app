@@ -1,4 +1,4 @@
-# Documentación de la API - Endpoints
+l API# Documentación de la API - Endpoints
 
 ## Autenticación
 
@@ -10,21 +10,46 @@ POST /api/usuarios/registro
 ```json
 {
   "nombre": "Juan Pérez",
+  "username": "jperez",
   "email": "juan@ejemplo.com",
-  "password": "contraseñaSegura123",
-  "telefono": "+1234567890"
+  "password": "ContraseñaSegura123"
 }
 ```
+
+**Validaciones:**
+- `nombre`: Requerido, debe ser una cadena
+- `username`: Requerido, debe ser único, solo puede contener letras, números, guiones bajos y puntos
+- `email`: Requerido, debe tener un formato de email válido
+- `password`: Requerido, debe tener al menos 8 caracteres, incluyendo al menos:
+  - Una letra mayúscula
+  - Una letra minúscula
+  - Un número
+
 **Respuesta exitosa (201):**
 ```json
 {
-  "mensaje": "Usuario registrado exitosamente",
+  "mensaje": "Usuario registrado exitosamente. Por favor verifica tu correo electrónico.",
   "usuario": {
-    "id": 1,
+    "id": "507f1f77bcf86cd799439011",
     "nombre": "Juan Pérez",
+    "username": "jperez",
     "email": "juan@ejemplo.com",
-    "telefono": "+1234567890"
+    "emailVerificado": false
   }
+}
+```
+
+**Respuesta de error (400):**
+```json
+{
+  "mensaje": "El nombre de usuario ya está registrado"
+}
+```
+
+**Respuesta de error (400):**
+```json
+{
+  "mensaje": "La contraseña debe contener al menos 8 caracteres, una mayúscula, una minúscula y un número"
 }
 ```
 
@@ -50,6 +75,17 @@ POST /api/usuarios/login
   }
 }
 ```
+
+### Otras rutas de usuarios
+- __Verificar disponibilidad__: `POST /api/usuarios/check-username`, `POST /api/usuarios/check-email`, `POST /api/usuarios/check-telefono`
+- __Verificación de email__: `POST /api/usuarios/verificar-email`, `POST /api/usuarios/reenviar-codigo`
+- __Registro y verificación por WhatsApp__: `POST /api/usuarios/registro-whatsapp`, `POST /api/usuarios/verificar-whatsapp`, `POST /api/usuarios/reenviar-codigo-whatsapp`
+- __Logout__: `POST /api/usuarios/logout` (requiere JWT)
+- __Perfil__: `GET /api/usuarios/perfil`, `PUT /api/usuarios/perfil` (requiere JWT)
+- __Cambiar contraseña__: `PUT /api/usuarios/cambiar-contrasena` (requiere JWT)
+- __Recuperación de contraseña__: `POST /api/usuarios/solicitar-recuperacion`, `POST /api/usuarios/restablecer-contrasena`
+- __Listar usuarios__: `GET /api/usuarios` (requiere JWT)
+- __Alias de registro__: `POST /api/usuarios` (equivalente a registro)
 
 ## Documentos
 
@@ -79,7 +115,7 @@ Headers: {
 
 ### Firmar documento
 ```http
-POST /api/documentos/1/firmar
+POST /api/documentos/:documentoId/firmar
 Headers: {
   "Authorization": "Bearer <token>",
   "Content-Type": "application/json"
@@ -116,6 +152,21 @@ Headers: {
   }
 }
 ```
+
+### Otras rutas de documentos
+- __Listar documentos__: `GET /api/documentos` (requiere JWT)
+- __Listar firmados__: `GET /api/documentos/firmados` (requiere JWT)
+- __Listar compartidos__: `GET /api/documentos/compartidos` (requiere JWT)
+- __Obtener documento__: `GET /api/documentos/:id` (requiere JWT)
+- __Información del documento__: `GET /api/documentos/:id/info` (requiere JWT)
+- __Descargar documento__: `GET /api/documentos/:id/download` (requiere JWT)
+- __Eliminar documento__: `DELETE /api/documentos/:id` (requiere JWT)
+
+### Endpoints de firma (deprecados)
+Estos endpoints antiguos estaban pensados para pruebas de firma directa con archivos enviados en la solicitud. Se recomienda usar `POST /api/documentos/:documentoId/firmar`.
+- `POST /api/documentos/firmar-visible` (multipart: `pdf`, `cert`)
+- `POST /api/documentos/firmar-node` (multipart: `pdf`, `cert`)
+- `POST /api/documentos/firmar-qr-node` (multipart: `pdf`, `cert`)
 
 ## Certificados
 
@@ -178,6 +229,12 @@ Headers: {
 }
 ```
 
+### Otras rutas de certificados
+- __Listar certificados__: `GET /api/certificados` (requiere JWT)
+- __Descargar certificado__: `POST /api/certificados/download/:certificateId` (requiere JWT; body: `{ "password": "..." }`)
+- __Eliminar certificado__: `DELETE /api/certificados/:certificateId` (requiere JWT)
+- __Validar contraseña__: `POST /api/certificados/:certificateId/validate-password` (requiere JWT; body: `{ "password": "..." }`)
+
 ## Validación de Documentos
 
 ### Validar PDF
@@ -209,6 +266,11 @@ Content-Type: multipart/form-data
   "modificaciones": []
 }
 ```
+
+### Otras rutas de validación
+- __Validar PDF por URL__: `POST /api/validacion/validar-pdf-url` (body: `{ "url": "https://..." }`)
+- __Información de firmas__: `POST /api/validacion/informacion-firmas` (multipart: `pdf`)
+- __Verificar integridad__: `POST /api/validacion/verificar-integridad` (multipart: `pdf`)
 
 ## Solicitudes de Firma
 
@@ -253,6 +315,13 @@ Headers: {
   "firmasCompletadas": 0
 }
 ```
+
+### Otras rutas de solicitudes de firma
+- __Pendientes para firmar__: `GET /api/solicitudes-firma/pendientes` (requiere JWT)
+- __Enviadas por mí__: `GET /api/solicitudes-firma/enviadas` (requiere JWT)
+- __Firmar por solicitud__: `POST /api/solicitudes-firma/firmar/:solicitudId` (requiere JWT)
+- __Rechazar solicitud__: `POST /api/solicitudes-firma/rechazar/:solicitudId` (requiere JWT)
+- __Detalle de solicitud__: `GET /api/solicitudes-firma/:solicitudId` (requiere JWT)
 
 ## Códigos de Estado HTTP
 
