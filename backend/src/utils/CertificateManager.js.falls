@@ -1,0 +1,311 @@
+const mongoose = require('mongoose');
+const crypto = require('crypto');
+const fs = require('fs-extra');
+const Certificate = require('../models/Certificate');
+const forge = require('node-forge');
+
+const CA_DIR = require('path').join(__dirname, '../../CrearCACentral');
+const CA_KEY_PATH = require('path').join(CA_DIR, 'ca.key');
+const CA_CERT_PATH = require('path').join(CA_DIR, 'ca.crt');
+
+class CertificateManager {
+  static deriveKey(password, salt) {
+    return new Promise((resolve, reject) => {
+      crypto.pbkdf2(password, salt, 100000, 32, 'sha256', (err, derivedKey) => {
+        if (err) reject(err);
+        resolve(derivedKey);
+      });
+    });
+  }
+
+  static async encryptAndStoreCertificate(filePath, password, userId, originalFilename = null) {
+    if (!fs.existsSync(filePath)) {
+      throw new Error('El archivo .p12 no existe');
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      throw new Error('El userId proporcionado no es válido');
+    }
+
+    // Leer el archivo .p12
+    const p12Buffer = await fs.promises.readFile(filePath);
+
+    // Extraer metadatos del certificado
+    let certificateMetadata = {
+      nombreComun: '',
+      organizacion: '',
+      email: '',
+      numeroSerie: ''
+    };
+
+    try {
+      // Intenta parsear el archivo .p12 con la contraseña
+      const p12Asn1 = forge.asn1.fromDer(p12Buffer.toString('binary'));
+      const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, false, password);
+      
+      try {
+        // Obtener el primer certificado del archivo .p12
+        const certs = p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag];
+        if (certs && certs.length > 0) {
+          const cert = certs[0].cert;
+          
+          // Extraer información del certificado
+          certificateMetadata.numeroSerie = cert.serialNumber;
+          const subject = cert.subject;
+          
+          // Extraer campos del subject
+          for (const attr of subject.attributes) {
+            switch (attr.name) {
+              case 'CN':
+              case 'commonName':
+                certificateMetadata.nombreComun = attr.value;
+                break;
+              case 'O':
+              case 'organizationName':
+                certificateMetadata.organizacion = attr.value;
+                break;
+              case 'OU':
+              case 'organizationalUnitName':
+                if (!certificateMetadata.organizacion) {
+                  certificateMetadata.organizacion = attr.value;
+                }
+                break;
+              case 'E':
+              case 'emailAddress':
+                certificateMetadata.email = attr.value;
+                break;
+            }
+          }
+          
+          if (!certificateMetadata.nombreComun) {
+            certificateMetadata.nombreComun = originalFilename ? originalFilename.replace('.p12', '') : 'Certificado';
+          }
+          
+          if (!certificateMetadata.organizacion) {
+            certificateMetadata.organizacion = 'Organización';
+          }
+        }
+      } catch (err) {
+        console.log('No se pudieron extraer metadatos del certificado:', err.message);
+        certificateMetadata.nombreComun = originalFilename ? originalFilename.replace('.p12', '') : 'Certificado';
+        certificateMetadata.organizacion = 'Organización';
+      }
+    } catch (err) {
+      throw new Error('❌ La contraseña del certificado es incorrecta. Verifica la contraseña e intenta nuevamente.');
+    }
+
+    const salt = crypto.randomBytes(16);
+    const derivedKey = await this.deriveKey(password, salt.toString('hex'));
+    
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-cbc', derivedKey, iv);
+    
+    const fileBuffer = fs.readFileSync(filePath);
+    let encrypted = Buffer.concat([cipher.update(fileBuffer), cipher.final()]);
+
+    // Almacenar en MongoDB
+    const fallbackFilename = filePath.split('/').pop();
+    const finalOriginalFilename = originalFilename || fallbackFilename;
+
+    const certificate = new Certificate({
+      userId: new mongoose.Types.ObjectId(userId),
+      filename: filePath.split('/').pop(),
+      originalFilename: finalOriginalFilename,
+      nombreComun: certificateMetadata.nombreComun,
+      organizacion: certificateMetadata.organizacion,
+      email: certificateMetadata.email,
+      numeroSerie: certificateMetadata.numeroSerie,
+      certificateData: encrypted,
+      encryptionSalt: salt.toString('hex'),
+      encryptionKey: iv.toString('hex'),
+    });
+
+    const savedCertificate = await certificate.save();
+    
+    return {
+      _id: savedCertificate._id,
+      nombreComun: savedCertificate.nombreComun,
+      organizacion: savedCertificate.organizacion,
+      email: savedCertificate.email,
+      numeroSerie: savedCertificate.numeroSerie,
+      fechaVencimiento: savedCertificate.fechaVencimiento,
+      activo: savedCertificate.activo,
+      originalFilename: savedCertificate.originalFilename
+    };
+  }
+
+  // Validar la contraseña sin descifrar completamente el certificado
+  static async validatePassword(encryptedData, salt, iv, password) {
+    try {
+      if (!encryptedData || !salt || !iv || !password) {
+        return { valid: false, error: 'Faltan parámetros requeridos' };
+      }
+
+      const saltBuffer = Buffer.from(salt, 'hex');
+      const ivBuffer = Buffer.from(iv, 'hex');
+      
+      const derivedKey = crypto.pbkdf2Sync(
+        password,
+        saltBuffer,
+        100000,
+        32,
+        'sha256'
+      );
+
+      // Solo validar el primer bloque para verificar la contraseña
+      const decipher = crypto.createDecipheriv('aes-256-cbc', derivedKey, ivBuffer);
+      decipher.setAutoPadding(false);
+      
+      try {
+        // Procesar solo los primeros 32 bytes para validar
+        const chunk = encryptedData.slice(0, 32);
+        decipher.update(chunk);
+        
+        return { valid: true };
+      } catch (decryptError) {
+        if (decryptError.code === 'ERR_OSSL_BAD_DECRYPT') {
+          return { valid: false, error: 'Contraseña incorrecta' };
+        }
+        throw decryptError;
+      }
+    } catch (error) {
+      console.error('Error en validatePassword:', error);
+      return { 
+        valid: false, 
+        error: 'Error validando la contraseña',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      };
+    }
+  }
+
+  // Descifrar un buffer de certificado
+  static decryptCertificate(encryptedData, salt, iv, password) {
+    try {
+      // Validación de parámetros
+      if (!encryptedData || !salt || !iv || !password) {
+        console.error('❌ Faltan parámetros para el descifrado');
+        throw new Error('Faltan parámetros requeridos para el descifrado');
+      }
+
+      console.log('🔐 Iniciando descifrado de certificado...');
+      
+      // Convertir a Buffer si es necesario
+      if (!Buffer.isBuffer(encryptedData)) {
+        try {
+          encryptedData = Buffer.from(encryptedData);
+        } catch (e) {
+          throw new Error('Los datos cifrados no son válidos');
+        }
+      }
+      
+      // Convertir salt e IV a buffers
+      let saltBuffer, ivBuffer;
+      try {
+        saltBuffer = Buffer.from(salt, 'hex');
+        ivBuffer = Buffer.from(iv, 'hex');
+      } catch (e) {
+        throw new Error('Formato de salt o IV inválido');
+      }
+      
+      // Validar longitudes
+      if (saltBuffer.length !== 16) {
+        throw new Error('Longitud de salt inválida');
+      }
+      if (ivBuffer.length !== 16) {
+        throw new Error('Longitud de IV inválida');
+      }
+      
+      // Derivar la clave
+      let derivedKey;
+      try {
+        derivedKey = crypto.pbkdf2Sync(
+          password,
+          saltBuffer,
+          100000, // iteraciones
+          32,     // longitud de clave en bytes (256 bits)
+          'sha256'
+        );
+      } catch (e) {
+        throw new Error('Error al derivar la clave');
+      }
+      
+      // Descifrar los datos
+      let decrypted;
+      try {
+        const decipher = crypto.createDecipheriv('aes-256-cbc', derivedKey, ivBuffer);
+        decrypted = Buffer.concat([
+          decipher.update(encryptedData),
+          decipher.final()
+        ]);
+      } catch (e) {
+        if (e.code === 'ERR_OSSL_BAD_DECRYPT') {
+          throw new Error('Contraseña incorrecta o certificado dañado');
+        }
+        throw new Error('Error al descifrar el certificado: ' + e.message);
+      }
+      
+      // Validar el resultado
+      if (!decrypted || decrypted.length < 4) {
+        throw new Error('Los datos descifrados son inválidos o están incompletos');
+      }
+      
+      // Verificar que sea un PKCS#12 (debe empezar con 0x30)
+      if (decrypted[0] !== 0x30) {
+        console.warn('⚠️ Advertencia: El certificado descifrado no parece tener el formato PKCS#12 estándar');
+      }
+      
+      console.log('✅ Certificado descifrado exitosamente');
+      return decrypted;
+    } catch (error) {
+      console.error('❌ Error en decryptCertificate:', error.message);
+      throw error; // Re-lanzar para que el llamador lo maneje
+    }
+  }
+}
+
+// Configuración de la CA
+CertificateManager.ensureCAExists = function() {
+  fs.ensureDirSync(CA_DIR);
+  
+  if (!fs.existsSync(CA_KEY_PATH) || !fs.existsSync(CA_CERT_PATH)) {
+    console.log('🔐 Generando CA raíz...');
+    
+    // Generar par de claves para la CA
+    const keys = forge.pki.rsa.generateKeyPair(2048);
+    const cert = forge.pki.createCertificate();
+    
+    // Configurar atributos de la CA
+    cert.publicKey = keys.publicKey;
+    cert.serialNumber = '01';
+    cert.validity.notBefore = new Date();
+    cert.validity.notAfter = new Date();
+    cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 10);
+    
+    const attrs = [
+      { name: 'commonName', value: 'AF Systems CA' },
+      { name: 'countryName', value: 'PE' },
+      { name: 'organizationName', value: 'AF Systems' },
+      { name: 'organizationalUnitName', value: 'Tecnología' }
+    ];
+    
+    cert.setSubject(attrs);
+    cert.setIssuer(attrs);
+    cert.setExtensions([
+      { name: 'basicConstraints', cA: true },
+      { name: 'keyUsage', digitalSignature: true, keyCertSign: true, cRLSign: true }
+    ]);
+    
+    // Firmar la CA consigo misma
+    cert.sign(keys.privateKey, forge.md.sha256.create());
+    
+    // Guardar la clave y el certificado
+    fs.writeFileSync(CA_KEY_PATH, forge.pki.privateKeyToPem(keys.privateKey));
+    fs.writeFileSync(CA_CERT_PATH, forge.pki.certificateToPem(cert));
+    
+    console.log('✅ CA raíz generada correctamente');
+  } else {
+    console.log('✅ CA raíz ya existe');
+  }
+};
+
+module.exports = CertificateManager;

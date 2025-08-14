@@ -343,6 +343,86 @@ class CertificateManager {
       throw error;
     }
   }
+
+  // Método específico para validación de contraseñas (estricto)
+  static validatePassword(encryptedData, salt, iv, password) {
+    try {
+      // Si no hay salt o iv, es un certificado del sistema
+      if (!salt || !iv) {
+        console.log('🔓 Certificado del sistema detectado (sin cifrado)');
+        return { valid: true };
+      }
+
+      console.log('🔐 Validando contraseña de certificado cifrado...');
+      console.log('📊 Salt:', salt);
+      console.log('📊 IV:', iv);
+      console.log('📊 Password length:', password ? password.length : 0);
+      console.log('📊 Password (primeros 3 chars):', password ? password.substring(0, 3) + '***' : 'undefined');
+      console.log('📊 Encrypted data length:', encryptedData ? encryptedData.length : 0);
+      
+      // Validar que los datos estén en el formato correcto
+      if (!encryptedData || !Buffer.isBuffer(encryptedData)) {
+        return { valid: false, error: 'Los datos cifrados no son un buffer válido' };
+      }
+      
+      if (!salt || typeof salt !== 'string') {
+        return { valid: false, error: 'El salt no es una cadena válida' };
+      }
+      
+      if (!iv || typeof iv !== 'string') {
+        return { valid: false, error: 'El IV no es una cadena válida' };
+      }
+      
+      if (!password || typeof password !== 'string') {
+        return { valid: false, error: 'La contraseña no es una cadena válida' };
+      }
+      
+      const saltBuffer = Buffer.from(salt, 'hex');
+      const ivBuffer = Buffer.from(iv, 'hex');
+      
+      console.log('🔑 Salt buffer length:', saltBuffer.length);
+      console.log('🔑 IV buffer length:', ivBuffer.length);
+      
+      const derivedKey = crypto.pbkdf2Sync(password, saltBuffer, 100000, 32, 'sha256');
+      console.log('🔑 Derived key length:', derivedKey.length);
+      
+      const decipher = crypto.createDecipheriv('aes-256-cbc', derivedKey, ivBuffer);
+      
+      // Intentar descifrar todo el certificado para validar la contraseña
+      // (igual que en el proceso de firma)
+      const decrypted = Buffer.concat([decipher.update(encryptedData), decipher.final()]);
+      console.log('🔍 Certificado descifrado completamente, tamaño:', decrypted.length);
+      
+      // Verificar que el certificado descifrado tenga el formato PKCS#12 correcto
+      if (decrypted.length < 4) {
+        return { valid: false, error: 'El certificado descifrado es demasiado pequeño' };
+      }
+      
+      // Verificar que comience con la secuencia PKCS#12 (0x30)
+      if (decrypted[0] !== 0x30) {
+        console.warn('⚠️ El certificado descifrado no parece tener el formato PKCS#12 correcto (primer byte:', decrypted[0], ')');
+        // No rechazar por esto, solo advertencia
+      }
+      
+      console.log('✅ Contraseña válida');
+      return { valid: true };
+      
+    } catch (error) {
+      console.error('❌ Error validando contraseña:', error.message);
+      console.error('📊 Detalles del error:', {
+        hasSalt: !!salt,
+        hasIv: !!iv,
+        hasPassword: !!password,
+        encryptedDataLength: encryptedData ? encryptedData.length : 0,
+        saltType: typeof salt,
+        ivType: typeof iv,
+        passwordType: typeof password
+      });
+      
+      // Para validación de contraseñas, siempre devolver false en caso de error
+      return { valid: false, error: 'Contraseña incorrecta' };
+    }
+  }
 }
 
 CertificateManager.ensureCAExists = function() {
