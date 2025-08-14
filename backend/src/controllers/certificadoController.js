@@ -306,7 +306,12 @@ DNS.2 = 127.0.0.1
       }
 
       try {
-        CertificateManager.decryptCertificate(certificate.datosCifrados, password);
+        CertificateManager.decryptCertificate(
+          certificate.datosCifrados, 
+          certificate.encryptionSalt, 
+          certificate.encryptionKey, 
+          password
+        );
         res.json({ valid: true, message: 'Contraseña válida' });
       } catch (decryptError) {
         res.json({ valid: false, message: 'Contraseña incorrecta' });

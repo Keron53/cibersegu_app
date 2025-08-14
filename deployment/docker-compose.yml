@@ -61,6 +61,7 @@ services:
       context: ../frontend
       dockerfile: Dockerfile
     container_name: cibersegu_frontend
+    #container_name: cibersegu_frontend_pruebas
     restart: unless-stopped
     environment:
       - VITE_API_URL=https://af-systemstechnology.com/api
@@ -123,6 +124,17 @@ services:
       - TZ=UTC
     networks:
       - cibersegu_network
+
+  websocket:
+      build: 
+        context: ../WebSocket
+        dockerfile: Dockerfile
+      container_name: cibersegu_webSocket
+      restart: unless-stopped
+      networks:
+        - cibersegu_network
+      expose:
+        - "3000"
 
 volumes:
   mongodb_data:

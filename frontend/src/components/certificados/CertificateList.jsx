@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navigation from '../layout/Navigation'
 import { useTheme } from '../../context/ThemeContext'
-import { Download, Trash2, FileText, Calendar, AlertCircle } from 'lucide-react'
+import { Download, Trash2, FileText, Calendar, AlertCircle, Eye, EyeOff } from 'lucide-react'
 
 function CertificateList() {
   const [certificates, setCertificates] = useState([])
@@ -14,8 +14,8 @@ function CertificateList() {
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [selectedCertificate, setSelectedCertificate] = useState(null)
   const [password, setPassword] = useState('')
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [certificateToDelete, setCertificateToDelete] = useState(null)
+  const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
   const { theme } = useTheme()
 
@@ -58,6 +58,26 @@ function CertificateList() {
     setShowPasswordModal(true)
   }
 
+  const validateCertificatePassword = async (certificateId, password) => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`/api/certificados/${certificateId}/validate-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ password })
+      })
+
+      const result = await response.json()
+      return result
+    } catch (error) {
+      console.error('Error al validar contraseña:', error)
+      return { valid: false, message: 'Error al validar la contraseña' }
+    }
+  }
+
   const confirmDownload = async () => {
     if (!password.trim()) {
       setError('La contraseña es obligatoria')
@@ -65,9 +85,19 @@ function CertificateList() {
     }
 
     try {
-      setDownloadingId(selectedCertificate.id)
+      setDownloadingId(selectedCertificate._id)
       setError('')
 
+      // Primero validar la contraseña
+      const validation = await validateCertificatePassword(selectedCertificate._id, password)
+      
+      if (!validation.valid) {
+        setError(validation.message || 'La contraseña es incorrecta')
+        setDownloadingId(null)
+        return
+      }
+
+      // Si la contraseña es válida, proceder con la descarga
       const token = localStorage.getItem('token')
       const response = await fetch(`/api/certificados/download/${selectedCertificate._id}`, {
         method: 'POST',
@@ -93,6 +123,7 @@ function CertificateList() {
         setMessage('Certificado descargado exitosamente')
         setShowPasswordModal(false)
         setPassword('')
+        setShowPassword(false)
         setSelectedCertificate(null)
       } else {
         const result = await response.json()
@@ -107,23 +138,44 @@ function CertificateList() {
   }
 
   const handleDelete = (certificate) => {
+    setError('')
+    setMessage('')
+    setPassword('')
+    setShowPassword(false)
     setCertificateToDelete(certificate)
-    setShowDeleteModal(true)
+    setShowPasswordModal(true)
   }
 
   const confirmDelete = async () => {
     if (!certificateToDelete) return
 
+    if (!password.trim()) {
+      setError('La contraseña es obligatoria')
+      return
+    }
+
     try {
       setDeletingId(certificateToDelete._id)
       setError('')
 
+      // Primero validar la contraseña
+      const validation = await validateCertificatePassword(certificateToDelete._id, password)
+      
+      if (!validation.valid) {
+        setError(validation.message || 'La contraseña es incorrecta')
+        setDeletingId(null)
+        return
+      }
+
+      // Si la contraseña es válida, proceder con la eliminación
       const token = localStorage.getItem('token')
       const response = await fetch(`/api/certificados/${certificateToDelete._id}`, {
         method: 'DELETE',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify({ password })
       })
 
       const result = await response.json()
@@ -132,6 +184,9 @@ function CertificateList() {
         setCertificates(certificates.filter(cert => cert._id !== certificateToDelete._id))
         setMessage('Certificado eliminado exitosamente')
         setShowDeleteModal(false)
+        setShowPasswordModal(false)
+        setPassword('')
+        setShowPassword(false)
         setCertificateToDelete(null)
       } else {
         setError(result.error || 'Error al eliminar el certificado')
@@ -144,10 +199,7 @@ function CertificateList() {
     }
   }
 
-  const cancelDelete = () => {
-    setShowDeleteModal(false)
-    setCertificateToDelete(null)
-  }
+
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('es-ES', {
@@ -283,104 +335,78 @@ function CertificateList() {
       </div>
 
       {/* Modal de contraseña */}
-      {showPasswordModal && (
+      {showPasswordModal && (selectedCertificate || certificateToDelete) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Ingresa la contraseña del certificado
+              {certificateToDelete ? 'Confirmar eliminación' : 'Confirmar descarga'}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-              Para descargar{' '}
-              <span className="font-semibold text-primary dark:text-primary-light">
-                {selectedCertificate ? generateCertificateDisplayName(selectedCertificate) : 'Certificado'}
-              </span>
+              {certificateToDelete
+                ? 'Por favor, ingresa la contraseña del certificado para confirmar la eliminación.'
+                : 'Por favor, ingresa la contraseña del certificado para continuar con la descarga.'}
             </p>
             
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Contraseña del certificado"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-4"
-            />
+            <div className="relative mb-4">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                placeholder="Contraseña del certificado"
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-1"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            
+            {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+            {message && <p className="text-green-500 text-sm mb-4">{message}</p>}
             
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => {
                   setShowPasswordModal(false)
                   setPassword('')
+                  setError('')
+                  setShowPassword(false)
                   setSelectedCertificate(null)
+                  setCertificateToDelete(null)
                 }}
                 className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white transition-colors"
               >
                 Cancelar
               </button>
               <button
-                onClick={confirmDownload}
-                disabled={downloadingId === selectedCertificate?._id}
-                className="px-4 py-2 bg-primary hover:bg-primary-dark dark:bg-primary-light dark:hover:bg-primary text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                onClick={certificateToDelete ? confirmDelete : confirmDownload}
+                disabled={downloadingId || deletingId}
+                className={`px-4 py-2 text-white font-medium rounded-lg transition-colors disabled:opacity-50 ${
+                  (downloadingId || deletingId)
+                    ? 'bg-gray-400'
+                    : certificateToDelete
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-primary hover:bg-primary-dark dark:bg-primary-light dark:hover:bg-primary'
+                }`}
               >
-                {downloadingId === selectedCertificate?._id ? 'Descargando...' : 'Descargar'}
+                {deletingId
+                  ? 'Eliminando...'
+                  : downloadingId
+                    ? 'Descargando...'
+                    : certificateToDelete
+                      ? 'Eliminar'
+                      : 'Descargar'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal de confirmación de eliminación */}
-      {showDeleteModal && certificateToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex items-center mb-4">
-              <div className="bg-red-100 dark:bg-red-900/20 rounded-full p-2 mr-3">
-                <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Eliminar Certificado
-              </h3>
-            </div>
-            
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-              ¿Estás seguro de que quieres eliminar el certificado{' '}
-              <span className="font-semibold text-red-600 dark:text-red-400">
-                "{generateCertificateDisplayName(certificateToDelete)}"
-              </span>?
-            </p>
-            
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4">
-              <p className="text-xs text-gray-600 dark:text-gray-300">
-                <strong>Organización:</strong> {certificateToDelete.organizacion || 'N/A'}
-              </p>
-              <p className="text-xs text-gray-600 dark:text-gray-300">
-                <strong>Email:</strong> {certificateToDelete.email || 'N/A'}
-              </p>
-              <p className="text-xs text-gray-600 dark:text-gray-300">
-                <strong>Creado:</strong> {formatDate(certificateToDelete.createdAt)}
-              </p>
-            </div>
-            
-            <p className="text-xs text-red-600 dark:text-red-400 mb-4">
-              ⚠️ Esta acción no se puede deshacer. El certificado será eliminado permanentemente.
-            </p>
-            
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={cancelDelete}
-                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmDelete}
-                disabled={deletingId === certificateToDelete._id}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-              >
-                {deletingId === certificateToDelete._id ? 'Eliminando...' : 'Eliminar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   )
 }
