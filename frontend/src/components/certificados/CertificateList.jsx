@@ -71,10 +71,20 @@ function CertificateList() {
       })
 
       const result = await response.json()
-      return result
+      
+      // Verificar si la respuesta es exitosa
+      if (response.ok) {
+        return result
+      } else {
+        // Si hay un error en la respuesta, devolver el mensaje de error
+        return { 
+          valid: false, 
+          message: result.error || result.message || 'Error al validar la contraseña' 
+        }
+      }
     } catch (error) {
       console.error('Error al validar contraseña:', error)
-      return { valid: false, message: 'Error al validar la contraseña' }
+      return { valid: false, message: 'Error al conectar con el servidor' }
     }
   }
 
@@ -90,6 +100,7 @@ function CertificateList() {
 
       // Primero validar la contraseña
       const validation = await validateCertificatePassword(selectedCertificate._id, password)
+      console.log('🔍 Validación de contraseña:', validation)
       
       if (!validation.valid) {
         setError(validation.message || 'La contraseña es incorrecta')
@@ -97,6 +108,7 @@ function CertificateList() {
         return
       }
 
+      console.log('✅ Contraseña válida, procediendo con descarga...')
       // Si la contraseña es válida, proceder con la descarga
       const token = localStorage.getItem('token')
       const response = await fetch(`/api/certificados/download/${selectedCertificate._id}`, {
@@ -108,9 +120,12 @@ function CertificateList() {
         body: JSON.stringify({ password })
       })
 
+      console.log('📥 Respuesta del servidor para descarga:', response.status, response.statusText)
+      
       if (response.ok) {
         // Crear blob y descargar
         const blob = await response.blob()
+        console.log('📦 Blob creado, tamaño:', blob.size)
         const url = window.URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
@@ -127,6 +142,7 @@ function CertificateList() {
         setSelectedCertificate(null)
       } else {
         const result = await response.json()
+        console.error('❌ Error en descarga:', result)
         setError(result.error || 'Error al descargar el certificado')
       }
     } catch (err) {
@@ -160,6 +176,7 @@ function CertificateList() {
 
       // Primero validar la contraseña
       const validation = await validateCertificatePassword(certificateToDelete._id, password)
+      console.log('🔍 Validación de contraseña para eliminación:', validation)
       
       if (!validation.valid) {
         setError(validation.message || 'La contraseña es incorrecta')
@@ -167,6 +184,7 @@ function CertificateList() {
         return
       }
 
+      console.log('✅ Contraseña válida, procediendo con eliminación...')
       // Si la contraseña es válida, proceder con la eliminación
       const token = localStorage.getItem('token')
       const response = await fetch(`/api/certificados/${certificateToDelete._id}`, {
@@ -178,12 +196,13 @@ function CertificateList() {
         body: JSON.stringify({ password })
       })
 
+      console.log('🗑️ Respuesta del servidor para eliminación:', response.status, response.statusText)
       const result = await response.json()
+      console.log('📋 Resultado de eliminación:', result)
 
       if (response.ok) {
         setCertificates(certificates.filter(cert => cert._id !== certificateToDelete._id))
         setMessage('Certificado eliminado exitosamente')
-        setShowDeleteModal(false)
         setShowPasswordModal(false)
         setPassword('')
         setShowPassword(false)

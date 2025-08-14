@@ -249,6 +249,19 @@ DNS.2 = 127.0.0.1
         return res.status(404).json({ error: 'Certificado no encontrado' });
       }
 
+      // Primero validar la contraseña
+      const validation = CertificateManager.validatePassword(
+        certificate.datosCifrados, 
+        certificate.encryptionSalt, 
+        certificate.encryptionKey, 
+        password
+      );
+      
+      if (!validation.valid) {
+        return res.status(401).json({ error: validation.error || 'Contraseña incorrecta' });
+      }
+
+      // Si la contraseña es válida, proceder con la descarga
       const decryptedData = CertificateManager.decryptCertificate(
         certificate.datosCifrados, 
         certificate.encryptionSalt, 
@@ -270,7 +283,13 @@ DNS.2 = 127.0.0.1
   deleteCertificate: async (req, res) => {
     try {
       const { certificateId } = req.params;
-      const certificate = await Certificate.findOneAndDelete({ 
+      const { password } = req.body;
+
+      if (!password) {
+        return res.status(400).json({ error: 'La contraseña es requerida' });
+      }
+
+      const certificate = await Certificate.findOne({ 
         _id: certificateId, 
         userId: req.usuario.id 
       });
@@ -278,6 +297,21 @@ DNS.2 = 127.0.0.1
       if (!certificate) {
         return res.status(404).json({ error: 'Certificado no encontrado' });
       }
+
+      // Validar la contraseña antes de eliminar
+      const validation = CertificateManager.validatePassword(
+        certificate.datosCifrados, 
+        certificate.encryptionSalt, 
+        certificate.encryptionKey, 
+        password
+      );
+      
+      if (!validation.valid) {
+        return res.status(401).json({ error: validation.error || 'Contraseña incorrecta' });
+      }
+
+      // Si la contraseña es válida, proceder con la eliminación
+      await Certificate.findByIdAndDelete(certificateId);
 
       res.json({ message: 'Certificado eliminado correctamente' });
     } catch (error) {
@@ -305,16 +339,17 @@ DNS.2 = 127.0.0.1
         return res.status(404).json({ error: 'Certificado no encontrado' });
       }
 
-      try {
-        CertificateManager.decryptCertificate(
-          certificate.datosCifrados, 
-          certificate.encryptionSalt, 
-          certificate.encryptionKey, 
-          password
-        );
+      const validation = CertificateManager.validatePassword(
+        certificate.datosCifrados, 
+        certificate.encryptionSalt, 
+        certificate.encryptionKey, 
+        password
+      );
+      
+      if (validation.valid) {
         res.json({ valid: true, message: 'Contraseña válida' });
-      } catch (decryptError) {
-        res.json({ valid: false, message: 'Contraseña incorrecta' });
+      } else {
+        res.json({ valid: false, message: validation.error || 'Contraseña incorrecta' });
       }
 
     } catch (error) {
