@@ -65,6 +65,7 @@ services:
     restart: unless-stopped
     environment:
       - VITE_API_URL=https://af-systemstechnology.com/api
+      - VITE_WS_URL=https://af-systemstechnology.com
     volumes:
       - frontend_dist:/app/dist
     networks:

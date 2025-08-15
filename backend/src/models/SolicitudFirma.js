@@ -12,6 +12,11 @@ const solicitudFirmaSchema = new mongoose.Schema({
     ref: 'Usuario', 
     required: true 
   },
+  solicitanteNombre: { 
+    type:String, 
+    ref: 'Usuario', 
+    required: false 
+  },
   firmanteId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Usuario', 

@@ -1,13 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, FileText, Sun, Moon, Upload, Plus, List, User, Shield, Clock, Send, CheckCircle, Share2, Menu, X, Home } from 'lucide-react'
+import { LogOut, FileText, Sun, Moon, Upload, Plus, List, User, Shield, Clock, Send, CheckCircle, Share2, Menu, X, Home, Bell } from 'lucide-react'
 import { useTheme } from '../../context/ThemeContext.jsx'
+import NotificationsPanel from './NotificationPanel.jsx'
+import { connectSocket, disconnectSocket } from '../../services/clientSocket.js'
 
 function Navigation({ onLogout }) {
   const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)  // Estado para las notificaciones
+  const [notifications, setNotifications] = useState([])
   const menuRef = useRef(null)
+  const unreadCount = notifications.length
 
   const menuItems = [
     {
@@ -88,6 +93,25 @@ function Navigation({ onLogout }) {
     }
   }, [isMenuOpen])
 
+
+  //Conexión al WebSocket
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('userData'))
+    console.log('chorizo:', user)
+    const userId = user?.id
+
+    const socket = connectSocket(userId)
+
+    socket.on('mensaje', (documento) => {
+      // Agregar al principio del array para mostrar primero las más recientes
+      setNotifications(prev => [documento, ...prev])
+    })
+
+    return () => disconnectSocket()
+  }, [])
+
+
+
   return (
     <nav className="bg-white dark:bg-background border-b border-gray-200 dark:border-gray-700 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -104,7 +128,7 @@ function Navigation({ onLogout }) {
               </button>
             </div>
           </div>
-          
+
           {/* Botón de menú hamburguesa */}
           <div className="flex items-center space-x-4">
             <button
@@ -114,14 +138,35 @@ function Navigation({ onLogout }) {
             >
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            
+
+
+            {/* Botón de notificaciones */}
+            <button
+              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+              className="p-2 rounded-full text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-background transition-colors"
+              title="Notificaciones"
+            >
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full animate-pulse">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Panel de notificaciones */}
+            <NotificationsPanel
+              isOpen={isNotificationsOpen}
+              onClose={() => setIsNotificationsOpen(false)}
+              notifications={notifications}
+            />
+
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className={`p-2 rounded-lg transition-colors ${
-                isMenuOpen 
-                  ? 'text-primary dark:text-primary-light bg-primary/10 dark:bg-primary/20' 
-                  : 'text-gray-500 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light hover:bg-primary/10 dark:hover:bg-primary/20'
-              }`}
+              className={`p-2 rounded-lg transition-colors ${isMenuOpen
+                ? 'text-primary dark:text-primary-light bg-primary/10 dark:bg-primary/20'
+                : 'text-gray-500 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light hover:bg-primary/10 dark:hover:bg-primary/20'
+                }`}
               title="Menú"
             >
               {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -132,18 +177,17 @@ function Navigation({ onLogout }) {
 
       {/* Overlay para cerrar menú */}
       {isMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-40"
           onClick={() => setIsMenuOpen(false)}
         />
       )}
-      
+
       {/* Menú lateral */}
-      <div 
-        ref={menuRef} 
-        className={`fixed top-0 right-0 h-full w-80 bg-white dark:bg-background border-l border-gray-200 dark:border-gray-700 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
-          isMenuOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
+      <div
+        ref={menuRef}
+        className={`fixed top-0 right-0 h-full w-80 bg-white dark:bg-background border-l border-gray-200 dark:border-gray-700 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
       >
         {/* Header del menú */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
@@ -155,7 +199,7 @@ function Navigation({ onLogout }) {
             <X className="w-6 h-6" />
           </button>
         </div>
-        
+
         {/* Contenido del menú */}
         <div className="p-4">
           <div className="space-y-1">
@@ -173,10 +217,10 @@ function Navigation({ onLogout }) {
                 </span>
               </button>
             ))}
-            
+
             {/* Separador */}
             <div className="border-t border-gray-200 dark:border-gray-700 my-4"></div>
-            
+
             {/* Cerrar Sesión */}
             <button
               onClick={() => {
@@ -195,4 +239,4 @@ function Navigation({ onLogout }) {
   )
 }
 
-export default Navigation 
+export default Navigation   

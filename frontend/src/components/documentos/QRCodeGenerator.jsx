@@ -1,14 +1,26 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
+import QRCode from 'qrcode'
 
 function QRCodeGenerator({ data, size = 200 }) {
-  // Función para generar código QR usando una librería externa
-  // Por ahora usamos un placeholder, pero se puede integrar con qrcode.js o similar
-  
-  const generateQRCode = (data) => {
-    // Aquí se generaría el código QR real
-    // Por ahora retornamos un placeholder
-    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`
-  }
+  const canvasRef = useRef(null)
+
+  useEffect(() => {
+    if (data && canvasRef.current) {
+      // Generar QR localmente usando la librería qrcode
+      QRCode.toCanvas(canvasRef.current, JSON.stringify(data), {
+        width: size,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      }, (error) => {
+        if (error) {
+          console.error('Error generando QR:', error)
+        }
+      })
+    }
+  }, [data, size])
 
   if (!data) {
     return (
@@ -20,9 +32,8 @@ function QRCodeGenerator({ data, size = 200 }) {
 
   return (
     <div className="flex flex-col items-center justify-center p-4 bg-white dark:bg-gray-800 rounded-lg border">
-      <img 
-        src={generateQRCode(data)} 
-        alt="Código QR de Firma Digital"
+      <canvas 
+        ref={canvasRef}
         className="w-full h-auto max-w-full"
         style={{ maxWidth: `${size}px`, maxHeight: `${size}px` }}
       />

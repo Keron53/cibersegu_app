@@ -1,3 +1,6 @@
+const { io } = require('socket.io-client'); // para Node.js
+const fetch = require('node-fetch');
+
 const SolicitudFirma = require('../models/SolicitudFirma');
 const Documento = require('../models/Documento');
 const Usuario = require('../models/Usuario');
@@ -13,10 +16,10 @@ const solicitudFirmaController = {
   // Crear solicitud de firma
   crearSolicitud: async (req, res) => {
     try {
-      const { 
-        documentoId, 
-        firmanteId, 
-        posicionFirma, 
+      const {
+        documentoId,
+        firmanteId,
+        posicionFirma,
         mensaje,
         prioridad = 'normal'
       } = req.body;
@@ -46,6 +49,17 @@ const solicitudFirmaController = {
 
       console.log('✅ Firmante encontrado:', firmante.nombre);
 
+
+       // Verificar que el solicitante existe
+      const solicitante = await Usuario.findById(req.usuario.id);
+      if (!solicitante) {
+        console.error('❌ solicitante no encontrado:', req.usuario.id);
+        return res.status(404).json({ error: 'Usuario solicitante no encontrado' });
+      }
+
+      console.log('✅ solicitante encontrado:', solicitante.nombre);
+
+
       // Verificar que no haya una solicitud pendiente para el mismo documento y firmante
       const solicitudExistente = await SolicitudFirma.findOne({
         documentoId,
@@ -55,8 +69,8 @@ const solicitudFirmaController = {
 
       if (solicitudExistente) {
         console.log('⚠️ Ya existe una solicitud pendiente para este documento y firmante');
-        return res.status(400).json({ 
-          error: 'Ya existe una solicitud pendiente para este documento y firmante' 
+        return res.status(400).json({
+          error: 'Ya existe una solicitud pendiente para este documento y firmante'
         });
       }
 
@@ -64,6 +78,7 @@ const solicitudFirmaController = {
       const solicitud = new SolicitudFirma({
         documentoId,
         solicitanteId: req.usuario.id,
+        solicitanteNombre: solicitante.nombre,
         firmanteId,
         posicionFirma,
         mensaje,
@@ -97,6 +112,24 @@ const solicitudFirmaController = {
         // No fallar la solicitud si el email falla
       }
 
+      // Conexión al websocket
+      const socket = io('http://websocket:3000', {
+        transports: ['websocket']
+      });
+
+      // Enviar el userId al conectar
+      socket.on('connect', () => {
+        // Si tienes el userId del backend, puedes enviarlo aquí
+        socket.emit('registrarUsuario', req.usuario.id);
+        console.log('🔌 Conectado al WebSocket desde backend');
+        //Notificación dentro de la app      
+        EnviarNotificacionWS(firmanteId, solicitud)
+      });
+
+      console.log("Id del firmante", firmanteId)
+
+
+
       res.json({
         message: 'Solicitud de firma enviada exitosamente',
         solicitud: {
@@ -117,6 +150,8 @@ const solicitudFirmaController = {
     }
   },
 
+
+
   // Listar solicitudes pendientes del usuario
   listarSolicitudesPendientes: async (req, res) => {
     try {
@@ -127,9 +162,9 @@ const solicitudFirmaController = {
         estado: 'pendiente',
         fechaExpiracion: { $gt: new Date() }
       })
-      .populate('documentoId', 'nombre ruta')
-      .populate('solicitanteId', 'nombre email')
-      .sort({ fechaSolicitud: -1 });
+        .populate('documentoId', 'nombre ruta')
+        .populate('solicitanteId', 'nombre email')
+        .sort({ fechaSolicitud: -1 });
 
       console.log(`✅ Encontradas ${solicitudes.length} solicitudes pendientes`);
 
@@ -148,9 +183,9 @@ const solicitudFirmaController = {
       const solicitudes = await SolicitudFirma.find({
         solicitanteId: req.usuario.id
       })
-      .populate('documentoId', 'nombre ruta')
-      .populate('firmanteId', 'nombre email')
-      .sort({ fechaSolicitud: -1 });
+        .populate('documentoId', 'nombre ruta')
+        .populate('firmanteId', 'nombre email')
+        .sort({ fechaSolicitud: -1 });
 
       console.log(`✅ Encontradas ${solicitudes.length} solicitudes enviadas`);
 
@@ -205,29 +240,29 @@ const solicitudFirmaController = {
       console.log('📊 Nombre del certificado:', certificado.nombreComun);
       console.log('📊 Tiene salt:', !!certificado.encryptionSalt);
       console.log('📊 Tiene IV:', !!certificado.encryptionKey);
-      console.log('📊 Tamaño datos cifrados:', certificado.datosCifrados ? certificado.datosCifrados.length : 0);
-      
+      console.log('📊 Tamaño datos cifrados:', (certificado.certificateData || certificado.datosCifrados) ? (certificado.certificateData || certificado.datosCifrados).length : 0);
+
       let certBuffer;
       try {
         certBuffer = CertificateManager.decryptCertificate(
-          certificado.datosCifrados, 
-          certificado.encryptionSalt, 
-          certificado.encryptionKey, 
+          certificado.certificateData || certificado.datosCifrados,
+          certificado.encryptionSalt,
+          certificado.encryptionKey,
           password
         );
         console.log('✅ Certificado descifrado, tamaño:', certBuffer.length);
       } catch (decryptError) {
         console.error('❌ Error descifrando certificado:', decryptError.message);
-        
+
         // Si el certificado no se puede descifrar, verificar si es un certificado del sistema
         if (!certificado.encryptionSalt && !certificado.encryptionKey) {
           console.log('🔓 Usando certificado del sistema (sin cifrado)');
-          certBuffer = certificado.datosCifrados;
+          certBuffer = certificado.certificateData || certificado.datosCifrados;
         } else {
           throw new Error(`Error descifrando certificado: ${decryptError.message}. Verifica que la contraseña sea correcta.`);
         }
       }
-      
+
       // Crear archivos temporales
       const tempPdfInput = tmp.tmpNameSync({ postfix: '.pdf' });
       const tempPdfOutput = tmp.tmpNameSync({ postfix: '.pdf' });
@@ -237,7 +272,7 @@ const solicitudFirmaController = {
       // Copiar archivos
       fs.copyFileSync(solicitud.documentoId.ruta, tempPdfInput);
       fs.writeFileSync(tempCert, certBuffer);
-      
+
       // Copiar certificado CA
       const caCertPath = path.join(__dirname, '../../CrearCACentral/ca.crt');
       if (fs.existsSync(caCertPath)) {
@@ -248,17 +283,17 @@ const solicitudFirmaController = {
 
       // Ejecutar firma con pyHanko
       console.log('🔧 Ejecutando firma con pyHanko...');
-      
+
       const pythonScriptPath = path.join(__dirname, '../../MicroservicioPyHanko/firmar-pdf.py');
-      
+
       // Usar coordenadas de la solicitud
       const { x, y, page, qrSize } = solicitud.posicionFirma;
       const command = `python "${pythonScriptPath}" "${tempCert}" "${password}" "${tempPdfInput}" "${tempPdfOutput}" "${page}" "${x}" "${y}" "${x + qrSize}" "${y + qrSize}" "${tempCaCert}"`;
-      
+
       console.log('📋 Comando ejecutado:', command);
-      
+
       try {
-        const result = execSync(command, { 
+        const result = execSync(command, {
           stdio: 'pipe',
           encoding: 'utf8',
           timeout: 30000
@@ -446,8 +481,8 @@ const solicitudFirmaController = {
       }
 
       // Verificar que el usuario tiene permisos para ver esta solicitud
-      if (solicitud.firmanteId._id.toString() !== req.usuario.id && 
-          solicitud.solicitanteId._id.toString() !== req.usuario.id) {
+      if (solicitud.firmanteId._id.toString() !== req.usuario.id &&
+        solicitud.solicitanteId._id.toString() !== req.usuario.id) {
         return res.status(403).json({ error: 'No tienes permisos para ver esta solicitud' });
       }
 
@@ -459,5 +494,23 @@ const solicitudFirmaController = {
     }
   }
 };
+
+
+
+async function EnviarNotificacionWS(firmanteId, solicitud) {
+  const res = await fetch('http://websocket:3000/emitir', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userId: firmanteId,
+      documento: solicitud
+    })
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`WS emitir falló: ${res.status} ${text}`);
+  }
+}
 
 module.exports = solicitudFirmaController; 

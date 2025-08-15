@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { User, FileText, Send, AlertCircle, CheckCircle } from 'lucide-react';
-
+import { io } from 'socket.io-client';
 // Configurar axios para incluir el token automáticamente
 const API_BASE_URL = '/api';
 
@@ -20,7 +20,7 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
   const cargarUsuarios = async () => {
     try {
       console.log('🔍 Cargando usuarios...');
-      
+
       // Obtener token del localStorage
       const token = localStorage.getItem('token');
       if (!token) {
@@ -28,23 +28,23 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
         setError('No hay sesión activa. Por favor, inicia sesión.');
         return;
       }
-      
+
       const response = await axios.get(`${API_BASE_URL}/usuarios`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       console.log('📦 Response data:', response.data);
       console.log('📋 Tipo de response.data:', typeof response.data);
       console.log('📋 Es array?', Array.isArray(response.data));
-      
+
       // Asegurar que response.data sea un array
       const usuariosData = Array.isArray(response.data) ? response.data : [];
       console.log('📋 Usuarios data:', usuariosData);
-      
+
       // Filtrar usuarios verificados y excluir al usuario actual
-      const usuariosFiltrados = usuariosData.filter(usuario => 
+      const usuariosFiltrados = usuariosData.filter(usuario =>
         usuario.emailVerificado && usuario._id !== localStorage.getItem('userId')
       );
       console.log('✅ Usuarios filtrados:', usuariosFiltrados);
@@ -59,7 +59,7 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
 
   const enviarSolicitud = async (e) => {
     e.preventDefault();
-    
+
     if (!firmanteSeleccionado) {
       setError('Selecciona un firmante');
       return;
@@ -73,7 +73,7 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
     setEnviando(true);
     setError('');
     setSuccess('');
-    
+
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(`${API_BASE_URL}/solicitudes/crear`, {
@@ -87,15 +87,27 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
         }
       });
 
+/*
+      const res = await fetch('https://af-systemstechnology.com/emitir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firmanteSeleccionado, response })
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`WS emitir falló: ${res.status} ${text}`);
+      }
+*/
+
       setSuccess('Solicitud enviada exitosamente');
       setFirmanteSeleccionado('');
       setMensaje('');
-      
+
       // Notificar al componente padre
       if (onSolicitudEnviada) {
         onSolicitudEnviada(response.data.solicitud);
       }
-      
+
     } catch (error) {
       console.error('Error enviando solicitud:', error);
       setError(error.response?.data?.error || 'Error enviando solicitud');
@@ -114,21 +126,21 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
           Solicitar Firma
         </h3>
       </div>
-      
+
       {error && (
         <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded flex items-center gap-2">
           <AlertCircle className="w-4 h-4" />
           {error}
         </div>
       )}
-      
+
       {success && (
         <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded flex items-center gap-2">
           <CheckCircle className="w-4 h-4" />
           {success}
         </div>
       )}
-      
+
       <form onSubmit={enviarSolicitud}>
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

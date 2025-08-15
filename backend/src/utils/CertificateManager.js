@@ -125,7 +125,7 @@ class CertificateManager {
       organizacion: certificateMetadata.organizacion,
       email: certificateMetadata.email,
       numeroSerie: certificateMetadata.numeroSerie,
-      certificateData: encrypted,
+      datosCifrados: encrypted,
       encryptionSalt: salt.toString('hex'), // Guardar salt en la base de datos
       encryptionKey: iv.toString('hex'), // Guardar IV en la base de datos
     });
@@ -163,7 +163,7 @@ class CertificateManager {
     console.log('IV: ', iv.toString('hex'));
     const decipher = crypto.createDecipheriv('aes-256-cbc', derivedKey, iv);
 
-    const decrypted = Buffer.concat([decipher.update(certificate.certificateData), decipher.final()]);
+          const decrypted = Buffer.concat([decipher.update(certificate.datosCifrados), decipher.final()]);
 
     fs.writeFileSync(outputPath, decrypted); // Guardar el archivo descifrado
     console.log('Archivo .p12 recuperado y descifrado con éxito');

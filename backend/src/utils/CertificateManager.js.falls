@@ -115,7 +115,7 @@ class CertificateManager {
       organizacion: certificateMetadata.organizacion,
       email: certificateMetadata.email,
       numeroSerie: certificateMetadata.numeroSerie,
-      certificateData: encrypted,
+      datosCifrados: encrypted,
       encryptionSalt: salt.toString('hex'),
       encryptionKey: iv.toString('hex'),
     });

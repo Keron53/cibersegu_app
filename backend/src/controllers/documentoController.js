@@ -216,17 +216,17 @@ const documentoController = {
 
       console.log('✅ Certificado encontrado:', certificado.nombreComun);
       console.log('📊 Datos del certificado:', {
-        tieneDatosCifrados: !!certificado.datosCifrados,
+        tieneDatosCifrados: !!(certificado.certificateData || certificado.datosCifrados),
         tieneSalt: !!certificado.encryptionSalt,
         tieneKey: !!certificado.encryptionKey,
-        tamanioDatos: certificado.datosCifrados ? certificado.datosCifrados.length : 0
+        tamanioDatos: (certificado.certificateData || certificado.datosCifrados) ? (certificado.certificateData || certificado.datosCifrados).length : 0
       });
 
       // Validar la contraseña primero
       console.log('🔑 Validando contraseña del certificado...');
       try {
         const validation = await CertificateManager.validatePassword(
-          certificado.datosCifrados,
+          certificado.certificateData || certificado.datosCifrados,
           certificado.encryptionSalt,
           certificado.encryptionKey,
           password
@@ -234,7 +234,7 @@ const documentoController = {
 
         if (!validation.valid) {
           console.error('❌ Validación de contraseña fallida:', validation.error || 'Contraseña incorrecta');
-          return res.status(401).json({ 
+          return res.status(400).json({ 
             error: validation.error || 'Contraseña incorrecta',
             code: 'INVALID_PASSWORD'
           });
@@ -242,7 +242,7 @@ const documentoController = {
         console.log('✅ Contraseña validada correctamente');
       } catch (validationError) {
         console.error('❌ Error en validación de contraseña:', validationError.message);
-        return res.status(401).json({ 
+        return res.status(400).json({ 
           error: 'Error al validar la contraseña',
           code: 'VALIDATION_ERROR',
           details: process.env.NODE_ENV === 'development' ? validationError.message : undefined
@@ -254,7 +254,7 @@ const documentoController = {
       let certBuffer;
       try {
         certBuffer = CertificateManager.decryptCertificate(
-          certificado.datosCifrados, 
+          certificado.certificateData || certificado.datosCifrados, 
           certificado.encryptionSalt, 
           certificado.encryptionKey, 
           password
