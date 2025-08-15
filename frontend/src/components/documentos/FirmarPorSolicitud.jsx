@@ -5,6 +5,7 @@ import { FileText, User, Clock, CheckCircle, XCircle, AlertCircle, Download } fr
 import PDFViewerEmbedded from './PDFViewerEmbedded';
 import CertificateList from '../certificados/CertificateList';
 import Navigation from '../layout/Navigation';
+import RechazarSolicitudModal from './RechazarSolicitudModal';
 
 // Configurar axios para incluir el token automáticamente
 const API_BASE_URL = '/api';
@@ -21,6 +22,7 @@ function FirmarPorSolicitud() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showRechazarModal, setShowRechazarModal] = useState(false);
 
   useEffect(() => {
     cargarSolicitud();
@@ -102,9 +104,7 @@ function FirmarPorSolicitud() {
     }
   };
 
-  const rechazarSolicitud = async () => {
-    const motivo = prompt('Motivo del rechazo (opcional):');
-    
+  const rechazarSolicitud = async (motivo) => {
     try {
       const token = localStorage.getItem('token');
       await axios.post(`${API_BASE_URL}/solicitudes/rechazar/${solicitudId}`, {
@@ -124,6 +124,10 @@ function FirmarPorSolicitud() {
       console.error('Error rechazando solicitud:', error);
       setError('Error rechazando la solicitud');
     }
+  };
+
+  const handleRechazarClick = () => {
+    setShowRechazarModal(true);
   };
 
   const formatearFecha = (fecha) => {
@@ -357,7 +361,7 @@ function FirmarPorSolicitud() {
 
                   <button
                     type="button"
-                    onClick={rechazarSolicitud}
+                    onClick={handleRechazarClick}
                     className="bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-md font-medium transition-colors duration-200 flex items-center gap-2"
                   >
                     <XCircle className="w-4 h-4" />
@@ -417,6 +421,14 @@ function FirmarPorSolicitud() {
             </div>
           </div>
         )}
+
+        {/* Modal de rechazo de solicitud */}
+        <RechazarSolicitudModal
+          isOpen={showRechazarModal}
+          onClose={() => setShowRechazarModal(false)}
+          onRechazar={rechazarSolicitud}
+          solicitud={solicitud}
+        />
           </>
         )}
       </div>
