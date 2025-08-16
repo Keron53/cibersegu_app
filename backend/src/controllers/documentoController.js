@@ -24,7 +24,7 @@ function repairPdfWithQpdf(pdfBuffer) {
 }
 
 const documentoController = {
-  // Endpoint para firma visual con QR usando pyHanko (DEPRECATED - usar firmarDocumentoQRNode)
+  // Endpoint para firma visual con QR usando pyHanko (DEPRECATED - usar   const command = `python "${pythonScr  const command = `python "${pythonScr  const command = `python "${pythonScr  const command = `python "${pythonScr  const command = `python "${pythonScr  const command = `python "${pythonScr  const command = `python "${pythonScr  const command = `python "${pythonScr  const command = `python "${pythonScr  const command = `python "${pythonScriptPath}" "${tempCert}" "${password}" "${tempPdfInput}" "${tempPdfOutput}" "1" "0" "0" "0" "0" "${tempCaCert}"`;DocumentoQRNode)
   firmarDocumentoVisible: async (req, res) => {
     res.status(400).json({ 
       error: 'Este endpoint está deprecado. Usa /firmar-qr-node para firmar con QR visual usando Node.js' 
@@ -59,6 +59,7 @@ const documentoController = {
       const pdfPath = req.files['pdf'][0].path;
       const p12Path = req.files['cert'][0].path;
       const passphrase = req.body.password;
+      const { x, y, page} = req.body; // <--- Agrega esto
 
       // Extraer nombre y organización del certificado .p12
       let nombre = '';
@@ -133,9 +134,12 @@ const documentoController = {
       }
 
       // Ejecutar el script de Python con pyHanko (coordenadas fijas hardcodeadas en Python)
-      const command = `python "${pythonScriptPath}" "${tempCert}" "${passphrase}" "${tempPdfInput}" "${tempPdfOutput}" "1" "0" "0" "0" "0" "${tempCaCert}"`;
-      
-      console.log('Ejecutando comando pyHanko:', command);
+       const x1 = x;
+       const y1 = y;
+       const x2 = x + 150;
+       const y2 = y + 100;
+       
+       const command = `python "${pythonScriptPath}" "${tempCert}" "${password}" "${tempPdfInput}" "${tempPdfOutput}" "${page}" "${x1}" "${y1}" "${x2}" "${y2}" "${tempCaCert}"`;
       
       try {
         execSync(command, { 
@@ -178,9 +182,10 @@ const documentoController = {
     try {
       console.log('🔍 Iniciando firma de documento...');
       const { documentoId } = req.params;
-      const { certificadoId, password, nombre, organizacion, email, x, y, page } = req.body;
+      // AGREGA canvasWidth y canvasHeight aquí:
+      const { certificadoId, password, nombre, organizacion, email, x, y, page, canvasWidth, canvasHeight } = req.body;
 
-      console.log('📋 Datos recibidos:', { documentoId, certificadoId, nombre, organizacion, email, x, y, page });
+      console.log('📋 Datos recibidos:', { documentoId, certificadoId, nombre, organizacion, email, x, y, page, canvasWidth, canvasHeight});
 
       // Verificar que el documento existe
       const documento = await Documento.findById(documentoId);
@@ -326,7 +331,13 @@ const documentoController = {
              // COORDENADAS TOTALMENTE FIJAS - El script Python las ignora y usa coordenadas hardcodeadas
        console.log('📊 Coordenadas fijas hardcodeadas en Python: (40, 96.7, 140, 196.7)');
        
-       const command = `python "${pythonScriptPath}" "${tempCert}" "${password}" "${tempPdfInput}" "${tempPdfOutput}" "1" "0" "0" "0" "0" "${tempCaCert}"`;
+       // Calcular las coordenadas reales
+       const x1 = x;
+       const y1 = y;
+       const x2 = x + 150;
+       const y2 = y + 100;
+       
+       const command = `python "${pythonScriptPath}" "${tempCert}" "${password}" "${tempPdfInput}" "${tempPdfOutput}" "${page}" "${x1}" "${y1}" "${x2}" "${y2}" "${tempCaCert}"`;
       
       console.log('📋 Comando ejecutado:', command);
       
@@ -795,4 +806,4 @@ const documentoController = {
   }
 };
 
-module.exports = documentoController; 
+module.exports = documentoController;

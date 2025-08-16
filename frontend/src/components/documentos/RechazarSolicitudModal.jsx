@@ -235,7 +235,7 @@ const RechazarSolicitudModal = ({ isOpen, onClose, onRechazar, solicitud }) => {
                       )}
                     </button>
                   </div>
-                 </div>
+                </div>
                </div>
              </form>
            </motion.div>

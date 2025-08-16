@@ -205,7 +205,7 @@ const CrearSolicitudMultiple = ({
         initial={{ y: 50 }}
         animate={{ y: 0 }}
         exit={{ y: 50 }}
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -230,9 +230,9 @@ const CrearSolicitudMultiple = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-6">
           {/* Documento */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-6">
             <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
               📄 Documento a Firmar
             </h3>
@@ -241,215 +241,240 @@ const CrearSolicitudMultiple = ({
             </p>
           </div>
 
-          {/* Información Básica */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Título de la Solicitud *
-              </label>
-              <input
-                type="text"
-                value={formData.titulo}
-                onChange={(e) => setFormData({...formData, titulo: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                placeholder="Ej: Aprobación de Contrato"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Prioridad
-              </label>
-              <select
-                value={formData.prioridad}
-                onChange={(e) => setFormData({...formData, prioridad: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="baja">Baja</option>
-                <option value="normal">Normal</option>
-                <option value="alta">Alta</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Descripción
-            </label>
-            <textarea
-              value={formData.descripcion}
-              onChange={(e) => setFormData({...formData, descripcion: e.target.value})}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              placeholder="Descripción opcional de la solicitud..."
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Mensaje para los Firmantes
-            </label>
-            <textarea
-              value={formData.mensaje}
-              onChange={(e) => setFormData({...formData, mensaje: e.target.value})}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              placeholder="Mensaje personalizado que verán los firmantes..."
-            />
-          </div>
-
-          {/* Configuración */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Tipo de Firma
-              </label>
-              <div className="space-y-2">
-                <label className="flex items-center">
+          {/* Layout Horizontal Principal */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            {/* Columna Izquierda - Información Básica */}
+            <div className="xl:col-span-1 space-y-6">
+              {/* Título y Prioridad */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Título de la Solicitud *
+                  </label>
                   <input
-                    type="radio"
-                    value="libre"
-                    checked={formData.tipo === 'libre'}
-                    onChange={(e) => setFormData({...formData, tipo: e.target.value})}
-                    className="mr-2"
+                    type="text"
+                    value={formData.titulo}
+                    onChange={(e) => setFormData({...formData, titulo: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    placeholder="Ej: Aprobación de Contrato"
                   />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    Libre (cada uno firma cuando puede)
-                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Prioridad
+                  </label>
+                  <select
+                    value={formData.prioridad}
+                    onChange={(e) => setFormData({...formData, prioridad: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="baja">Baja</option>
+                    <option value="normal">Normal</option>
+                    <option value="alta">Alta</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Descripción */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Descripción
                 </label>
-                <label className="flex items-center">
+                <textarea
+                  value={formData.descripcion}
+                  onChange={(e) => setFormData({...formData, descripcion: e.target.value})}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  placeholder="Descripción opcional de la solicitud..."
+                />
+              </div>
+
+              {/* Mensaje para Firmantes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Mensaje para los Firmantes
+                </label>
+                <textarea
+                  value={formData.mensaje}
+                  onChange={(e) => setFormData({...formData, mensaje: e.target.value})}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  placeholder="Mensaje personalizado que verán los firmantes..."
+                />
+              </div>
+
+              {/* Configuración */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Tipo de Firma
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        value="libre"
+                        checked={formData.tipo === 'libre'}
+                        onChange={(e) => setFormData({...formData, tipo: e.target.value})}
+                        className="mr-2"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        Libre (cada uno firma cuando puede)
+                      </span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        value="secuencial"
+                        checked={formData.tipo === 'secuencial'}
+                        onChange={(e) => setFormData({...formData, tipo: e.target.value})}
+                        className="mr-2"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        Secuencial (orden específico)
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Fecha de Expiración
+                  </label>
                   <input
-                    type="radio"
-                    value="secuencial"
-                    checked={formData.tipo === 'secuencial'}
-                    onChange={(e) => setFormData({...formData, tipo: e.target.value})}
-                    className="mr-2"
+                    type="datetime-local"
+                    value={formData.fechaExpiracion}
+                    onChange={(e) => setFormData({...formData, fechaExpiracion: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    Secuencial (orden específico)
-                  </span>
-                </label>
+                </div>
+
+                {/* Tags */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Etiquetas
+                  </label>
+                  <div className="flex space-x-2 mb-2">
+                    <input
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && agregarTag()}
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      placeholder="Agregar etiqueta..."
+                    />
+                    <button
+                      onClick={agregarTag}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Agregar
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.tags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                      >
+                        {tag}
+                        <button
+                          onClick={() => removerTag(tag)}
+                          className="ml-2 text-blue-600 hover:text-blue-800"
+                        >
+                          <XMarkIcon className="h-4 w-4" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Fecha de Expiración
-              </label>
-              <input
-                type="datetime-local"
-                value={formData.fechaExpiracion}
-                onChange={(e) => setFormData({...formData, fechaExpiracion: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-          </div>
-
-          {/* Tags */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Etiquetas
-            </label>
-            <div className="flex space-x-2 mb-2">
-              <input
-                type="text"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && agregarTag()}
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                placeholder="Agregar etiqueta..."
-              />
-              <button
-                onClick={agregarTag}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Agregar
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {formData.tags.map((tag, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+            {/* Columna Derecha - Gestión de Firmantes */}
+            <div className="xl:col-span-2 space-y-6">
+              {/* Header de Firmantes */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  👥 Gestión de Firmantes ({firmantes.length}/5)
+                </h3>
+                <button
+                  onClick={agregarFirmante}
+                  disabled={firmantes.length >= 5}
+                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  {tag}
-                  <button
-                    onClick={() => removerTag(tag)}
-                    className="ml-2 text-blue-600 hover:text-blue-800"
+                  <PlusIcon className="h-5 w-5 mr-2" />
+                  Agregar Firmante
+                </button>
+              </div>
+
+              {/* Lista de Firmantes */}
+              <div className="space-y-4">
+                {firmantes.map((firmante, index) => (
+                  <motion.div
+                    key={firmante.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className="flex items-center space-x-4 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                   >
-                    <XMarkIcon className="h-4 w-4" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Firmantes */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                👥 Firmantes ({firmantes.length}/5)
-              </h3>
-              <button
-                onClick={agregarFirmante}
-                disabled={firmantes.length >= 5}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <PlusIcon className="h-5 w-5 mr-2" />
-                Agregar Firmante
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {firmantes.map((firmante, index) => (
-                <motion.div
-                  key={firmante.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="flex items-center space-x-4 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700"
-                >
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                        {index + 1}
-                      </span>
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                          {index + 1}
+                        </span>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex-1">
-                    <select
-                      value={firmante.usuarioId}
-                      onChange={(e) => actualizarFirmante(firmante.id, 'usuarioId', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-600 dark:text-white"
-                    >
-                      <option value="">Seleccionar usuario...</option>
-                      {usuarios.map(usuario => (
-                        <option key={usuario._id} value={usuario._id}>
-                          {usuario.nombre} ({usuario.email})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                    <div className="flex-1">
+                      <select
+                        value={firmante.usuarioId}
+                        onChange={(e) => actualizarFirmante(firmante.id, 'usuarioId', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-600 dark:text-white"
+                      >
+                        <option value="">Seleccionar usuario...</option>
+                        {usuarios.map(usuario => (
+                          <option key={usuario._id} value={usuario._id}>
+                            {usuario.nombre} ({usuario.email})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                  <div className="flex-shrink-0">
-                    <button
-                      onClick={() => removerFirmante(firmante.id)}
-                      className="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    >
-                      <XMarkIcon className="h-5 w-5" />
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
+                    <div className="flex-shrink-0">
+                      <button
+                        onClick={() => removerFirmante(firmante.id)}
+                        className="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title="Eliminar firmante"
+                      >
+                        <XMarkIcon className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
 
-              {firmantes.length === 0 && (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  <UserIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>No hay firmantes agregados</p>
-                  <p className="text-sm">Haz clic en "Agregar Firmante" para comenzar</p>
-                </div>
-              )}
+                {firmantes.length === 0 && (
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                    <UserIcon className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium mb-2">No hay firmantes agregados</p>
+                    <p className="text-sm">Haz clic en "Agregar Firmante" para comenzar</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Información Importante */}
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+                  ℹ️ Información Importante
+                </h4>
+                <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
+                  <li>• Todos los firmantes recibirán un email con el enlace</li>
+                  <li>• Cada firmante puede firmar independientemente</li>
+                  <li>• La solicitud expira en la fecha configurada</li>
+                  <li>• Se completará cuando todos los firmantes firmen</li>
+                  <li>• Máximo 5 firmantes por solicitud</li>
+                </ul>
+              </div>
             </div>
           </div>
 

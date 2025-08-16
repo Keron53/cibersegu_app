@@ -38,6 +38,12 @@ services:
       - EMAIL_USER=ticscatolica@gmail.com
       - EMAIL_PASS=lhdqqmywxvhltjwl
       - FRONTEND_URL=https://af-systemstechnology.com
+            # Agregar estas líneas:
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USER=ticscatolica@gmail.com
+      - SMTP_PASS=lhdqqmywxvhltjwl
+      - WEBSOCKET_URL=http://websocket:3000
     volumes:
       - backend_uploads:/app/uploads
       - backend_certs:/app/CrearCACentral

@@ -214,8 +214,8 @@ export const documentoService = {
     formData.append('x', x)
     formData.append('y', y)
     formData.append('page', page)
-    formData.append('canvasWidth', canvasWidth)
-    formData.append('canvasHeight', canvasHeight)
+    formData.append('canvasWidth', canvasWidth);   // <--- Agrega esto
+    formData.append('canvasHeight', canvasHeight); // <--- Y esto
     formData.append('qrSize', qrSize)
     const response = await axios.post(`${API_BASE_URL}/documentos/firmar-qr-node`, formData, {
       headers: {
@@ -313,4 +313,4 @@ export const certificadoService = {
     })
     return response.data
   }
-} 
+}

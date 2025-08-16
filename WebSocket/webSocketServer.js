@@ -38,15 +38,51 @@ io.on('connection', (socket) => {
   });
 });
 
+// Endpoint de prueba para verificar WebSocket
+app.get('/test', (req, res) => {
+  res.json({
+    message: 'Servidor WebSocket funcionando',
+    usuariosConectados: Object.keys(connectedUsers),
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.post('/emitir', (req, res) => {
   const { userId, documento } = req.body;
+  
+  console.log(`📨 Intentando enviar notificación a usuario ${userId}:`, documento);
+  
   if (connectedUsers[userId]) {
-    io.to(connectedUsers[userId]).emit('mensaje', documento);
-    console.log(`📨 Notificación enviada al usuario ${userId}`);
-    res.send({ message: `Notificación enviada al usuario ${userId}` });
+    // Enviar notificación específica según el tipo
+    if (documento.tipo === 'solicitud_multiple') {
+      io.to(connectedUsers[userId]).emit('solicitud_multiple', {
+        tipo: 'solicitud_multiple',
+        solicitudId: documento.solicitudId,
+        titulo: documento.titulo,
+        documentoNombre: documento.documentoNombre,
+        solicitanteNombre: documento.solicitanteNombre,
+        mensaje: documento.mensaje,
+        fechaExpiracion: documento.fechaExpiracion,
+        timestamp: new Date().toISOString()
+      });
+      console.log(`📋 Notificación de solicitud múltiple enviada al usuario ${userId}`);
+    } else {
+      // Notificación genérica
+      io.to(connectedUsers[userId]).emit('mensaje', documento);
+      console.log(`📨 Notificación genérica enviada al usuario ${userId}`);
+    }
+    
+    res.send({ 
+      message: `Notificación enviada al usuario ${userId}`,
+      tipo: documento.tipo || 'mensaje',
+      timestamp: new Date().toISOString()
+    });
   } else {
-    console.log(`⚠️ Usuario ${userId} no está conectado`);
-    res.status(404).send({ message: 'Usuario no conectado' });
+    console.log(`⚠️ Usuario ${userId} no está conectado. Usuarios conectados:`, Object.keys(connectedUsers));
+    res.status(404).send({ 
+      message: 'Usuario no conectado',
+      usuariosConectados: Object.keys(connectedUsers)
+    });
   }
 });
 

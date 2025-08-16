@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Upload, CheckCircle, XCircle, AlertTriangle, Info, FileText, Shield, Clock, User } from 'lucide-react';
 import Navigation from '../layout/Navigation';
+import { useNavigate } from 'react-router-dom';
 
 const PDFValidationPage = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -10,6 +11,7 @@ const PDFValidationPage = () => {
   const [loading, setLoading] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -99,9 +101,19 @@ const PDFValidationPage = () => {
     return isValid ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20';
   };
 
+  const handleLogout = () => {
+    // Limpiar datos de sesión
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('userData');
+    
+    // Redirigir al login
+    navigate('/login', { replace: true });
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+              <Navigation onLogout={handleLogout} />
       
       <div className="container mx-auto px-4 py-8">
         <motion.div

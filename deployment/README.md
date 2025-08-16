@@ -62,6 +62,11 @@ sudo docker-compose up -d
 sudo docker-compose ps
 ```
 
+### Borrar los datos de docker por falta de espacio
+```bash
+sudo docker system prune -a --volumes
+```
+
 ### Configurar variables personalizadas
 Antes de ejecutar el script, edita las variables en `deployment/scripts/deploy.sh`:
 

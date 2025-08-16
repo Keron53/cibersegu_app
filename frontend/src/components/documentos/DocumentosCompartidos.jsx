@@ -5,6 +5,7 @@ import { documentoService } from '../../services/api'
 import PDFViewer from './PDFViewer.jsx'
 import NotificationContainer from '../layout/NotificationContainer.jsx'
 import Navigation from '../layout/Navigation.jsx'
+import { useNavigate } from 'react-router-dom'
 
 function DocumentosCompartidos() {
   const [documentos, setDocumentos] = useState([])
@@ -89,6 +90,18 @@ function DocumentosCompartidos() {
     setSelectedDocument(null)
   }
 
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    // Limpiar datos de sesión
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('userData');
+    
+    // Redirigir al login
+    navigate('/login', { replace: true });
+  };
+
   const getTipoAccesoLabel = (tipo) => {
     switch (tipo) {
       case 'firmante':
@@ -112,7 +125,7 @@ function DocumentosCompartidos() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation onLogout={() => {}} />
+      <Navigation onLogout={handleLogout} />
       
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">

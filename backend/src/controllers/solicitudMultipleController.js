@@ -8,6 +8,9 @@ const fs = require('fs');
 const tmp = require('tmp');
 const path = require('path');
 
+// Usar fetch nativo de Node.js (disponible desde Node.js 18+)
+// Si estás usando Node.js < 18, instala: npm install node-fetch
+
 const solicitudMultipleController = {
   // Crear solicitud múltiple de firma
   crearSolicitudMultiple: async (req, res) => {
@@ -141,6 +144,25 @@ const solicitudMultipleController = {
       } catch (emailError) {
         console.error('⚠️ Error enviando notificaciones:', emailError.message);
         // No fallar la creación por errores de email
+      }
+
+      // Enviar notificaciones por WebSocket a todos los firmantes
+      try {
+        for (const firmante of firmantesData) {
+          await enviarNotificacionWebSocket(firmante.usuarioId, {
+            tipo: 'solicitud_multiple',
+            solicitudId: solicitudMultiple._id,
+            titulo: titulo,
+            documentoNombre: documento.nombre,
+            solicitanteNombre: req.usuario.nombre,
+            mensaje: mensaje,
+            fechaExpiracion: fechaExp
+          });
+        }
+        console.log('✅ Notificaciones WebSocket enviadas a todos los firmantes');
+      } catch (wsError) {
+        console.error('⚠️ Error enviando notificaciones WebSocket:', wsError.message);
+        // No fallar la creación por errores de WebSocket
       }
 
       // Agregar al historial
@@ -508,5 +530,29 @@ const solicitudMultipleController = {
     }
   }
 };
+
+// Función para enviar notificaciones por WebSocket
+async function enviarNotificacionWebSocket(userId, datos) {
+  try {
+    const response = await fetch(`${process.env.WEBSOCKET_URL || 'http://localhost:3000'}/emitir`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: userId,
+        documento: datos
+      })
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`WebSocket emitir falló: ${response.status} ${text}`);
+    }
+    
+    console.log(`✅ Notificación WebSocket enviada al usuario ${userId}`);
+  } catch (error) {
+    console.error(`❌ Error enviando notificación WebSocket al usuario ${userId}:`, error.message);
+    throw error;
+  }
+}
 
 module.exports = solicitudMultipleController;
