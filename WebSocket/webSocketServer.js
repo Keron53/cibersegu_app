@@ -7,7 +7,13 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ['https://af-systemstechnology.com'], // agrega los que uses
+    origin: [
+      'https://af-systemstechnology.com', 
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173'
+    ],
     methods: ['GET', 'POST'],
     credentials: true
   }

@@ -13,6 +13,7 @@ import {
 } from '@heroicons/react/24/outline';
 import io from 'socket.io-client';
 import notificationService from '../../services/notificationService';
+import { getWebSocketUrl, getWebSocketUrlEmergency } from '../../config/websocket';
 
 const NotificacionesTiempoReal = () => {
   const [notificaciones, setNotificaciones] = useState([]);
@@ -42,25 +43,91 @@ const NotificacionesTiempoReal = () => {
   }, []);
 
   useEffect(() => {
-    // Conectar al WebSocket
-    const newSocket = io('http://localhost:3000', {
-      transports: ['websocket']
+    // Conectar al WebSocket usando la configuración
+    const socketUrl = getWebSocketUrl();
+    console.log('🔌 Intentando conectar a WebSocket:', socketUrl);
+    console.log('📍 Frontend corriendo en:', window.location.origin);
+    
+    const newSocket = io(socketUrl, {
+      transports: ['websocket', 'polling'], // Fallback a polling si WebSocket falla
+      timeout: 10000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      forceNew: true
     });
 
     newSocket.on('connect', () => {
       console.log('🔌 Conectado al WebSocket');
+      console.log('🔗 URL de conexión:', socketUrl);
+      console.log('🆔 Socket ID:', newSocket.id);
       setIsConnected(true);
       
       // Registrar usuario en el WebSocket
-      const userData = JSON.parse(localStorage.getItem('user') || '{}');
-      if (userData.id) {
-        newSocket.emit('registrarUsuario', userData.id);
-        console.log('✅ Usuario registrado en WebSocket:', userData.id);
+      const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+      const userId = userData._id || userData.id; // Intentar ambas posibles claves
+      
+      if (userId) {
+        console.log('📤 Enviando evento registrarUsuario con ID:', userId);
+        newSocket.emit('registrarUsuario', userId);
+        console.log('✅ Evento registrarUsuario enviado');
+        
+        // Confirmar que el evento se envió correctamente
+        setTimeout(() => {
+          console.log('🔍 Estado del socket después del registro:', {
+            connected: newSocket.connected,
+            id: newSocket.id
+          });
+        }, 1000);
+      } else {
+        console.warn('⚠️ No se pudo obtener el ID del usuario del localStorage');
+        console.log('🔍 Contenido del localStorage:', {
+          user: localStorage.getItem('user'),
+          userData: localStorage.getItem('userData'),
+          userId: localStorage.getItem('userId')
+        });
+        console.log('🔍 Datos parseados del usuario:', userData);
       }
     });
 
     newSocket.on('disconnect', () => {
       console.log('❌ Desconectado del WebSocket');
+      setIsConnected(false);
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('❌ Error de conexión WebSocket:', error);
+      setIsConnected(false);
+      
+      // Intentar conectar usando la URL de emergencia
+      console.log('🆘 Intentando conexión de emergencia...');
+      const emergencySocket = io(getWebSocketUrlEmergency(), {
+        transports: ['websocket', 'polling'],
+        timeout: 5000,
+        forceNew: true
+      });
+      
+      emergencySocket.on('connect', () => {
+        console.log('✅ Conexión de emergencia exitosa');
+        setIsConnected(true);
+        setSocket(emergencySocket);
+        
+        // Registrar usuario en la conexión de emergencia
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        const userId = userData._id || userData.id;
+        
+        if (userId) {
+          emergencySocket.emit('registrarUsuario', userId);
+          console.log('✅ Usuario registrado en WebSocket de emergencia:', userId);
+        }
+      });
+      
+      emergencySocket.on('connect_error', (emergencyError) => {
+        console.error('❌ Conexión de emergencia también falló:', emergencyError);
+      });
+    });
+
+    newSocket.on('error', (error) => {
+      console.error('❌ Error en WebSocket:', error);
       setIsConnected(false);
     });
 
@@ -126,16 +193,17 @@ const NotificacionesTiempoReal = () => {
       {/* Botón de notificaciones con indicador */}
       <button
         onClick={() => setShowNotifications(!showNotifications)}
-        className="relative p-3 text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-all duration-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full group"
+        className="relative p-2 rounded-full text-gray-500 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-background transition-colors"
+        title="Notificaciones"
       >
-        <BellIcon className="h-6 w-6 transition-transform group-hover:scale-110" />
+        <BellIcon className="h-5 w-5 transition-transform group-hover:scale-110" />
         
         {/* Indicador de notificaciones */}
         {unreadCount > 0 && (
           <motion.span
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center shadow-lg border-2 border-white dark:border-gray-800"
+            className="absolute -top-1 -right-1 bg-red-600 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full animate-pulse"
           >
             {unreadCount > 99 ? '99+' : unreadCount}
           </motion.span>
@@ -152,10 +220,10 @@ const NotificacionesTiempoReal = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="absolute right-0 mt-3 w-96 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden"
+            className="absolute right-0 mt-3 w-96 bg-white dark:bg-background rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden"
           >
-            {/* Header con gradiente */}
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4">
+            {/* Header con colores del tema */}
+            <div className="bg-primary dark:bg-primary-light text-white p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 bg-white/20 rounded-full">
@@ -197,7 +265,7 @@ const NotificacionesTiempoReal = () => {
             </div>
 
             {/* Estado de conexión */}
-            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
@@ -324,7 +392,7 @@ const NotificacionesTiempoReal = () => {
             </div>
 
             {/* Footer */}
-            <div className="p-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700">
+            <div className="p-3 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                 <span>Total: {notificaciones.length} notificaciones</span>
                 <span>Sin leer: {unreadCount}</span>

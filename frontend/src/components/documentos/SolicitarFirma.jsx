@@ -165,6 +165,11 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
       return false;
     }
 
+    if (!posicionFirma) {
+      setError('Debes seleccionar una posición en el documento antes de crear la solicitud múltiple');
+      return false;
+    }
+
     if (firmantesMultiples.length === 0) {
       setError('Debe agregar al menos un firmante');
       return false;
@@ -268,30 +273,30 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             Tipo de Solicitud
           </label>
-          <div className="flex space-x-4">
-            <label className="flex items-center">
+          <div className="flex space-x-6">
+            <label className="flex items-center p-3 border-2 rounded-lg transition-all duration-200 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
               <input
                 type="radio"
                 value="individual"
                 checked={tipoSolicitud === 'individual'}
                 onChange={(e) => setTipoSolicitud(e.target.value)}
-                className="mr-2 text-blue-600"
+                className="mr-3 text-blue-600"
               />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                <User className="w-4 h-4 inline mr-1" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <User className="w-4 h-4 inline mr-2" />
                 Individual (1 firmante)
               </span>
             </label>
-            <label className="flex items-center">
+            <label className="flex items-center p-3 border-2 rounded-lg transition-all duration-200 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
               <input
                 type="radio"
                 value="multiple"
                 checked={tipoSolicitud === 'multiple'}
                 onChange={(e) => setTipoSolicitud(e.target.value)}
-                className="mr-2 text-blue-600"
+                className="mr-3 text-blue-600"
               />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                <Users className="w-4 h-4 inline mr-1" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <Users className="w-4 h-4 inline mr-2" />
                 Múltiple (hasta 5 firmantes)
               </span>
             </label>
@@ -323,65 +328,88 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
         {/* Campos para solicitud múltiple */}
         {tipoSolicitud === 'multiple' && (
           <>
-            {/* Título y descripción */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
+            {/* Layout Horizontal Principal - Mejorado */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+              {/* Columna Izquierda - Información Básica */}
+              <div className="xl:col-span-1 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Título de la Solicitud *
+                  </label>
+                  <input
+                    type="text"
+                    value={tituloSolicitud}
+                    onChange={(e) => setTituloSolicitud(e.target.value)}
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Ej: Aprobación de Contrato"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Prioridad
+                  </label>
+                  <select
+                    value={prioridad}
+                    onChange={(e) => setPrioridad(e.target.value)}
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="baja">Baja</option>
+                    <option value="normal">Normal</option>
+                    <option value="alta">Alta</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Fecha de Expiración
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={fechaExpiracion}
+                    onChange={(e) => setFechaExpiracion(e.target.value)}
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Columna Central - Descripción */}
+              <div className="xl:col-span-1">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Título de la Solicitud *
+                  Descripción
                 </label>
-                <input
-                  type="text"
-                  value={tituloSolicitud}
-                  onChange={(e) => setTituloSolicitud(e.target.value)}
+                <textarea
+                  value={descripcionSolicitud}
+                  onChange={(e) => setDescripcionSolicitud(e.target.value)}
                   className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ej: Aprobación de Contrato"
-                  required
+                  rows="6"
+                  placeholder="Descripción opcional de la solicitud..."
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Prioridad
-                </label>
-                <select
-                  value={prioridad}
-                  onChange={(e) => setPrioridad(e.target.value)}
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="baja">Baja</option>
-                  <option value="normal">Normal</option>
-                  <option value="alta">Alta</option>
-                </select>
+
+              {/* Columna Derecha - Información Importante */}
+              <div className="xl:col-span-1">
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 h-full">
+                  <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-3">
+                    ℹ️ Información Importante
+                  </h4>
+                  <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-2">
+                    <li>• Todos los firmantes recibirán un email</li>
+                    <li>• Cada firmante puede firmar independientemente</li>
+                    <li>• La solicitud expira en la fecha configurada</li>
+                    <li>• Se completará cuando todos firmen</li>
+                    <li>• Máximo 5 firmantes por solicitud</li>
+                  </ul>
+                </div>
               </div>
             </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Descripción
-              </label>
-              <textarea
-                value={descripcionSolicitud}
-                onChange={(e) => setDescripcionSolicitud(e.target.value)}
-                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                rows="2"
-                placeholder="Descripción opcional de la solicitud..."
-              />
-            </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Fecha de Expiración
-              </label>
-              <input
-                type="datetime-local"
-                value={fechaExpiracion}
-                onChange={(e) => setFechaExpiracion(e.target.value)}
-                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
 
-            {/* Firmantes múltiples */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-3">
+            {/* Firmantes múltiples - Layout Horizontal Mejorado */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-4">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Firmantes ({firmantesMultiples.length}/5)
                 </label>
@@ -389,16 +417,16 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
                   type="button"
                   onClick={agregarFirmanteMultiple}
                   disabled={firmantesMultiples.length >= 5}
-                  className="flex items-center px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center px-4 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Agregar
+                  <Plus className="w-4 h-4 mr-2" />
+                  Agregar Firmante
                 </button>
               </div>
 
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {firmantesMultiples.map((firmante, index) => (
-                  <div key={firmante.id} className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
+                  <div key={firmante.id} className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-all duration-200">
                     <div className="flex-shrink-0">
                       <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
                         <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
@@ -407,7 +435,7 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
                       </div>
                     </div>
 
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <select
                         value={firmante.usuarioId}
                         onChange={(e) => actualizarFirmanteMultiple(firmante.id, 'usuarioId', e.target.value)}
@@ -417,7 +445,7 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
                         <option value="">Seleccionar usuario...</option>
                         {Array.isArray(usuarios) && usuarios.map(usuario => (
                           <option key={usuario._id} value={usuario._id}>
-                            {usuario.nombre} ({usuario.email})
+                            {usuario.nombre}
                           </option>
                         ))}
                       </select>
@@ -434,10 +462,10 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
                 ))}
 
                 {firmantesMultiples.length === 0 && (
-                  <div className="text-center py-6 text-gray-500 dark:text-gray-400 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md">
-                    <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No hay firmantes agregados</p>
-                    <p className="text-xs">Haz clic en "Agregar" para comenzar</p>
+                  <div className="col-span-full text-center py-8 text-gray-500 dark:text-gray-400 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md">
+                    <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p className="text-base font-medium mb-1">No hay firmantes agregados</p>
+                    <p className="text-sm">Haz clic en "Agregar Firmante" para comenzar</p>
                   </div>
                 )}
               </div>
@@ -459,59 +487,65 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
           </div>
         )}
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Mensaje (opcional)
-          </label>
-          <textarea
-            value={mensaje}
-            onChange={(e) => setMensaje(e.target.value)}
-            className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            rows="3"
-            placeholder="Mensaje personalizado para el firmante..."
-          />
+        {/* Layout Horizontal para Mensaje y Posición */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Mensaje (opcional)
+            </label>
+            <textarea
+              value={mensaje}
+              onChange={(e) => setMensaje(e.target.value)}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              rows="4"
+              placeholder="Mensaje personalizado para el firmante..."
+            />
+          </div>
+
+          {posicionFirma ? (
+            <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="w-4 h-4 text-green-600" />
+                <span className="text-sm font-medium text-green-900 dark:text-green-100">
+                  Posición de firma seleccionada:
+                </span>
+              </div>
+              <p className="text-sm text-green-800 dark:text-green-200">
+                Página {posicionFirma.page} - Coordenadas ({posicionFirma.x}, {posicionFirma.y})
+              </p>
+            </div>
+          ) : (
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-md">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="w-4 h-4 text-red-600" />
+                <span className="text-sm font-medium text-red-900 dark:text-red-100">
+                  Posición de firma requerida:
+                </span>
+              </div>
+              <p className="text-sm text-red-800 dark:text-red-200">
+                Debes hacer clic en el documento para seleccionar dónde colocar la firma antes de crear la solicitud.
+              </p>
+            </div>
+          )}
         </div>
 
-        {posicionFirma && (
-          <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md">
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-green-600" />
-              <span className="text-sm font-medium text-green-900 dark:text-green-100">
-                Posición de firma seleccionada:
-              </span>
+        {/* Información importante solo para solicitudes individuales */}
+        {tipoSolicitud === 'individual' && (
+          <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-md">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5" />
+              <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                <p className="font-medium mb-1">Información importante:</p>
+                <ul className="text-xs space-y-1">
+                  <li>• El firmante recibirá un email con el enlace</li>
+                  <li>• La solicitud expira en 7 días</li>
+                  <li>• El firmante necesitará su certificado digital</li>
+                  <li>• La firma se posicionará automáticamente</li>
+                </ul>
+              </div>
             </div>
-            <p className="text-sm text-green-800 dark:text-green-200 mt-1">
-              Página {posicionFirma.page} - Coordenadas ({posicionFirma.x}, {posicionFirma.y})
-            </p>
           </div>
         )}
-
-        <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-md">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5" />
-            <div className="text-sm text-yellow-800 dark:text-yellow-200">
-              <p className="font-medium mb-1">Información importante:</p>
-              <ul className="text-xs space-y-1">
-                {tipoSolicitud === 'individual' ? (
-                  <>
-                    <li>• El firmante recibirá un email con el enlace</li>
-                    <li>• La solicitud expira en 7 días</li>
-                    <li>• El firmante necesitará su certificado digital</li>
-                    <li>• La firma se posicionará automáticamente</li>
-                  </>
-                ) : (
-                  <>
-                    <li>• Todos los firmantes recibirán un email con el enlace</li>
-                    <li>• Cada firmante puede firmar independientemente</li>
-                    <li>• La solicitud expira en la fecha configurada</li>
-                    <li>• Se completará cuando todos los firmantes firmen</li>
-                    <li>• Máximo 5 firmantes por solicitud</li>
-                  </>
-                )}
-              </ul>
-            </div>
-          </div>
-        </div>
 
         <button
           type="submit"

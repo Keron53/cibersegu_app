@@ -858,7 +858,7 @@ function PDFSignatureViewer({ documentId, documentName, onClose, onPositionSelec
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 overflow-hidden"
+                className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full mx-4 overflow-hidden max-h-[90vh] overflow-y-auto"
               >
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">

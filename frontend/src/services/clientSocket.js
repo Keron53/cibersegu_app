@@ -2,8 +2,8 @@ import { io, Socket } from 'socket.io-client';
 
 let socket = null;
 
-// URL del WebSocket tomada de la variable de entorno
-const WS_URL = import.meta.env.VITE_WS_URL || window.location.origin;
+// URL del WebSocket - usar la misma URL del frontend para evitar problemas de CSP
+const WS_URL = window.location.origin;
 
 /**
  * Conectar al servidor de WebSocket
@@ -12,8 +12,14 @@ const WS_URL = import.meta.env.VITE_WS_URL || window.location.origin;
 export const connectSocket = (userId) => {
   if (socket) return socket;
 
-  socket = io(WS_URL, {
-    transports: ['websocket']
+  // Intentar conectar usando la misma URL del frontend
+  const socketUrl = window.location.origin;
+  console.log('🔌 Intentando conectar a WebSocket:', socketUrl);
+
+  socket = io(socketUrl, {
+    transports: ['websocket', 'polling'], // Fallback a polling si WebSocket falla
+    timeout: 10000, // Timeout de 10 segundos
+    forceNew: true
   });
 
   socket.on('connect', () => {
@@ -27,6 +33,15 @@ export const connectSocket = (userId) => {
 
   socket.on('disconnect', () => {
     console.log('❌ Desconectado del servidor WebSocket');
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('❌ Error de conexión WebSocket:', error);
+    console.log('💡 Intentando fallback a polling...');
+  });
+
+  socket.on('error', (error) => {
+    console.error('❌ Error en WebSocket:', error);
   });
 
   socket.on('mensaje', (documento) => {
