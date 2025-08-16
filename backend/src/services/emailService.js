@@ -1,390 +1,333 @@
 const nodemailer = require('nodemailer');
-const emailConfig = require('../../config/email');
 
-// Configuración del transportador de correo
+// Configuración del transportador de email
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: process.env.SMTP_PORT || 587,
+  secure: false, // true para 465, false para otros puertos
   auth: {
-    user: emailConfig.gmail.user,
-    pass: emailConfig.gmail.pass
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
   }
 });
 
-// Función para validar formato de email
-const validarEmail = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-};
+// Verificar conexión
+transporter.verify(function(error, success) {
+  if (error) {
+    console.error('❌ Error en configuración de email:', error);
+  } else {
+    console.log('✅ Servidor de email listo');
+  }
+});
 
-// Función para enviar código de verificación
-const enviarCodigoVerificacion = async (email, nombre, codigo) => {
-  try {
-    // Validar formato de email
-    if (!validarEmail(email)) {
-      throw new Error('Formato de email inválido');
-    }
+const emailService = {
+  // Enviar solicitud de firma múltiple
+  enviarSolicitudFirmaMultiple: async ({
+    firmanteEmail,
+    firmanteNombre,
+    solicitanteNombre,
+    documentoNombre,
+    titulo,
+    mensaje,
+    fechaExpiracion,
+    enlace
+  }) => {
+    try {
+      const fechaFormateada = new Date(fechaExpiracion).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Verificación de Email - Digital Sign',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
-          <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #2563eb; margin: 0; font-size: 28px;">Digital Sign</h1>
-              <p style="color: #6b7280; margin: 10px 0 0 0;">Sistema de Firma Digital</p>
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Solicitud de Firma Múltiple</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+            .content { background: #f8fafc; padding: 20px; border-radius: 0 0 8px 8px; }
+            .btn { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 20px; color: #64748b; font-size: 14px; }
+            .highlight { background: #dbeafe; padding: 15px; border-radius: 6px; margin: 15px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>📋 Nueva Solicitud de Firma Múltiple</h1>
             </div>
-            
-            <div style="margin-bottom: 30px;">
-              <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Verificación de Email</h2>
-              <p style="color: #374151; line-height: 1.6; margin: 0 0 20px 0;">
-                Hola <strong>${nombre}</strong>,
-              </p>
-              <p style="color: #374151; line-height: 1.6; margin: 0 0 20px 0;">
-                Gracias por registrarte en Digital Sign. Para completar tu registro, 
-                necesitamos verificar tu dirección de email.
-              </p>
-            </div>
-            
-            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 30px;">
-              <p style="color: #374151; margin: 0 0 10px 0; font-weight: bold;">Tu código de verificación es:</p>
-              <div style="background-color: #ffffff; padding: 15px; border-radius: 6px; border: 2px dashed #d1d5db;">
-                <span style="font-size: 32px; font-weight: bold; color: #2563eb; letter-spacing: 5px;">${codigo}</span>
+            <div class="content">
+              <h2>Hola ${firmanteNombre},</h2>
+              
+              <p><strong>${solicitanteNombre}</strong> te ha enviado una solicitud para firmar un documento como parte de una solicitud múltiple.</p>
+              
+              <div class="highlight">
+                <h3>📄 Detalles del Documento:</h3>
+                <p><strong>Nombre:</strong> ${documentoNombre}</p>
+                <p><strong>Título de la Solicitud:</strong> ${titulo}</p>
+                <p><strong>Fecha de Expiración:</strong> ${fechaFormateada}</p>
               </div>
+              
+              ${mensaje ? `<div class="highlight"><strong>💬 Mensaje del Solicitante:</strong><br>${mensaje}</div>` : ''}
+              
+              <p>Esta es una <strong>solicitud múltiple</strong>, lo que significa que puedes firmar el documento de forma independiente, sin esperar a otros firmantes.</p>
+              
+              <a href="${enlace}" class="btn">✍️ Firmar Documento</a>
+              
+              <p><strong>⚠️ Importante:</strong> Esta solicitud expira el ${fechaFormateada}. Asegúrate de firmar antes de esa fecha.</p>
+              
+              <p>Si tienes alguna pregunta, contacta a ${solicitanteNombre}.</p>
             </div>
-            
-            <div style="margin-bottom: 30px;">
-              <p style="color: #374151; line-height: 1.6; margin: 0 0 15px 0;">
-                <strong>Instrucciones:</strong>
-              </p>
-              <ul style="color: #374151; line-height: 1.6; margin: 0; padding-left: 20px;">
-                <li>Ingresa este código en la página de verificación</li>
-                <li>El código expira en 15 minutos</li>
-                <li>Si no solicitaste este código, puedes ignorar este email</li>
-              </ul>
-            </div>
-            
-            <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
-              <p style="color: #6b7280; font-size: 14px; margin: 0;">
-                Este es un email automático, por favor no respondas a este mensaje.
-              </p>
+            <div class="footer">
+              <p>Este email fue enviado automáticamente por el sistema de firmas digitales.</p>
+              <p>No respondas a este email.</p>
             </div>
           </div>
-        </div>
-      `
-    };
+        </body>
+        </html>
+      `;
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email enviado:', info.messageId);
-    return true;
-  } catch (error) {
-    console.error('❌ Error enviando email:', error);
-    throw new Error('Error al enviar el email de verificación');
-  }
-};
+      const mailOptions = {
+        from: `"Sistema de Firmas Digitales" <${process.env.SMTP_USER}>`,
+        to: firmanteEmail,
+        subject: `✍️ Solicitud de Firma Múltiple: ${titulo}`,
+        html: htmlContent
+      };
 
-// Función para verificar si un email existe (validación básica)
-const verificarEmailExiste = async (email) => {
-  try {
-    // Aquí podrías implementar una validación más robusta
-    // Por ahora solo validamos el formato
-    return validarEmail(email);
-  } catch (error) {
-    console.error('Error verificando email:', error);
-    return false;
-  }
-};
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email de solicitud múltiple enviado a:', firmanteEmail);
+      return info;
 
-// Función para enviar email de recuperación de contraseña
-const enviarEmailRecuperacion = async (email, nombre, resetUrl) => {
-  try {
-    if (!validarEmail(email)) {
-      throw new Error('Formato de email inválido');
+    } catch (error) {
+      console.error('❌ Error enviando email de solicitud múltiple:', error);
+      throw error;
     }
+  },
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Recuperación de Contraseña - Digital Sign',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
-          <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #2563eb; margin: 0; font-size: 28px;">Digital Sign</h1>
-              <p style="color: #6b7280; margin: 10px 0 0 0;">Sistema de Firma Digital</p>
+  // Notificar cuando se completa una firma
+  enviarNotificacionFirmaCompletada: async ({
+    solicitanteEmail,
+    solicitanteNombre,
+    firmanteNombre,
+    documentoNombre,
+    solicitudMultiple
+  }) => {
+    try {
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Firma Completada</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #059669; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+            .content { background: #f0fdf4; padding: 20px; border-radius: 0 0 8px 8px; }
+            .footer { text-align: center; margin-top: 20px; color: #64748b; font-size: 14px; }
+            .highlight { background: #d1fae5; padding: 15px; border-radius: 6px; margin: 15px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>✅ Firma Completada</h1>
             </div>
-            
-            <div style="margin-bottom: 30px;">
-              <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Recuperación de Contraseña</h2>
-              <p style="color: #374151; line-height: 1.6; margin: 0 0 20px 0;">
-                Hola <strong>${nombre}</strong>,
-              </p>
-              <p style="color: #374151; line-height: 1.6; margin: 0 0 20px 0;">
-                Has solicitado restablecer tu contraseña en Digital Sign. 
-                Haz clic en el botón de abajo para crear una nueva contraseña.
-              </p>
-            </div>
-            
-            <div style="text-align: center; margin-bottom: 30px;">
-              <a href="${resetUrl}" 
-                 style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">
-                Restablecer Contraseña
-              </a>
-            </div>
-            
-            <div style="margin-bottom: 30px;">
-              <p style="color: #374151; line-height: 1.6; margin: 0 0 15px 0;">
-                <strong>Información importante:</strong>
-              </p>
-              <ul style="color: #374151; line-height: 1.6; margin: 0; padding-left: 20px;">
-                <li>Este enlace es válido por 1 hora</li>
-                <li>Si no solicitaste este cambio, puedes ignorar este email</li>
-                <li>Tu contraseña actual seguirá funcionando hasta que la cambies</li>
-              </ul>
-            </div>
-            
-            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 6px; margin-bottom: 30px;">
-              <p style="color: #6b7280; font-size: 14px; margin: 0; text-align: center;">
-                Si el botón no funciona, copia y pega este enlace en tu navegador:
-              </p>
-              <p style="color: #2563eb; font-size: 12px; margin: 10px 0 0 0; text-align: center; word-break: break-all;">
-                ${resetUrl}
-              </p>
-            </div>
-            
-            <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
-              <p style="color: #6b7280; font-size: 14px; margin: 0;">
-                Este es un email automático, por favor no respondas a este mensaje.
-              </p>
-            </div>
-          </div>
-        </div>
-      `
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email de recuperación enviado:', info.messageId);
-    return true;
-  } catch (error) {
-    console.error('❌ Error enviando email de recuperación:', error);
-    throw new Error('Error al enviar el email de recuperación');
-  }
-};
-
-// NUEVO: Función para enviar solicitud de firma
-const enviarSolicitudFirma = async ({ firmanteEmail, firmanteNombre, solicitanteNombre, documentoNombre, mensaje, linkFirma }) => {
-  try {
-    if (!validarEmail(firmanteEmail)) {
-      throw new Error('Formato de email inválido');
-    }
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: firmanteEmail,
-      subject: `Solicitud de Firma - ${documentoNombre}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
-          <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #2563eb; margin: 0; font-size: 28px;">Digital Sign</h1>
-              <p style="color: #6b7280; margin: 10px 0 0 0;">Sistema de Firma Digital</p>
-            </div>
-            
-            <div style="margin-bottom: 30px;">
-              <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Solicitud de Firma</h2>
-              <p style="color: #374151; line-height: 1.6; margin: 0 0 20px 0;">
-                Hola <strong>${firmanteNombre}</strong>,
-              </p>
-              <p style="color: #374151; line-height: 1.6; margin: 0 0 20px 0;">
-                <strong>${solicitanteNombre}</strong> te ha solicitado que firmes el documento:
-              </p>
-              <div style="background-color: #f3f4f6; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-                <h3 style="color: #2563eb; margin: 0; font-size: 18px;">📄 ${documentoNombre}</h3>
+            <div class="content">
+              <h2>Hola ${solicitanteNombre},</h2>
+              
+              <p>¡Excelente! <strong>${firmanteNombre}</strong> ha firmado exitosamente el documento de tu solicitud múltiple.</p>
+              
+              <div class="highlight">
+                <h3>📋 Detalles:</h3>
+                <p><strong>Documento:</strong> ${documentoNombre}</p>
+                <p><strong>Solicitud:</strong> ${solicitudMultiple}</p>
+                <p><strong>Firmante:</strong> ${firmanteNombre}</p>
+                <p><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-ES')}</p>
               </div>
-              ${mensaje ? `<p style="color: #374151; line-height: 1.6; margin: 0 0 20px 0;"><strong>Mensaje:</strong> ${mensaje}</p>` : ''}
+              
+              <p>El proceso de firma múltiple continúa. Recibirás otra notificación cuando se complete completamente.</p>
             </div>
-            
-            <div style="text-align: center; margin-bottom: 30px;">
-              <a href="${linkFirma}" 
-                 style="display: inline-block; background-color: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">
-                📝 Firmar Documento
-              </a>
-            </div>
-            
-            <div style="margin-bottom: 30px;">
-              <p style="color: #374151; line-height: 1.6; margin: 0 0 15px 0;">
-                <strong>Información importante:</strong>
-              </p>
-              <ul style="color: #374151; line-height: 1.6; margin: 0; padding-left: 20px;">
-                <li>Este enlace expira en 7 días</li>
-                <li>Necesitarás tu certificado digital para firmar</li>
-                <li>La firma será posicionada automáticamente</li>
-                <li>El documento se actualizará automáticamente</li>
-              </ul>
-            </div>
-            
-            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 6px; margin-bottom: 30px;">
-              <p style="color: #6b7280; font-size: 14px; margin: 0; text-align: center;">
-                Si el botón no funciona, copia y pega este enlace en tu navegador:
-              </p>
-              <p style="color: #2563eb; font-size: 12px; margin: 10px 0 0 0; text-align: center; word-break: break-all;">
-                ${linkFirma}
-              </p>
-            </div>
-            
-            <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
-              <p style="color: #6b7280; font-size: 14px; margin: 0;">
-                Este es un email automático, por favor no respondas a este mensaje.
-              </p>
+            <div class="footer">
+              <p>Este email fue enviado automáticamente por el sistema de firmas digitales.</p>
             </div>
           </div>
-        </div>
-      `
-    };
+        </body>
+        </html>
+      `;
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email de solicitud de firma enviado:', info.messageId);
-    return true;
-  } catch (error) {
-    console.error('❌ Error enviando email de solicitud de firma:', error);
-    throw new Error('Error al enviar el email de solicitud de firma');
-  }
-};
+      const mailOptions = {
+        from: `"Sistema de Firmas Digitales" <${process.env.SMTP_USER}>`,
+        to: solicitanteEmail,
+        subject: `✅ Firma Completada: ${documentoNombre}`,
+        html: htmlContent
+      };
 
-// NUEVO: Función para enviar notificación de firma completada
-const enviarNotificacionFirmaCompletada = async ({ solicitanteEmail, solicitanteNombre, firmanteNombre, documentoNombre }) => {
-  try {
-    if (!validarEmail(solicitanteEmail)) {
-      throw new Error('Formato de email inválido');
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email de notificación de firma enviado a:', solicitanteEmail);
+      return info;
+
+    } catch (error) {
+      console.error('❌ Error enviando notificación de firma:', error);
+      throw error;
     }
+  },
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: solicitanteEmail,
-      subject: `Firma Completada - ${documentoNombre}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
-          <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #2563eb; margin: 0; font-size: 28px;">Digital Sign</h1>
-              <p style="color: #6b7280; margin: 10px 0 0 0;">Sistema de Firma Digital</p>
+  // Notificar cuando se cancela una solicitud
+  enviarNotificacionSolicitudCancelada: async ({
+    firmanteEmail,
+    firmanteNombre,
+    solicitanteNombre,
+    documentoNombre,
+    motivo
+  }) => {
+    try {
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Solicitud Cancelada</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #dc2626; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+            .content { background: #fef2f2; padding: 20px; border-radius: 0 0 8px 8px; }
+            .footer { text-align: center; margin-top: 20px; color: #64748b; font-size: 14px; }
+            .highlight { background: #fee2e2; padding: 15px; border-radius: 6px; margin: 15px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>❌ Solicitud Cancelada</h1>
             </div>
-            
-            <div style="margin-bottom: 30px;">
-              <h2 style="color: #10b981; margin: 0 0 20px 0; font-size: 24px;">✅ Firma Completada</h2>
-              <p style="color: #374151; line-height: 1.6; margin: 0 0 20px 0;">
-                Hola <strong>${solicitanteNombre}</strong>,
-              </p>
-              <p style="color: #374151; line-height: 1.6; margin: 0 0 20px 0;">
-                <strong>${firmanteNombre}</strong> ha firmado exitosamente el documento:
-              </p>
-              <div style="background-color: #f0fdf4; padding: 15px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #10b981;">
-                <h3 style="color: #059669; margin: 0; font-size: 18px;">📄 ${documentoNombre}</h3>
+            <div class="content">
+              <h2>Hola ${firmanteNombre},</h2>
+              
+              <p><strong>${solicitanteNombre}</strong> ha cancelado la solicitud de firma múltiple para el siguiente documento:</p>
+              
+              <div class="highlight">
+                <h3>📋 Documento:</h3>
+                <p><strong>Nombre:</strong> ${documentoNombre}</p>
+                <p><strong>Motivo de Cancelación:</strong> ${motivo}</p>
               </div>
+              
+              <p>Ya no es necesario que firmes este documento. Si tienes alguna pregunta, contacta directamente a ${solicitanteNombre}.</p>
             </div>
-            
-            <div style="margin-bottom: 30px;">
-              <p style="color: #374151; line-height: 1.6; margin: 0 0 15px 0;">
-                <strong>Información de la firma:</strong>
-              </p>
-              <ul style="color: #374151; line-height: 1.6; margin: 0; padding-left: 20px;">
-                <li>Firmante: ${firmanteNombre}</li>
-                <li>Fecha de firma: ${new Date().toLocaleDateString('es-ES')}</li>
-                <li>Estado: Completada</li>
-                <li>El documento ha sido actualizado automáticamente</li>
-              </ul>
-            </div>
-            
-            <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
-              <p style="color: #6b7280; font-size: 14px; margin: 0;">
-                Este es un email automático, por favor no respondas a este mensaje.
-              </p>
+            <div class="footer">
+              <p>Este email fue enviado automáticamente por el sistema de firmas digitales.</p>
             </div>
           </div>
-        </div>
-      `
-    };
+        </body>
+        </html>
+      `;
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email de notificación de firma completada enviado:', info.messageId);
-    return true;
-  } catch (error) {
-    console.error('❌ Error enviando email de notificación de firma completada:', error);
-    throw new Error('Error al enviar el email de notificación de firma completada');
-  }
-};
+      const mailOptions = {
+        from: `"Sistema de Firmas Digitales" <${process.env.SMTP_USER}>`,
+        to: firmanteEmail,
+        subject: `❌ Solicitud Cancelada: ${documentoNombre}`,
+        html: htmlContent
+      };
 
-// NUEVO: Función para enviar notificación de firma rechazada
-const enviarNotificacionFirmaRechazada = async ({ solicitanteEmail, solicitanteNombre, firmanteNombre, documentoNombre, motivo }) => {
-  try {
-    if (!validarEmail(solicitanteEmail)) {
-      throw new Error('Formato de email inválido');
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email de cancelación enviado a:', firmanteEmail);
+      return info;
+
+    } catch (error) {
+      console.error('❌ Error enviando email de cancelación:', error);
+      throw error;
     }
+  },
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: solicitanteEmail,
-      subject: `Firma Rechazada - ${documentoNombre}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
-          <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #2563eb; margin: 0; font-size: 28px;">Digital Sign</h1>
-              <p style="color: #6b7280; margin: 10px 0 0 0;">Sistema de Firma Digital</p>
+  // Enviar recordatorio de firma
+  enviarRecordatorioFirma: async ({
+    firmanteEmail,
+    firmanteNombre,
+    solicitanteNombre,
+    documentoNombre,
+    titulo,
+    fechaExpiracion,
+    enlace
+  }) => {
+    try {
+      const diasRestantes = Math.ceil((new Date(fechaExpiracion) - new Date()) / (1000 * 60 * 60 * 24));
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Recordatorio de Firma</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #f59e0b; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+            .content { background: #fffbeb; padding: 20px; border-radius: 0 0 8px 8px; }
+            .btn { display: inline-block; background: #f59e0b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 20px; color: #64748b; font-size: 14px; }
+            .highlight { background: #fef3c7; padding: 15px; border-radius: 6px; margin: 15px 0; }
+            .urgent { background: #fef2f2; border-left: 4px solid #dc2626; padding: 15px; margin: 15px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>⏰ Recordatorio de Firma</h1>
             </div>
-            
-            <div style="margin-bottom: 30px;">
-              <h2 style="color: #dc2626; margin: 0 0 20px 0; font-size: 24px;">❌ Firma Rechazada</h2>
-              <p style="color: #374151; line-height: 1.6; margin: 0 0 20px 0;">
-                Hola <strong>${solicitanteNombre}</strong>,
-              </p>
-              <p style="color: #374151; line-height: 1.6; margin: 0 0 20px 0;">
-                <strong>${firmanteNombre}</strong> ha rechazado firmar el documento:
-              </p>
-              <div style="background-color: #fef2f2; padding: 15px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #dc2626;">
-                <h3 style="color: #dc2626; margin: 0; font-size: 18px;">📄 ${documentoNombre}</h3>
+            <div class="content">
+              <h2>Hola ${firmanteNombre},</h2>
+              
+              <p>Te recordamos que tienes una solicitud de firma múltiple pendiente:</p>
+              
+              <div class="highlight">
+                <h3>📋 Detalles:</h3>
+                <p><strong>Documento:</strong> ${documentoNombre}</p>
+                <p><strong>Solicitud:</strong> ${titulo}</p>
+                <p><strong>Solicitante:</strong> ${solicitanteNombre}</p>
+                <p><strong>Días Restantes:</strong> ${diasRestantes} día${diasRestantes !== 1 ? 's' : ''}</p>
               </div>
-              ${motivo ? `<p style="color: #374151; line-height: 1.6; margin: 0 0 20px 0;"><strong>Motivo:</strong> ${motivo}</p>` : ''}
+              
+              ${diasRestantes <= 2 ? '<div class="urgent"><strong>🚨 URGENTE:</strong> Esta solicitud expira pronto. Por favor, firma lo antes posible.</div>' : ''}
+              
+              <a href="${enlace}" class="btn">✍️ Firmar Ahora</a>
+              
+              <p>Si ya firmaste este documento, puedes ignorar este recordatorio.</p>
             </div>
-            
-            <div style="margin-bottom: 30px;">
-              <p style="color: #374151; line-height: 1.6; margin: 0 0 15px 0;">
-                <strong>Opciones disponibles:</strong>
-              </p>
-              <ul style="color: #374151; line-height: 1.6; margin: 0; padding-left: 20px;">
-                <li>Contactar al firmante para aclarar la situación</li>
-                <li>Solicitar firma a otro usuario</li>
-                <li>Modificar el documento si es necesario</li>
-                <li>Crear una nueva solicitud de firma</li>
-              </ul>
-            </div>
-            
-            <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
-              <p style="color: #6b7280; font-size: 14px; margin: 0;">
-                Este es un email automático, por favor no respondas a este mensaje.
-              </p>
+            <div class="footer">
+              <p>Este email fue enviado automáticamente por el sistema de firmas digitales.</p>
             </div>
           </div>
-        </div>
-      `
-    };
+        </body>
+        </html>
+      `;
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email de notificación de firma rechazada enviado:', info.messageId);
-    return true;
-  } catch (error) {
-    console.error('❌ Error enviando email de notificación de firma rechazada:', error);
-    throw new Error('Error al enviar el email de notificación de firma rechazada');
+      const mailOptions = {
+        from: `"Sistema de Firmas Digitales" <${process.env.SMTP_USER}>`,
+        to: firmanteEmail,
+        subject: `⏰ Recordatorio: ${titulo} - ${diasRestantes} día${diasRestantes !== 1 ? 's' : ''} restante${diasRestantes !== 1 ? 's' : ''}`,
+        html: htmlContent
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Recordatorio enviado a:', firmanteEmail);
+      return info;
+
+    } catch (error) {
+      console.error('❌ Error enviando recordatorio:', error);
+      throw error;
+    }
   }
 };
 
-module.exports = {
-  enviarCodigoVerificacion,
-  enviarEmailRecuperacion,
-  validarEmail,
-  verificarEmailExiste,
-  enviarSolicitudFirma,
-  enviarNotificacionFirmaCompletada,
-  enviarNotificacionFirmaRechazada
-}; 
+module.exports = emailService; 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { User, FileText, Send, AlertCircle, CheckCircle } from 'lucide-react';
+import { User, FileText, Send, AlertCircle, CheckCircle, Users, Plus, X } from 'lucide-react';
 import { io } from 'socket.io-client';
 // Configurar axios para incluir el token automáticamente
 const API_BASE_URL = '/api';
@@ -12,6 +12,14 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  // Nuevos estados para solicitudes múltiples
+  const [tipoSolicitud, setTipoSolicitud] = useState('individual'); // 'individual' o 'multiple'
+  const [firmantesMultiples, setFirmantesMultiples] = useState([]);
+  const [tituloSolicitud, setTituloSolicitud] = useState('');
+  const [descripcionSolicitud, setDescripcionSolicitud] = useState('');
+  const [prioridad, setPrioridad] = useState('normal');
+  const [fechaExpiracion, setFechaExpiracion] = useState('');
 
   useEffect(() => {
     cargarUsuarios();
@@ -60,6 +68,10 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
   const enviarSolicitud = async (e) => {
     e.preventDefault();
 
+    if (tipoSolicitud === 'multiple') {
+      return enviarSolicitudMultiple(e);
+    }
+
     if (!firmanteSeleccionado) {
       setError('Selecciona un firmante');
       return;
@@ -87,18 +99,6 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
         }
       });
 
-/*
-      const res = await fetch('https://af-systemstechnology.com/emitir', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firmanteSeleccionado, response })
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`WS emitir falló: ${res.status} ${text}`);
-      }
-*/
-
       setSuccess('Solicitud enviada exitosamente');
       setFirmanteSeleccionado('');
       setMensaje('');
@@ -117,6 +117,127 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
   };
 
   const firmanteSeleccionadoData = usuarios.find(u => u._id === firmanteSeleccionado);
+
+  // Funciones para solicitudes múltiples
+  const agregarFirmanteMultiple = () => {
+    if (firmantesMultiples.length >= 5) {
+      setError('No se pueden agregar más de 5 firmantes');
+      return;
+    }
+    
+    const nuevoFirmante = {
+      id: Date.now(),
+      usuarioId: '',
+      nombre: '',
+      email: ''
+    };
+    
+    setFirmantesMultiples([...firmantesMultiples, nuevoFirmante]);
+  };
+
+  const removerFirmanteMultiple = (id) => {
+    setFirmantesMultiples(firmantesMultiples.filter(f => f.id !== id));
+  };
+
+  const actualizarFirmanteMultiple = (id, campo, valor) => {
+    setFirmantesMultiples(firmantesMultiples.map(f => {
+      if (f.id === id) {
+        const actualizado = { ...f, [campo]: valor };
+        
+        // Si se seleccionó un usuario, actualizar nombre y email
+        if (campo === 'usuarioId') {
+          const usuario = usuarios.find(u => u._id === valor);
+          if (usuario) {
+            actualizado.nombre = usuario.nombre;
+            actualizado.email = usuario.email;
+          }
+        }
+        
+        return actualizado;
+      }
+      return f;
+    }));
+  };
+
+  const validarSolicitudMultiple = () => {
+    if (!tituloSolicitud.trim()) {
+      setError('El título es obligatorio para solicitudes múltiples');
+      return false;
+    }
+
+    if (firmantesMultiples.length === 0) {
+      setError('Debe agregar al menos un firmante');
+      return false;
+    }
+
+    const firmantesValidos = firmantesMultiples.every(f => f.usuarioId);
+    if (!firmantesValidos) {
+      setError('Todos los firmantes deben ser seleccionados');
+      return false;
+    }
+
+    // Verificar que no haya firmantes duplicados
+    const firmantesIds = firmantesMultiples.map(f => f.usuarioId);
+    const firmantesUnicos = new Set(firmantesIds);
+    if (firmantesUnicos.size !== firmantesMultiples.length) {
+      setError('No se pueden agregar firmantes duplicados');
+      return false;
+    }
+
+    return true;
+  };
+
+  const enviarSolicitudMultiple = async (e) => {
+    e.preventDefault();
+    
+    if (!validarSolicitudMultiple()) return;
+
+    setEnviando(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const solicitudData = {
+        documentoId,
+        firmantes: firmantesMultiples.map(f => f.usuarioId),
+        posicionFirma,
+        mensaje,
+        titulo: tituloSolicitud,
+        descripcion: descripcionSolicitud,
+        prioridad,
+        fechaExpiracion: fechaExpiracion || 
+          new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      };
+
+      const response = await axios.post(`${API_BASE_URL}/solicitudes-multiples/crear`, solicitudData, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      setSuccess('Solicitud múltiple enviada exitosamente');
+      
+      // Limpiar formulario
+      setFirmantesMultiples([]);
+      setTituloSolicitud('');
+      setDescripcionSolicitud('');
+      setPrioridad('normal');
+      setFechaExpiracion('');
+      setMensaje('');
+
+      // Notificar al componente padre
+      if (onSolicitudEnviada) {
+        onSolicitudEnviada(response.data.solicitudMultiple);
+      }
+
+    } catch (error) {
+      console.error('Error enviando solicitud múltiple:', error);
+      setError(error.response?.data?.error || 'Error enviando solicitud múltiple');
+    } finally {
+      setEnviando(false);
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
@@ -142,26 +263,189 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
       )}
 
       <form onSubmit={enviarSolicitud}>
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Seleccionar Firmante
+        {/* Selector de tipo de solicitud */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            Tipo de Solicitud
           </label>
-          <select
-            value={firmanteSeleccionado}
-            onChange={(e) => setFirmanteSeleccionado(e.target.value)}
-            className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            required
-          >
-            <option value="">Selecciona un usuario...</option>
-            {Array.isArray(usuarios) && usuarios.map(usuario => (
-              <option key={usuario._id} value={usuario._id}>
-                {usuario.nombre} ({usuario.email})
-              </option>
-            ))}
-          </select>
+          <div className="flex space-x-4">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                value="individual"
+                checked={tipoSolicitud === 'individual'}
+                onChange={(e) => setTipoSolicitud(e.target.value)}
+                className="mr-2 text-blue-600"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                <User className="w-4 h-4 inline mr-1" />
+                Individual (1 firmante)
+              </span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                value="multiple"
+                checked={tipoSolicitud === 'multiple'}
+                onChange={(e) => setTipoSolicitud(e.target.value)}
+                className="mr-2 text-blue-600"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                <Users className="w-4 h-4 inline mr-1" />
+                Múltiple (hasta 5 firmantes)
+              </span>
+            </label>
+          </div>
         </div>
 
-        {firmanteSeleccionadoData && (
+        {/* Campos para solicitud individual */}
+        {tipoSolicitud === 'individual' && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Seleccionar Firmante
+            </label>
+            <select
+              value={firmanteSeleccionado}
+              onChange={(e) => setFirmanteSeleccionado(e.target.value)}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            >
+              <option value="">Selecciona un usuario...</option>
+              {Array.isArray(usuarios) && usuarios.map(usuario => (
+                <option key={usuario._id} value={usuario._id}>
+                  {usuario.nombre} ({usuario.email})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Campos para solicitud múltiple */}
+        {tipoSolicitud === 'multiple' && (
+          <>
+            {/* Título y descripción */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Título de la Solicitud *
+                </label>
+                <input
+                  type="text"
+                  value={tituloSolicitud}
+                  onChange={(e) => setTituloSolicitud(e.target.value)}
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Ej: Aprobación de Contrato"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Prioridad
+                </label>
+                <select
+                  value={prioridad}
+                  onChange={(e) => setPrioridad(e.target.value)}
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="baja">Baja</option>
+                  <option value="normal">Normal</option>
+                  <option value="alta">Alta</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Descripción
+              </label>
+              <textarea
+                value={descripcionSolicitud}
+                onChange={(e) => setDescripcionSolicitud(e.target.value)}
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows="2"
+                placeholder="Descripción opcional de la solicitud..."
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Fecha de Expiración
+              </label>
+              <input
+                type="datetime-local"
+                value={fechaExpiracion}
+                onChange={(e) => setFechaExpiracion(e.target.value)}
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Firmantes múltiples */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Firmantes ({firmantesMultiples.length}/5)
+                </label>
+                <button
+                  type="button"
+                  onClick={agregarFirmanteMultiple}
+                  disabled={firmantesMultiples.length >= 5}
+                  className="flex items-center px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Agregar
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {firmantesMultiples.map((firmante, index) => (
+                  <div key={firmante.id} className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
+                    <div className="flex-shrink-0">
+                      <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                          {index + 1}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex-1">
+                      <select
+                        value={firmante.usuarioId}
+                        onChange={(e) => actualizarFirmanteMultiple(firmante.id, 'usuarioId', e.target.value)}
+                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        required
+                      >
+                        <option value="">Seleccionar usuario...</option>
+                        {Array.isArray(usuarios) && usuarios.map(usuario => (
+                          <option key={usuario._id} value={usuario._id}>
+                            {usuario.nombre} ({usuario.email})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => removerFirmanteMultiple(firmante.id)}
+                      className="flex-shrink-0 p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+
+                {firmantesMultiples.length === 0 && (
+                  <div className="text-center py-6 text-gray-500 dark:text-gray-400 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md">
+                    <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No hay firmantes agregados</p>
+                    <p className="text-xs">Haz clic en "Agregar" para comenzar</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {tipoSolicitud === 'individual' && firmanteSeleccionadoData && (
           <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md">
             <div className="flex items-center gap-2">
               <User className="w-4 h-4 text-blue-600" />
@@ -208,10 +492,22 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
             <div className="text-sm text-yellow-800 dark:text-yellow-200">
               <p className="font-medium mb-1">Información importante:</p>
               <ul className="text-xs space-y-1">
-                <li>• El firmante recibirá un email con el enlace</li>
-                <li>• La solicitud expira en 7 días</li>
-                <li>• El firmante necesitará su certificado digital</li>
-                <li>• La firma se posicionará automáticamente</li>
+                {tipoSolicitud === 'individual' ? (
+                  <>
+                    <li>• El firmante recibirá un email con el enlace</li>
+                    <li>• La solicitud expira en 7 días</li>
+                    <li>• El firmante necesitará su certificado digital</li>
+                    <li>• La firma se posicionará automáticamente</li>
+                  </>
+                ) : (
+                  <>
+                    <li>• Todos los firmantes recibirán un email con el enlace</li>
+                    <li>• Cada firmante puede firmar independientemente</li>
+                    <li>• La solicitud expira en la fecha configurada</li>
+                    <li>• Se completará cuando todos los firmantes firmen</li>
+                    <li>• Máximo 5 firmantes por solicitud</li>
+                  </>
+                )}
               </ul>
             </div>
           </div>
@@ -219,7 +515,11 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
 
         <button
           type="submit"
-          disabled={enviando || !firmanteSeleccionado || !posicionFirma}
+          disabled={enviando || 
+            (tipoSolicitud === 'individual' && !firmanteSeleccionado) ||
+            (tipoSolicitud === 'multiple' && firmantesMultiples.length === 0) ||
+            !posicionFirma
+          }
           className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white py-3 px-4 rounded-md font-medium transition-colors duration-200 flex items-center justify-center gap-2"
         >
           {enviando ? (
@@ -230,7 +530,10 @@ function SolicitarFirma({ documentoId, posicionFirma, onSolicitudEnviada }) {
           ) : (
             <>
               <Send className="w-4 h-4" />
-              Enviar Solicitud de Firma
+              {tipoSolicitud === 'individual' 
+                ? 'Enviar Solicitud de Firma' 
+                : 'Enviar Solicitud Múltiple'
+              }
             </>
           )}
         </button>

@@ -193,8 +193,21 @@ DNS.2 = 127.0.0.1
         // Cifrar y guardar en la base de datos
         const encryptedData = CertificateManager.encryptCertificate(p12Buffer, password);
         
+        console.log('🔍 Datos para crear certificado:', {
+          userId: req.usuario.id,
+          filename: `${cleanName}.p12`,
+          nombreComun: cleanName,
+          organizacion: cleanOrg,
+          email: cleanEmail,
+          datosCifradosLength: encryptedData.encryptedData?.length,
+          encryptionSaltLength: encryptedData.salt?.length,
+          encryptionKeyLength: encryptedData.iv?.length,
+          originalFilename: `${cleanName}.p12`
+        });
+        
         const certificate = new Certificate({
           userId: req.usuario.id,
+          filename: `${cleanName}.p12`,
           nombreComun: cleanName,
           organizacion: cleanOrg,
           email: cleanEmail,
@@ -204,6 +217,7 @@ DNS.2 = 127.0.0.1
           originalFilename: `${cleanName}.p12`
         });
 
+        console.log('💾 Guardando certificado en la base de datos...');
         await certificate.save();
 
         // Limpiar archivos temporales

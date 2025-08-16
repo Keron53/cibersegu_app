@@ -10,6 +10,7 @@ const documentoRoutes = require('./api/documentoRoutes');
 const certificadoRoutes = require('./api/certificadoRoutes');
 const validacionRoutes = require('./api/validacionRoutes');
 const solicitudFirmaRoutes = require('./api/solicitudFirmaRoutes');
+const solicitudMultipleRoutes = require('./api/solicitudMultipleRoutes');
 const { connectDB, checkDBConnection } = require('./config/db'); // Importar la conexión a la base de datos
 const path = require('path');
 const CertificateManager = require('./utils/CertificateManager');
@@ -96,6 +97,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/certificados', certificadoRoutes);
 app.use('/api/validacion', validacionRoutes);
 app.use('/api/solicitudes', solicitudFirmaRoutes);
+app.use('/api/solicitudes-multiples', solicitudMultipleRoutes);
 
 // Asegurar que la CA exista al iniciar
 CertificateManager.ensureCAExists();

@@ -53,7 +53,15 @@ const solicitudFirmaSchema = new mongoose.Schema({
     usuarioId: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario' },
     mensaje: String,
     fecha: { type: Date, default: Date.now }
-  }]
+  }],
+  // Campos para solicitudes múltiples
+  solicitudMultipleId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'SolicitudMultiple',
+    index: true
+  },
+  ordenFirma: { type: Number, default: 0 }, // Orden en la secuencia de firmas
+  esParteMultiple: { type: Boolean, default: false } // Indica si es parte de una solicitud múltiple
 }, {
   timestamps: true
 });

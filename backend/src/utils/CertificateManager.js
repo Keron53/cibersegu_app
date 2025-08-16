@@ -171,12 +171,22 @@ class CertificateManager {
 
   // Cifrar un buffer de certificado
   static encryptCertificate(p12Buffer, password) {
+    console.log('🔐 Iniciando cifrado de certificado...');
+    console.log('📊 Tamaño del buffer:', p12Buffer?.length);
+    console.log('📊 Longitud de contraseña:', password?.length);
+    
     const salt = crypto.randomBytes(16);
     const derivedKey = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv('aes-256-cbc', derivedKey, iv);
     
     const encrypted = Buffer.concat([cipher.update(p12Buffer), cipher.final()]);
+    
+    console.log('✅ Cifrado completado:', {
+      encryptedDataLength: encrypted?.length,
+      saltLength: salt.toString('hex')?.length,
+      ivLength: iv.toString('hex')?.length
+    });
     
     return {
       encryptedData: encrypted,
