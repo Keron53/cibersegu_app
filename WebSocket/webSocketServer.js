@@ -55,40 +55,58 @@ app.get('/test', (req, res) => {
 
 app.post('/emitir', (req, res) => {
   const { userId, documento } = req.body;
-  
-  console.log(`📨 Intentando enviar notificación a usuario ${userId}:`, documento);
-  
+
+  // Normalizar el payload de documento
+  let doc = documento;
+  if (typeof doc === 'string') {
+    try {
+      doc = JSON.parse(doc);
+    } catch (e) {
+      console.warn('⚠️ Documento llegó como string no-JSON. Usando valor crudo.');
+    }
+  }
+
+  // Algunos emisores podrían mandar { documento: {...} } anidado
+  if (doc && typeof doc === 'object' && doc.documento && !doc.tipo) {
+    doc = doc.documento;
+  }
+
+  const tipoNormalizado = (doc && doc.tipo ? String(doc.tipo) : '').trim().toLowerCase();
+
+  // Heurística: aunque no venga tipo, detectar por campos característicos
+  const pareceSolicitudMultiple =
+    tipoNormalizado === 'solicitud_multiple' ||
+    (doc && typeof doc === 'object' && 'solicitudId' in doc && 'documentoNombre' in doc && 'solicitanteNombre' in doc);
+
+  console.log(`📨 Intentando enviar notificación a usuario ${userId}:`);
+  console.log('🔍 Documento normalizado:', JSON.stringify(doc, null, 2));
+  console.log('🔍 Tipo normalizado:', tipoNormalizado, '→ Parece solicitud múltiple:', pareceSolicitudMultiple);
+
   if (connectedUsers[userId]) {
-    // Enviar notificación específica según el tipo
-    if (documento.tipo === 'solicitud_multiple') {
+    if (pareceSolicitudMultiple) {
+      // Emitir evento específico de solicitud múltiple
       io.to(connectedUsers[userId]).emit('solicitud_multiple', {
         tipo: 'solicitud_multiple',
-        solicitudId: documento.solicitudId,
-        titulo: documento.titulo,
-        documentoNombre: documento.documentoNombre,
-        solicitanteNombre: documento.solicitanteNombre,
-        mensaje: documento.mensaje,
-        fechaExpiracion: documento.fechaExpiracion,
+        solicitudId: doc.solicitudId,
+        titulo: doc.titulo,
+        documentoNombre: doc.documentoNombre,
+        solicitanteNombre: doc.solicitanteNombre,
+        mensaje: doc.mensaje,
+        fechaExpiracion: doc.fechaExpiracion,
         timestamp: new Date().toISOString()
       });
       console.log(`📋 Notificación de solicitud múltiple enviada al usuario ${userId}`);
-    } else {
-      // Notificación genérica
-      io.to(connectedUsers[userId]).emit('mensaje', documento);
-      console.log(`📨 Notificación genérica enviada al usuario ${userId}`);
+      res.send({ message: `Notificación enviada al usuario ${userId}`, tipo: 'solicitud_multiple', timestamp: new Date().toISOString() });
+      return;
     }
-    
-    res.send({ 
-      message: `Notificación enviada al usuario ${userId}`,
-      tipo: documento.tipo || 'mensaje',
-      timestamp: new Date().toISOString()
-    });
+
+    // Fallback: notificación genérica
+    io.to(connectedUsers[userId]).emit('mensaje', doc);
+    console.log(`📨 Notificación genérica enviada al usuario ${userId}`);
+    res.send({ message: `Notificación enviada al usuario ${userId}`, tipo: 'mensaje', timestamp: new Date().toISOString() });
   } else {
     console.log(`⚠️ Usuario ${userId} no está conectado. Usuarios conectados:`, Object.keys(connectedUsers));
-    res.status(404).send({ 
-      message: 'Usuario no conectado',
-      usuariosConectados: Object.keys(connectedUsers)
-    });
+    res.status(404).send({ message: 'Usuario no conectado', usuariosConectados: Object.keys(connectedUsers) });
   }
 });
 

@@ -134,15 +134,25 @@ const NotificacionesTiempoReal = () => {
     // Escuchar notificaciones de solicitudes múltiples
     newSocket.on('solicitud_multiple', (data) => {
       console.log('📋 Notificación de solicitud múltiple recibida:', data);
+      console.log('🔍 Datos completos:', JSON.stringify(data, null, 2));
+      
+      // Calcular tiempo hasta expiración
+      const fechaExpiracion = new Date(data.fechaExpiracion);
+      const ahora = new Date();
+      const diasRestantes = Math.ceil((fechaExpiracion - ahora) / (1000 * 60 * 60 * 24));
       
       const nuevaNotificacion = {
+        id: Date.now(),
         tipo: 'solicitud_multiple',
-        titulo: data.titulo,
+        titulo: '📋 Solicitud de Firma Digital',
+        remitente: data.solicitanteNombre,
         documentoNombre: data.documentoNombre,
-        solicitanteNombre: data.solicitanteNombre,
-        mensaje: data.mensaje,
+        mensajePersonalizado: data.mensaje,
+        solicitudId: data.solicitudId,
         fechaExpiracion: data.fechaExpiracion,
-        timestamp: data.timestamp
+        diasRestantes: diasRestantes,
+        timestamp: data.timestamp || new Date().toISOString(),
+        leida: false
       };
 
       notificationService.add(nuevaNotificacion);
@@ -154,12 +164,79 @@ const NotificacionesTiempoReal = () => {
     // Escuchar mensajes genéricos
     newSocket.on('mensaje', (data) => {
       console.log('📨 Mensaje genérico recibido:', data);
+      console.log('🔍 Tipo de mensaje:', typeof data, data);
+      
+      // Si el mensaje parece ser una solicitud múltiple en formato JSON (string)
+      if (typeof data === 'string' && data.includes('solicitud_multiple')) {
+        try {
+          const parsedData = JSON.parse(data);
+          console.log('🔄 Convirtiendo mensaje genérico a solicitud múltiple:', parsedData);
+          
+          // Calcular tiempo hasta expiración
+          const fechaExpiracion = new Date(parsedData.fechaExpiracion);
+          const ahora = new Date();
+          const diasRestantes = Math.ceil((fechaExpiracion - ahora) / (1000 * 60 * 60 * 24));
+          
+          const nuevaNotificacion = {
+            id: Date.now(),
+            tipo: 'solicitud_multiple',
+            titulo: '📋 Solicitud de Firma Digital',
+            remitente: parsedData.solicitanteNombre || 'Usuario',
+            documentoNombre: parsedData.documentoNombre || 'Documento',
+            mensajePersonalizado: parsedData.mensaje,
+            solicitudId: parsedData.solicitudId,
+            fechaExpiracion: parsedData.fechaExpiracion,
+            diasRestantes: diasRestantes,
+            timestamp: parsedData.timestamp || new Date().toISOString(),
+            leida: false
+          };
+
+          notificationService.add(nuevaNotificacion);
+          setShowNotifications(true);
+          return;
+        } catch (e) {
+          console.warn('❌ No se pudo parsear como solicitud múltiple:', e);
+        }
+      }
+      
+      // Si llega como objeto y tiene los campos característicos, tratarlo como solicitud múltiple
+      if (typeof data === 'object' && data !== null) {
+        const pareceSolicitudMultiple =
+          (typeof data.tipo === 'string' && data.tipo.toLowerCase().trim() === 'solicitud_multiple') ||
+          ('solicitudId' in data && 'documentoNombre' in data && 'solicitanteNombre' in data);
+
+        if (pareceSolicitudMultiple) {
+          const fechaExpiracion = data.fechaExpiracion ? new Date(data.fechaExpiracion) : null;
+          const ahora = new Date();
+          const diasRestantes = fechaExpiracion ? Math.ceil((fechaExpiracion - ahora) / (1000 * 60 * 60 * 24)) : null;
+
+          const nuevaNotificacion = {
+            id: Date.now(),
+            tipo: 'solicitud_multiple',
+            titulo: '📋 Solicitud de Firma Digital',
+            remitente: data.solicitanteNombre || 'Usuario',
+            documentoNombre: data.documentoNombre || 'Documento',
+            mensajePersonalizado: data.mensaje,
+            solicitudId: data.solicitudId,
+            fechaExpiracion: data.fechaExpiracion,
+            diasRestantes: diasRestantes ?? undefined,
+            timestamp: data.timestamp || new Date().toISOString(),
+            leida: false
+          };
+
+          notificationService.add(nuevaNotificacion);
+          setShowNotifications(true);
+          return;
+        }
+      }
       
       const nuevaNotificacion = {
+        id: Date.now(),
         tipo: 'mensaje',
-        titulo: 'Nueva notificación',
-        mensaje: JSON.stringify(data),
-        timestamp: new Date().toISOString()
+        titulo: '📨 Nueva Notificación',
+        mensaje: data.mensaje || data.message || 'Has recibido una nueva notificación',
+        timestamp: data.timestamp || new Date().toISOString(),
+        leida: false
       };
 
       notificationService.add(nuevaNotificacion);
@@ -182,6 +259,7 @@ const NotificacionesTiempoReal = () => {
 
   const limpiarTodas = () => {
     notificationService.clear();
+    console.log('🧹 Todas las notificaciones han sido limpiadas');
   };
 
   const marcarTodasComoLeidas = () => {
@@ -215,54 +293,66 @@ const NotificacionesTiempoReal = () => {
       {/* Panel de notificaciones */}
       <AnimatePresence>
         {showNotifications && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="absolute right-0 mt-3 w-96 bg-white dark:bg-background rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden"
-          >
-            {/* Header con colores del tema */}
-            <div className="bg-primary dark:bg-primary-light text-white p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-white/20 rounded-full">
-                    <BellIcon className="h-5 w-5" />
+          <>
+            {/* Overlay para cerrar al hacer clic fuera */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/30 z-40"
+              onClick={() => setShowNotifications(false)}
+            />
+            
+            {/* Panel lateral de notificaciones */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-900 shadow-2xl border-l border-gray-200 dark:border-gray-700 z-50 overflow-hidden flex flex-col"
+            >
+              {/* Header del panel lateral */}
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-700 dark:to-indigo-700 text-white p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-white/20 rounded-full">
+                      <BellIcon className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold">Notificaciones</h2>
+                      <p className="text-sm opacity-90">
+                        {unreadCount > 0 ? `${unreadCount} sin leer` : 'Todas leídas'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold">Notificaciones</h3>
-                    <p className="text-sm text-blue-100">
-                      {unreadCount > 0 ? `${unreadCount} sin leer` : 'Todas leídas'}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  {unreadCount > 0 && (
-                    <button
-                      onClick={marcarTodasComoLeidas}
-                      className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
-                      title="Marcar todas como leídas"
-                    >
-                      <CheckIcon className="h-4 w-4" />
-                    </button>
-                  )}
-                  <button
-                    onClick={limpiarTodas}
-                    className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
-                    title="Limpiar todas"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
                   <button
                     onClick={() => setShowNotifications(false)}
                     className="p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
                   >
-                    <XMarkIcon className="h-4 w-4" />
+                    <XMarkIcon className="h-5 w-5" />
+                  </button>
+                </div>
+                
+                {/* Botones de acción */}
+                <div className="flex items-center space-x-2">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={marcarTodasComoLeidas}
+                      className="flex items-center space-x-2 px-3 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-sm font-medium"
+                    >
+                      <CheckIcon className="h-4 w-4" />
+                      <span>Marcar leídas</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={limpiarTodas}
+                    className="flex items-center space-x-2 px-3 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                    <span>Limpiar</span>
                   </button>
                 </div>
               </div>
-            </div>
 
             {/* Estado de conexión */}
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
@@ -279,13 +369,17 @@ const NotificacionesTiempoReal = () => {
               </div>
             </div>
 
-            {/* Lista de notificaciones */}
-            <div className="max-h-96 overflow-y-auto">
+              {/* Lista de notificaciones - usa todo el espacio disponible */}
+              <div className="flex-1 overflow-y-auto">
               {notificaciones.length === 0 ? (
-                <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                  <BellIcon className="h-16 w-16 mx-auto mb-4 opacity-30" />
-                  <p className="text-lg font-medium mb-2">No hay notificaciones</p>
-                  <p className="text-sm">Las notificaciones aparecerán aquí cuando lleguen</p>
+                <div className="flex flex-col items-center justify-center h-full p-8 text-center text-gray-500 dark:text-gray-400">
+                  <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-full mb-6">
+                    <BellIcon className="h-12 w-12 opacity-50" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">No hay notificaciones</h3>
+                  <p className="text-sm opacity-75 max-w-sm">
+                    Cuando recibas nuevas solicitudes de firma o mensajes importantes, aparecerán aquí en tiempo real.
+                  </p>
                 </div>
               ) : (
                 <AnimatePresence>
@@ -296,7 +390,7 @@ const NotificacionesTiempoReal = () => {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
                       transition={{ delay: index * 0.05 }}
-                      className={`p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200 ${
+                      className={`p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200 ${
                         !notificacion.leida ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-l-4 border-l-blue-500' : ''
                       }`}
                     >
@@ -314,7 +408,7 @@ const NotificacionesTiempoReal = () => {
                         </div>
                         
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center justify-between mb-3">
                             <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
                               {notificacion.titulo}
                             </h4>
@@ -323,29 +417,67 @@ const NotificacionesTiempoReal = () => {
                             </span>
                           </div>
                           
-                          {notificacion.tipo === 'solicitud_multiple' && (
-                            <div className="space-y-2">
-                              <div className="flex items-center space-x-2 text-sm">
-                                <span className="text-gray-500 dark:text-gray-400">📄</span>
-                                <span className="text-gray-700 dark:text-gray-300 font-medium">
-                                  {notificacion.documentoNombre}
+                          {/* Formato de notificación mejorado */}
+                          {notificacion.tipo === 'solicitud_multiple' ? (
+                            <div className="space-y-3">
+                              {/* Mensaje principal */}
+                              <div className="text-sm text-gray-700 dark:text-gray-300">
+                                <span className="font-semibold text-blue-600 dark:text-blue-400">
+                                  {notificacion.remitente}
+                                </span>
+                                <span> te solicita firmar </span>
+                                <span className="font-semibold">
+                                  '{notificacion.documentoNombre}'
                                 </span>
                               </div>
-                              <div className="flex items-center space-x-2 text-sm">
-                                <span className="text-gray-500 dark:text-gray-400">👤</span>
-                                <span className="text-gray-700 dark:text-gray-300">
-                                  {notificacion.solicitanteNombre}
-                                </span>
-                              </div>
-                              {notificacion.mensaje && (
-                                <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 p-2 rounded-lg">
-                                  💬 {notificacion.mensaje}
+                              
+                              {/* Mensaje personalizado */}
+                              {notificacion.mensajePersonalizado && (
+                                <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 p-3 rounded-lg border-l-3 border-blue-400">
+                                  <div className="flex items-start space-x-2">
+                                    <span className="text-blue-500 mt-0.5">💬</span>
+                                    <span className="italic">"{notificacion.mensajePersonalizado}"</span>
+                                  </div>
                                 </div>
                               )}
-                              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
-                                <ClockIcon className="h-4 w-4" />
-                                <span>Expira: {new Date(notificacion.fechaExpiracion).toLocaleDateString()}</span>
+                              
+                              {/* Información de expiración */}
+                              <div className="flex items-center space-x-2 text-sm">
+                                <ClockIcon className="h-4 w-4 text-amber-500" />
+                                <span className={`font-medium ${
+                                  notificacion.diasRestantes <= 1 
+                                    ? 'text-red-600 dark:text-red-400' 
+                                    : notificacion.diasRestantes <= 3 
+                                    ? 'text-amber-600 dark:text-amber-400'
+                                    : 'text-gray-600 dark:text-gray-400'
+                                }`}>
+                                  {notificacion.diasRestantes <= 0 
+                                    ? '⚠️ Vence hoy' 
+                                    : notificacion.diasRestantes === 1
+                                    ? '⚠️ Vence mañana'
+                                    : `Expira en ${notificacion.diasRestantes} días`
+                                  }
+                                </span>
                               </div>
+                              
+                              {/* Botón de acción mejorado */}
+                              <div className="pt-2">
+                                <button
+                                  onClick={() => {
+                                    window.location.href = '/solicitudes-pendientes';
+                                    setShowNotifications(false);
+                                  }}
+                                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transform hover:scale-105"
+                                >
+                                  <DocumentIcon className="h-4 w-4" />
+                                  <span>Firmar Ahora</span>
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Notificaciones genéricas */
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              {notificacion.mensaje || 'Nueva notificación'}
                             </div>
                           )}
                           
@@ -398,7 +530,8 @@ const NotificacionesTiempoReal = () => {
                 <span>Sin leer: {unreadCount}</span>
               </div>
             </div>
-          </motion.div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>
