@@ -35,7 +35,9 @@ COPY MicroservicioPyHanko ./MicroservicioPyHanko/
 # Instalar dependencias de Python en entorno virtual
 RUN python3 -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
-RUN pip install --no-cache-dir -r MicroservicioPyHanko/requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r MicroservicioPyHanko/requirements.txt && \
+    pip cache purge
 
 # Copiar código fuente
 COPY src ./src

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Upload, CheckCircle, XCircle, AlertTriangle, Info, FileText, Shield, Clock, User } from 'lucide-react';
 import Navigation from '../layout/Navigation';
 import { useNavigate } from 'react-router-dom';
+import PDFPreview from './PDFPreview';
 
 const PDFValidationPage = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -11,6 +12,8 @@ const PDFValidationPage = () => {
   const [loading, setLoading] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
   const [error, setError] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewFile, setPreviewFile] = useState(null);
   const navigate = useNavigate();
 
   const handleFileChange = (e) => {
@@ -72,7 +75,16 @@ const PDFValidationPage = () => {
 
       if (response.ok) {
         console.log('🔍 Respuesta del backend:', data);
+        console.log('📊 Estructura de validation:', data.validation);
+        console.log('📊 Campos disponibles:', Object.keys(data.validation));
+        console.log('📊 Contenido de validation:', data.validation);
         setValidationResult(data);
+        
+        // Mostrar automáticamente el visor del PDF después de validar
+        if (validationMode === 'file' && selectedFile) {
+          setPreviewFile(selectedFile);
+          setShowPreview(true);
+        }
       } else {
         setError(data.message || 'Error al validar el PDF');
         setValidationResult(null);
@@ -100,6 +112,8 @@ const PDFValidationPage = () => {
   const getStatusBgColor = (isValid) => {
     return isValid ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20';
   };
+
+
 
   const handleLogout = () => {
     // Limpiar datos de sesión
@@ -225,7 +239,9 @@ const PDFValidationPage = () => {
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                   Resultado de Validación
                 </h2>
-                {getStatusIcon(validationResult.validation.isValid)}
+                <div className="flex items-center space-x-2">
+                  {getStatusIcon(validationResult.validation.isValid)}
+                </div>
               </div>
 
               <div className={`p-4 rounded-lg ${getStatusBgColor(validationResult.validation.isValid)}`}>
@@ -248,7 +264,7 @@ const PDFValidationPage = () => {
                         Firmas Digitales
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {validationResult.validation.details?.signatureCount || 0} firma(s) encontrada(s)
+                        {validationResult.validation.signatureCount || 0} firma(s) encontrada(s)
                       </p>
                     </div>
                   </div>
@@ -260,7 +276,7 @@ const PDFValidationPage = () => {
                         Integridad
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {validationResult.validation.details?.isModified ? 'Modificado' : 'Intacto'}
+                        {validationResult.validation.isModified ? 'Modificado' : 'Intacto'}
                       </p>
                     </div>
                   </div>
@@ -272,7 +288,7 @@ const PDFValidationPage = () => {
                         Sistema de Origen
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {validationResult.validation.details?.isOurSystem ? 'Nuestro Sistema' : 'Otro Sistema'}
+                        {validationResult.validation.isOurSystem ? 'Nuestro Sistema' : 'Otro Sistema'}
                       </p>
                     </div>
                   </div>
@@ -284,7 +300,7 @@ const PDFValidationPage = () => {
                         Certificado
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {validationResult.validation.details?.certificateInfo?.isValid ? 'Válido' : 'Inválido'}
+                        {validationResult.validation.isValid ? 'Válido' : 'Inválido'}
                       </p>
                     </div>
                   </div>
@@ -313,6 +329,24 @@ const PDFValidationPage = () => {
                   </div>
                 )}
               </div>
+
+              {/* Visor del PDF inline */}
+              {showPreview && previewFile && (
+                <div className="mt-8">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                    Vista Previa del PDF
+                  </h3>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                    <PDFPreview
+                      pdfFile={previewFile}
+                      onClose={() => setShowPreview(false)}
+                      showMarkers={false}
+                      markers={[]}
+                      inline={true}
+                    />
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </motion.div>

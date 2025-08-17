@@ -41,4 +41,7 @@ router.post('/validar-pdf-url', validacionController.validarPDFDesdeURL);
 router.post('/informacion-firmas', upload.fields([{ name: 'pdf', maxCount: 1 }]), validacionController.obtenerInformacionFirmas);
 router.post('/verificar-integridad', upload.fields([{ name: 'pdf', maxCount: 1 }]), validacionController.verificarIntegridad);
 
+// Ruta para obtener historial (requiere autenticación)
+router.get('/historial', validacionController.obtenerHistorial);
+
 module.exports = router; 

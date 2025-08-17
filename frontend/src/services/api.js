@@ -259,6 +259,18 @@ export const documentoService = {
       }
     })
     return response.data
+  },
+
+  async obtenerHistorial(page = 1, limit = 10, filtro = 'todos') {
+    if (!checkToken()) return
+    const token = localStorage.getItem('token')
+    const response = await axios.get(`${API_BASE_URL}/validacion/historial`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      params: { page, limit, filtro }
+    })
+    return response.data
   }
 }
 

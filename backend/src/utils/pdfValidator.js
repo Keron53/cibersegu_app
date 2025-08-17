@@ -18,8 +18,8 @@ class PDFValidator {
 
       console.log('🔍 Validando PDF con script de Python:', tempPdfPath);
 
-      // Usar script de Python para validación completa
-      const scriptPath = path.join(__dirname, '../../MicroservicioPyHanko/validar-pdf-simple.py');
+      // Usar script de Python para validación completa con firmas reales
+      const scriptPath = path.join(__dirname, '../../MicroservicioPyHanko/validar-firmas-real.py');
       
       try {
         const output = execSync(`python3 "${scriptPath}" "${tempPdfPath}"`, {
@@ -87,8 +87,8 @@ class PDFValidator {
     try {
       console.log('🔍 Verificando firmas en:', pdfPath);
       
-      // Usar script de Python para validar
-      const scriptPath = path.join(__dirname, '../../MicroservicioPyHanko/validar-pdf-simple.py');
+      // Usar script de Python para validar con firmas reales
+      const scriptPath = path.join(__dirname, '../../MicroservicioPyHanko/validar-firmas-real.py');
       
       try {
         const output = execSync(`python3 "${scriptPath}" "${pdfPath}"`, {
