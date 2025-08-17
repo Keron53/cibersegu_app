@@ -22,7 +22,7 @@ class PDFValidator {
       const scriptPath = path.join(__dirname, '../../MicroservicioPyHanko/validar-pdf-simple.py');
       
       try {
-        const output = execSync(`python "${scriptPath}" "${tempPdfPath}"`, {
+        const output = execSync(`python3 "${scriptPath}" "${tempPdfPath}"`, {
           encoding: 'utf8',
           stdio: ['pipe', 'pipe', 'pipe']
         });
@@ -91,7 +91,7 @@ class PDFValidator {
       const scriptPath = path.join(__dirname, '../../MicroservicioPyHanko/validar-pdf-simple.py');
       
       try {
-        const output = execSync(`python "${scriptPath}" "${pdfPath}"`, {
+        const output = execSync(`python3 "${scriptPath}" "${pdfPath}"`, {
           encoding: 'utf8',
           stdio: ['pipe', 'pipe', 'pipe']
         });
