@@ -9,6 +9,7 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
     nombre: '',
     username: '',
     telefono: '',
+    cedula: '',
     password: '',
     confirmPassword: ''
   });
@@ -127,7 +128,7 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
   };
 
   const validateForm = () => {
-    if (!formData.nombre || !formData.username || !formData.telefono || !formData.password || !formData.confirmPassword) {
+    if (!formData.nombre || !formData.username || !formData.telefono || !formData.cedula || !formData.password || !formData.confirmPassword) {
       setError('Todos los campos son requeridos');
       return false;
     }
@@ -188,6 +189,13 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
       return false;
     }
 
+    // Validar cédula (básico: 10 dígitos)
+    const cedulaLimpia = String(formData.cedula).replace(/\D/g, '');
+    if (!/^\d{10}$/.test(cedulaLimpia)) {
+      setError('La cédula debe tener 10 dígitos');
+      return false;
+    }
+
     return true;
   };
 
@@ -212,6 +220,7 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
           nombre: formData.nombre,
           username: formData.username,
           telefono: formData.telefono,
+          cedula: String(formData.cedula).replace(/\D/g, ''),
           password: formData.password
         })
       });
@@ -537,6 +546,23 @@ const RegisterWhatsAppForm = ({ onSwitchToEmail, onRegisterSuccess }) => {
                 Número de teléfono ya registrado.
               </p>
             )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Cédula
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                name="cedula"
+                value={formData.cedula}
+                onChange={handleInputChange}
+                placeholder="0123456789"
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
           </div>
 
           <div>

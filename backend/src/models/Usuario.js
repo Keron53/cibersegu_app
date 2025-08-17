@@ -31,6 +31,13 @@ const usuarioSchema = new mongoose.Schema({
            sparse: true,
            trim: true
          },
+         cedula: {
+           type: String,
+           required: false,
+           unique: true,
+           sparse: true,
+           trim: true
+         },
   password: { 
     type: String, 
     required: true 

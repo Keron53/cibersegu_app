@@ -8,15 +8,43 @@ const ultramsgService = new UltraMsgService();
 
 const SECRET_KEY = 'mi_clave_secreta';
 
+// Validación de cédula ecuatoriana (10 dígitos, algoritmo de módulo 10)
+function limpiarCedula(cedula) {
+  if (!cedula) return '';
+  return String(cedula).replace(/\D/g, '');
+}
+
+function validarCedulaEcuador(cedula) {
+  const c = limpiarCedula(cedula);
+  if (!/^\d{10}$/.test(c)) return false;
+
+  const provincia = parseInt(c.substring(0, 2), 10);
+  if (provincia < 1 || (provincia > 24 && provincia !== 30)) return false;
+
+  const tercerDigito = parseInt(c.charAt(2), 10);
+  if (tercerDigito >= 6) return false; // Personas naturales
+
+  const coeficientes = [2,1,2,1,2,1,2,1,2];
+  let suma = 0;
+  for (let i = 0; i < 9; i++) {
+    let val = coeficientes[i] * parseInt(c.charAt(i), 10);
+    if (val >= 10) val -= 9;
+    suma += val;
+  }
+  const decenaSuperior = Math.ceil(suma / 10) * 10;
+  const digitoVerificador = decenaSuperior - suma === 10 ? 0 : decenaSuperior - suma;
+  return digitoVerificador === parseInt(c.charAt(9), 10);
+}
+
 const usuarioController = {
   async registrar(req, res) {
-    const { nombre, username, email, password } = req.body;
+    const { nombre, username, email, password, cedula } = req.body;
     
     try {
       // Validaciones
-      if (!nombre || !username || !email || !password) {
+      if (!nombre || !username || !email || !password || !cedula) {
         return res.status(400).json({ 
-          mensaje: 'Todos los campos son requeridos: nombre, username, email, password' 
+          mensaje: 'Todos los campos son requeridos: nombre, username, email, password, cedula' 
         });
       }
 
@@ -24,6 +52,14 @@ const usuarioController = {
       if (!validarEmail(email)) {
         return res.status(400).json({ 
           mensaje: 'Formato de email inválido' 
+        });
+      }
+
+      // Validar cédula
+      const cedulaLimpia = limpiarCedula(cedula);
+      if (!validarCedulaEcuador(cedulaLimpia)) {
+        return res.status(400).json({ 
+          mensaje: 'Cédula inválida' 
         });
       }
 
@@ -71,11 +107,20 @@ const usuarioController = {
         });
       }
 
+      // Verificar si la cédula ya existe
+      const cedulaExistente = await Usuario.findOne({ cedula: cedulaLimpia });
+      if (cedulaExistente) {
+        return res.status(400).json({ 
+          mensaje: 'La cédula ya está registrada' 
+        });
+      }
+
       // Crear nuevo usuario
       const nuevoUsuario = new Usuario({
         nombre,
         username: username.toLowerCase(),
         email: email.toLowerCase(),
+        cedula: cedulaLimpia,
         password
       });
 
@@ -566,13 +611,13 @@ const usuarioController = {
 
   // Nuevas funciones para WhatsApp
   async registrarConWhatsApp(req, res) {
-    const { nombre, username, telefono, password } = req.body;
+    const { nombre, username, telefono, password, cedula } = req.body;
     
     try {
       // Validaciones
-      if (!nombre || !username || !telefono || !password) {
+      if (!nombre || !username || !telefono || !password || !cedula) {
         return res.status(400).json({ 
-          mensaje: 'Todos los campos son requeridos: nombre, username, telefono, password' 
+          mensaje: 'Todos los campos son requeridos: nombre, username, telefono, password, cedula' 
         });
       }
 
@@ -582,6 +627,14 @@ const usuarioController = {
       } catch (error) {
         return res.status(400).json({ 
           mensaje: error.message || 'Formato de número de teléfono inválido' 
+        });
+      }
+
+      // Validar cédula
+      const cedulaLimpia = limpiarCedula(cedula);
+      if (!validarCedulaEcuador(cedulaLimpia)) {
+        return res.status(400).json({ 
+          mensaje: 'Cédula inválida' 
         });
       }
 
@@ -627,11 +680,20 @@ const usuarioController = {
         });
       }
 
+      // Verificar si la cédula ya existe
+      const cedulaExistente = await Usuario.findOne({ cedula: cedulaLimpia });
+      if (cedulaExistente) {
+        return res.status(400).json({ 
+          mensaje: 'La cédula ya está registrada' 
+        });
+      }
+
       // Crear nuevo usuario
       const nuevoUsuario = new Usuario({
         nombre,
         username: username.toLowerCase(),
         telefono: telefonoFormateado,
+        cedula: cedulaLimpia,
         password
       });
 

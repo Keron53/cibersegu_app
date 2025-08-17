@@ -21,6 +21,148 @@ transporter.verify(function(error, success) {
 });
 
 const emailService = {
+  // Utilidad: validar formato básico de email
+  validarEmail: (email) => {
+    if (!email || typeof email !== 'string') return false;
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+  },
+
+  // Enviar código de verificación de cuenta
+  enviarCodigoVerificacion: async (email, nombre, codigo) => {
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Verificación de Email</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f5f7fb; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #ffffff; padding: 20px; border-radius: 0 0 8px 8px; }
+          .footer { text-align: center; margin-top: 20px; color: #64748b; font-size: 14px; }
+          .highlight { background: #f8fafc; border: 1px solid #e5e7eb; padding: 15px; border-radius: 6px; margin: 15px 0; }
+          .code-container { text-align: center; margin: 20px 0; }
+          .code { font-size: 28px; font-weight: bold; letter-spacing: 4px; background: #eef2ff; border: 1px dashed #93c5fd; color: #1f2937; padding: 12px 16px; border-radius: 8px; display: inline-block; }
+          .brand { color: #ffffff; font-size: 24px; font-weight: 700; margin: 0; }
+          .subtitle { color: #ffffff; font-size: 14px; margin-top: 4px; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="brand">Digital Sign</div>
+            <div class="subtitle">Sistema de Firma Digital</div>
+          </div>
+          <div class="content">
+            <h2>Verificación de Email</h2>
+            
+            <p>Hola <strong>${nombre}</strong>,</p>
+            <p>Gracias por registrarte en Digital Sign. Para completar tu registro, necesitamos verificar tu dirección de email.</p>
+            
+            <div class="code-container">
+              <p><strong>Tu código de verificación es:</strong></p>
+              <div class="code">${codigo}</div>
+            </div>
+            
+            <div class="highlight">
+              <h3>Instrucciones:</h3>
+              <ul>
+                <li>Ingresa este código en la página de verificación</li>
+                <li>El código expira en 15 minutos</li>
+                <li>Si no solicitaste este código, puedes ignorar este email</li>
+              </ul>
+            </div>
+          </div>
+          <div class="footer">
+            <p>Este es un email automático, por favor no respondas a este mensaje.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const mailOptions = {
+      from: `"Sistema de Firmas Digitales" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: 'Verifica tu cuenta',
+      html: htmlContent
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Email de verificación enviado a:', email);
+    return info;
+  },
+
+  // Enviar email de recuperación de contraseña
+  enviarEmailRecuperacion: async (email, nombre, resetUrl) => {
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Recuperación de Contraseña</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f5f7fb; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #ffffff; padding: 20px; border-radius: 0 0 8px 8px; }
+          .btn { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+          .footer { text-align: center; margin-top: 20px; color: #64748b; font-size: 14px; }
+          .highlight { background: #f8fafc; border: 1px solid #e5e7eb; padding: 15px; border-radius: 6px; margin: 15px 0; }
+          .brand { color: #ffffff; font-size: 24px; font-weight: 700; margin: 0; }
+          .subtitle { color: #ffffff; font-size: 14px; margin-top: 4px; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="brand">Digital Sign</div>
+            <div class="subtitle">Sistema de Firma Digital</div>
+          </div>
+          <div class="content">
+            <h2>Recuperación de Contraseña</h2>
+            
+            <p>Hola <strong>${nombre}</strong>,</p>
+            <p>Has solicitado restablecer tu contraseña en Digital Sign. Haz clic en el botón de abajo para crear una nueva contraseña.</p>
+            
+            <p><a href="${resetUrl}" class="btn">Restablecer Contraseña</a></p>
+            
+            <div class="highlight">
+              <h3>Información importante:</h3>
+              <ul>
+                <li>Este enlace es válido por 1 hora</li>
+                <li>Si no solicitaste este cambio, puedes ignorar este email</li>
+                <li>Tu contraseña actual seguirá funcionando hasta que la cambies</li>
+              </ul>
+            </div>
+            
+            <p>Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+            <p style="word-break: break-all; color: #64748b; font-size: 12px;">${resetUrl}</p>
+          </div>
+          <div class="footer">
+            <p>Este es un email automático, por favor no respondas a este mensaje.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const mailOptions = {
+      from: `"Sistema de Firmas Digitales" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: 'Recuperación de contraseña',
+      html: htmlContent
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Email de recuperación enviado a:', email);
+    return info;
+  },
+
   // Enviar solicitud de firma múltiple
   enviarSolicitudFirmaMultiple: async ({
     firmanteEmail,
