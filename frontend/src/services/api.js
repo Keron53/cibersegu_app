@@ -1,4 +1,5 @@
 import axios from 'axios'
+import notificationService from './notificationService'
 
 const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
   ? import.meta.env.VITE_API_URL
@@ -54,6 +55,9 @@ axios.interceptors.response.use(
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       localStorage.removeItem('userData')
+      
+      // Limpiar notificaciones del usuario
+      notificationService.clearPreviousUserNotifications()
       
       // Mostrar modal si hay callback disponible
       if (sessionExpiredCallback) {

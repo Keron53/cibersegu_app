@@ -8,6 +8,7 @@ import ForgotUsernameModal from './ForgotUsernameModal'
 import PasswordErrorModal from './PasswordErrorModal'
 import { SessionContext } from '../../context/SessionContext'
 import { Eye, EyeOff } from 'lucide-react'
+import notificationService from '../../services/notificationService'
 
 function LoginForm() {
   const [formData, setFormData] = useState({
@@ -86,6 +87,10 @@ function LoginForm() {
       // Guardar datos del usuario si están disponibles
       if (response.usuario) {
         localStorage.setItem('userData', JSON.stringify(response.usuario))
+        
+        // Limpiar notificaciones de usuarios anteriores y establecer el usuario actual
+        notificationService.clearPreviousUserNotifications()
+        notificationService.setCurrentUser(response.usuario.id || response.usuario._id)
       }
       
       setSuccessMessage('¡Inicio de sesión exitoso!')

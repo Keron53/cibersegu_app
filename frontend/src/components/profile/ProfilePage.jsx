@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { User, Mail, Calendar, Shield, Edit, Save, X, Lock } from 'lucide-react'
+import { User, Mail, Calendar, Shield, Edit, Save, X, Lock, Phone, CreditCard } from 'lucide-react'
 import Navigation from '../layout/Navigation'
 import ChangePasswordModal from './ChangePasswordModal.jsx'
 
@@ -21,28 +21,33 @@ function ProfilePage() {
   const loadUserData = async () => {
     try {
       setLoading(true)
-      // Obtener datos del usuario desde localStorage o API
-      const storedUser = localStorage.getItem('userData')
-      if (storedUser) {
-        const user = JSON.parse(storedUser)
-        setUserData(user)
+      // Siempre obtener datos frescos de la API para asegurar que tengamos toda la información
+      try {
+        const { authService } = await import('../../services/api')
+        const userData = await authService.obtenerPerfil()
+        setUserData(userData)
         setEditedData({
-          nombre: user.nombre || '',
-          email: user.email || ''
+          nombre: userData.nombre || '',
+          email: userData.email || '',
+          cedula: userData.cedula || '',
+          telefono: userData.telefono || ''
         })
-      } else {
-        // Si no hay datos en localStorage, intentar obtenerlos de la API
-        try {
-          const { authService } = await import('../../services/api')
-          const userData = await authService.obtenerPerfil()
-          setUserData(userData)
+        // Actualizar localStorage con datos frescos
+        localStorage.setItem('userData', JSON.stringify(userData))
+      } catch (apiError) {
+        console.error('Error al obtener datos de la API:', apiError)
+        // Fallback a localStorage si la API falla
+        const storedUser = localStorage.getItem('userData')
+        if (storedUser) {
+          const user = JSON.parse(storedUser)
+          setUserData(user)
           setEditedData({
-            nombre: userData.nombre || '',
-            email: userData.email || ''
+            nombre: user.nombre || '',
+            email: user.email || '',
+            cedula: user.cedula || '',
+            telefono: user.telefono || ''
           })
-          localStorage.setItem('userData', JSON.stringify(userData))
-        } catch (apiError) {
-          console.error('Error al obtener datos de la API:', apiError)
+        } else {
           showNotification('Error al cargar datos del usuario', 'error')
         }
       }
@@ -71,7 +76,9 @@ function ProfilePage() {
     setIsEditing(false)
     setEditedData({
       nombre: userData.nombre || '',
-      email: userData.email || ''
+      email: userData.email || '',
+      cedula: userData.cedula || '',
+      telefono: userData.telefono || ''
     })
   }
 
@@ -227,6 +234,62 @@ function ProfilePage() {
                     ) : (
                       <p className="text-gray-900 dark:text-white font-medium">
                         {userData?.email || 'No especificado'}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <CreditCard className="w-4 h-4 inline mr-1" />
+                      Cédula
+                    </label>
+                    {isEditing || !userData?.cedula ? (
+                      <input
+                        type="text"
+                        value={editedData.cedula}
+                        onChange={(e) => handleInputChange('cedula', e.target.value)}
+                        placeholder="Ingrese su número de cédula"
+                        maxLength="10"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      />
+                    ) : (
+                      <p className="text-gray-900 dark:text-white font-medium">
+                        {userData?.cedula}
+                      </p>
+                    )}
+                    {!userData?.cedula && !isEditing && (
+                      <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+                        ⚠️ Agrega tu cédula para completar tu perfil
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <Phone className="w-4 h-4 inline mr-1" />
+                      Teléfono
+                    </label>
+                    {isEditing || !userData?.telefono ? (
+                      <input
+                        type="tel"
+                        value={editedData.telefono}
+                        onChange={(e) => handleInputChange('telefono', e.target.value)}
+                        placeholder="Ingrese su número de teléfono"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      />
+                    ) : (
+                      <p className="text-gray-900 dark:text-white font-medium">
+                        {userData?.telefono}
+                        {userData?.telefonoVerificado && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            Verificado
+                          </span>
+                        )}
+                      </p>
+                    )}
+                    {!userData?.telefono && !isEditing && (
+                      <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+                        ⚠️ Agrega tu teléfono para recibir notificaciones por WhatsApp
                       </p>
                     )}
                   </div>

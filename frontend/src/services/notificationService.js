@@ -1,14 +1,40 @@
-// Servicio para manejar notificaciones de forma persistente
+// Servicio para manejar notificaciones de forma persistente por usuario
 class NotificationService {
   constructor() {
-    this.storageKey = 'cibersegu_notifications';
+    this.baseStorageKey = 'cibersegu_notifications';
     this.maxNotifications = 100; // Máximo de notificaciones a guardar
+    this.currentUserId = null;
   }
 
-  // Obtener todas las notificaciones
+  // Establecer el usuario actual
+  setCurrentUser(userId) {
+    this.currentUserId = userId;
+  }
+
+  // Obtener la clave de storage específica del usuario
+  getStorageKey() {
+    if (!this.currentUserId) {
+      // Si no hay usuario, usar clave temporal
+      return `${this.baseStorageKey}_temp`;
+    }
+    return `${this.baseStorageKey}_${this.currentUserId}`;
+  }
+
+  // Limpiar notificaciones del usuario anterior al cambiar de usuario
+  clearPreviousUserNotifications() {
+    // Limpiar todas las claves de notificaciones existentes
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith(this.baseStorageKey)) {
+        localStorage.removeItem(key);
+      }
+    });
+  }
+
+  // Obtener todas las notificaciones del usuario actual
   getAll() {
     try {
-      const notifications = localStorage.getItem(this.storageKey);
+      const notifications = localStorage.getItem(this.getStorageKey());
       return notifications ? JSON.parse(notifications) : [];
     } catch (error) {
       console.error('Error obteniendo notificaciones:', error);
@@ -41,7 +67,7 @@ class NotificationService {
         notifications.splice(this.maxNotifications);
       }
 
-      localStorage.setItem(this.storageKey, JSON.stringify(notifications));
+      localStorage.setItem(this.getStorageKey(), JSON.stringify(notifications));
       
       // Emitir evento personalizado para actualizar la UI
       window.dispatchEvent(new CustomEvent('notificationsUpdated', {
@@ -63,7 +89,7 @@ class NotificationService {
         n.id === id ? { ...n, leida: true } : n
       );
       
-      localStorage.setItem(this.storageKey, JSON.stringify(updated));
+      localStorage.setItem(this.getStorageKey(), JSON.stringify(updated));
       
       window.dispatchEvent(new CustomEvent('notificationsUpdated', {
         detail: { notifications: updated, unreadCount: this.getUnread().length }
@@ -82,7 +108,7 @@ class NotificationService {
       const notifications = this.getAll();
       const updated = notifications.map(n => ({ ...n, leida: true }));
       
-      localStorage.setItem(this.storageKey, JSON.stringify(updated));
+      localStorage.setItem(this.getStorageKey(), JSON.stringify(updated));
       
       window.dispatchEvent(new CustomEvent('notificationsUpdated', {
         detail: { notifications: updated, unreadCount: 0 }
@@ -101,7 +127,7 @@ class NotificationService {
       const notifications = this.getAll();
       const updated = notifications.filter(n => n.id !== id);
       
-      localStorage.setItem(this.storageKey, JSON.stringify(updated));
+      localStorage.setItem(this.getStorageKey(), JSON.stringify(updated));
       
       window.dispatchEvent(new CustomEvent('notificationsUpdated', {
         detail: { notifications: updated, unreadCount: this.getUnread().length }
@@ -114,10 +140,10 @@ class NotificationService {
     }
   }
 
-  // Limpiar todas las notificaciones
+  // Limpiar todas las notificaciones del usuario actual
   clear() {
     try {
-      localStorage.removeItem(this.storageKey);
+      localStorage.removeItem(this.getStorageKey());
       
       window.dispatchEvent(new CustomEvent('notificationsUpdated', {
         detail: { notifications: [], unreadCount: 0 }

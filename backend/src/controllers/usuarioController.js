@@ -376,7 +376,7 @@ const usuarioController = {
 
   async actualizarPerfil(req, res) {
     try {
-      const { nombre, email } = req.body;
+      const { nombre, email, cedula, telefono } = req.body;
       const usuario = await Usuario.findById(req.usuario.id);
       
       if (!usuario) {
@@ -400,6 +400,40 @@ const usuarioController = {
 
         usuario.email = email.toLowerCase();
         usuario.emailVerificado = false; // Requiere nueva verificación
+      }
+
+      // Validar cédula si se está cambiando
+      if (cedula && cedula !== usuario.cedula) {
+        const cedulaLimpia = limpiarCedula(cedula);
+        if (!validarCedulaEcuador(cedulaLimpia)) {
+          return res.status(400).json({ mensaje: 'Formato de cédula inválido' });
+        }
+
+        const cedulaExistente = await Usuario.findOne({ 
+          cedula: cedulaLimpia,
+          _id: { $ne: usuario._id }
+        });
+        
+        if (cedulaExistente) {
+          return res.status(400).json({ mensaje: 'La cédula ya está en uso' });
+        }
+
+        usuario.cedula = cedulaLimpia;
+      }
+
+      // Validar teléfono si se está cambiando
+      if (telefono && telefono !== usuario.telefono) {
+        const telefonoExistente = await Usuario.findOne({ 
+          telefono: telefono,
+          _id: { $ne: usuario._id }
+        });
+        
+        if (telefonoExistente) {
+          return res.status(400).json({ mensaje: 'El teléfono ya está en uso' });
+        }
+
+        usuario.telefono = telefono;
+        usuario.telefonoVerificado = false; // Requiere nueva verificación
       }
 
       if (nombre) {
