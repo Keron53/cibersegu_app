@@ -1,0 +1,42 @@
+# Plantilla de Dockerfile para Backend Node.js con microservicio Python (pyHanko opcional)
+FROM node:18
+
+WORKDIR /app
+
+# Dependencias del sistema (ajústalas a tus necesidades)
+RUN apt-get update && apt-get install -y \
+    python3 python3-pip python3-venv \
+    build-essential python3-dev libffi-dev libssl-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Sólo copiar manifiestos para cache de dependencias
+COPY package*.json ./
+RUN npm ci --only=production
+
+# (Opcional) Instalar dependencias Python si usas microservicio
+# COPY MicroservicioPyHanko ./MicroservicioPyHanko/
+# RUN python3 -m venv /app/venv
+# ENV PATH="/app/venv/bin:$PATH"
+# RUN pip install --no-cache-dir -r MicroservicioPyHanko/requirements.txt
+
+# Copiar código
+COPY src ./src
+COPY config ./config
+
+# Directorios persistentes
+RUN mkdir -p uploads CrearCACentral
+
+# Usuario no-root
+RUN groupadd -g 1001 nodejs \
+ && useradd -r -u 1001 -g nodejs nodejs \
+ && chown -R nodejs:nodejs /app
+USER nodejs
+
+EXPOSE 3001
+
+ENV NODE_ENV=production
+
+CMD ["node", "src/app.js"]
+
+

@@ -235,6 +235,138 @@ sudo docker-compose exec mongodb mongosh
 sudo docker-compose exec nginx sh
 ```
 
+## 🛡️ Cómo crear certificados SSL/TLS (Let's Encrypt, Autofirmado y CSR)
+
+A continuación se detallan tres formas de obtener certificados válidos para Nginx en esta arquitectura.
+
+### Conceptos rápidos
+- Clave privada: archivo `.key` (mantener en secreto)
+- CSR: solicitud de firma `.csr` para pedir un certificado a una CA
+- Certificado: archivo `.crt`/`.pem`
+- Cadena intermedia: certificados de la CA intermedia
+- `fullchain.pem`: certificado + cadena intermedia concatenados
+
+### Opción A: Let's Encrypt (Producción)
+Requisitos: dominio apuntando a la IP pública de la VM (DNS propagado).
+
+1) Modo standalone (rápido) usando contenedor certbot:
+```bash
+cd deployment
+sudo docker run --rm -it -p 80:80 -p 443:443 \
+  -v $(pwd)/ssl/letsencrypt:/etc/letsencrypt \
+  certbot/certbot certonly --standalone \
+  -d tu-dominio.com --agree-tos -m tu-email@dominio.com --non-interactive
+
+# Certificados generados en:
+# deployment/ssl/letsencrypt/live/tu-dominio.com/
+```
+
+2) Modo webroot (si Nginx ya está sirviendo en 80):
+```bash
+# Agrega en nginx un location para ACME (si no existe) y recarga nginx
+location /.well-known/acme-challenge/ { root /var/www/certbot; }
+
+mkdir -p /var/www/certbot
+sudo docker run --rm -it \
+  -v /var/www/certbot:/var/www/certbot \
+  -v $(pwd)/ssl/letsencrypt:/etc/letsencrypt \
+  certbot/certbot certonly --webroot -w /var/www/certbot \
+  -d tu-dominio.com --agree-tos -m tu-email@dominio.com --non-interactive
+```
+
+3) Configurar Nginx con los certificados emitidos:
+```nginx
+ssl_certificate     /etc/ssl/letsencrypt/live/tu-dominio.com/fullchain.pem;
+ssl_certificate_key /etc/ssl/letsencrypt/live/tu-dominio.com/privkey.pem;
+```
+
+4) Renovación automática (cron mensual recomendado):
+```bash
+echo "0 3 * * * docker run --rm -v $(pwd)/ssl/letsencrypt:/etc/letsencrypt certbot/certbot renew --quiet && docker compose -f $(pwd)/docker-compose.yml restart nginx" | sudo crontab -
+```
+
+### Opción B: Certificados Autofirmados (Desarrollo)
+Utiliza SAN (Subject Alternative Name) para evitar advertencias locales adicionales.
+```bash
+cd deployment
+mkdir -p ssl/self-signed
+openssl req -x509 -newkey rsa:2048 -sha256 -days 365 -nodes \
+  -keyout ssl/self-signed/privkey.pem \
+  -out ssl/self-signed/fullchain.pem \
+  -subj "/CN=tu-dominio.com" \
+  -addext "subjectAltName=DNS:tu-dominio.com,IP:127.0.0.1"
+
+# Permisos sugeridos
+chmod 600 ssl/self-signed/privkey.pem
+chmod 644 ssl/self-signed/fullchain.pem
+```
+Ajusta las rutas en `nginx.conf` si usas la ruta de autofirmado anterior.
+
+### Opción C: CSR para CA Comercial
+1) Generar clave privada y CSR:
+```bash
+cd deployment/ssl
+openssl genrsa -out tu-dominio.key 2048
+openssl req -new -key tu-dominio.key -out tu-dominio.csr -subj "/CN=tu-dominio.com"
+```
+
+2) (Recomendado) Incluir SAN en la CSR usando un archivo de config mínimo `san.cnf`:
+```bash
+cat > san.cnf << 'EOF'
+[ req ]
+distinguished_name = req_distinguished_name
+req_extensions     = v3_req
+
+[ req_distinguished_name ]
+
+[ v3_req ]
+subjectAltName = @alt_names
+
+[ alt_names ]
+DNS.1 = tu-dominio.com
+DNS.2 = www.tu-dominio.com
+EOF
+
+openssl req -new -key tu-dominio.key -out tu-dominio.csr -config san.cnf -reqexts v3_req -subj "/CN=tu-dominio.com"
+```
+
+3) Envía `tu-dominio.csr` a la CA. Cuando recibas el certificado y la(s) cadena(s), crea `fullchain.pem`:
+```bash
+cat tu-dominio.crt cadena_intermedia.crt > fullchain.pem
+cp tu-dominio.key privkey.pem
+```
+Configura Nginx con `fullchain.pem` y `privkey.pem`.
+
+### (Opcional) Parámetros Diffie-Hellman
+```bash
+cd deployment/ssl
+openssl dhparam -out dhparam.pem 2048
+# En nginx.conf, dentro del server 443:
+# ssl_dhparam /etc/ssl/dhparam.pem;
+```
+
+### (Opcional) Convertir a PFX/PKCS#12 (Windows/IIS o importación a Key Vault)
+```bash
+openssl pkcs12 -export -out tu-dominio.pfx -inkey privkey.pem -in fullchain.pem -passout pass:TU_PASSWORD
+```
+
+### Verificación y diagnóstico
+```bash
+# Ver fechas de validez
+openssl x509 -in deployment/ssl/letsencrypt/live/tu-dominio.com/fullchain.pem -noout -dates
+
+# Ver SAN del certificado
+openssl x509 -in fullchain.pem -noout -text | grep -A1 "Subject Alternative Name"
+
+# Probar cadena vía TLS
+openssl s_client -connect tu-dominio.com:443 -servername tu-dominio.com < /dev/null 2>/dev/null | openssl x509 -noout -issuer -subject -dates
+```
+
+Buenas prácticas:
+- Asegura permisos correctos: `600` para `privkey`, `644` para `fullchain`.
+- El CN y SAN deben coincidir con el dominio real.
+- Reinicia Nginx tras cambiar certificados.
+
 ## 🔐 Configuración SSL
 
 ### ✅ Certificados Let's Encrypt Configurados
