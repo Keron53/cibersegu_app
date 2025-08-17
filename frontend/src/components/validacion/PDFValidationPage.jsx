@@ -112,7 +112,7 @@ const PDFValidationPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gray-50 dark:bg-background">
               <Navigation onLogout={handleLogout} />
       
       <div className="container mx-auto px-4 py-8">
@@ -158,7 +158,7 @@ const PDFValidationPage = () => {
           </div>
 
           {/* Upload Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+          <div className="bg-white dark:bg-background-light rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
             {validationMode === 'file' ? (
               <div className="space-y-4">
                 <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
@@ -192,7 +192,7 @@ const PDFValidationPage = () => {
                     value={url}
                     onChange={handleUrlChange}
                     placeholder="https://ejemplo.com/documento.pdf"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
                   />
                 </div>
               </div>
@@ -219,7 +219,7 @@ const PDFValidationPage = () => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6"
+              className="bg-white dark:bg-background-light rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-6"
             >
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -292,7 +292,7 @@ const PDFValidationPage = () => {
 
                 {/* QR Information */}
                 {validationResult.qrInfo && (
-                  <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3">
                       Información del Firmante
                     </h4>
