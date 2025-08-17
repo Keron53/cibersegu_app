@@ -938,6 +938,79 @@ const usuarioController = {
         mensaje: 'Error al verificar disponibilidad' 
       });
     }
+  },
+
+  // Función para recuperar nombre de usuario por email o cédula
+  async recuperarNombreUsuario(req, res) {
+    try {
+      const { emailOCedula } = req.body;
+      
+      if (!emailOCedula) {
+        return res.status(400).json({ 
+          mensaje: 'Email o cédula son requeridos' 
+        });
+      }
+
+      let usuario = null;
+      const input = emailOCedula.trim();
+      
+      // Determinar si es email o cédula
+      if (input.includes('@')) {
+        // Es un email
+        if (!validarEmail(input)) {
+          return res.status(400).json({ 
+            mensaje: 'Formato de email inválido' 
+          });
+        }
+        usuario = await Usuario.findOne({ email: input.toLowerCase() });
+      } else {
+        // Es una cédula
+        const cedulaLimpia = limpiarCedula(input);
+        if (!validarCedulaEcuador(cedulaLimpia)) {
+          return res.status(400).json({ 
+            mensaje: 'Formato de cédula inválido' 
+          });
+        }
+        usuario = await Usuario.findOne({ cedula: cedulaLimpia });
+      }
+
+      // Por seguridad, siempre responder lo mismo
+      const mensajeGenerico = 'Si los datos son correctos, recibirás la información en tu email o WhatsApp registrado';
+      
+      if (!usuario) {
+        return res.json({ mensaje: mensajeGenerico });
+      }
+
+      // Enviar información por email si tiene email verificado
+      if (usuario.email && usuario.emailVerificado) {
+        try {
+          const { enviarRecuperacionUsuario } = require('../services/emailService');
+          await enviarRecuperacionUsuario(usuario.email, usuario.nombre, usuario.username);
+          console.log('✅ Email de recuperación de usuario enviado a:', usuario.email);
+        } catch (emailError) {
+          console.error('❌ Error enviando email de recuperación de usuario:', emailError);
+        }
+      }
+
+      // Enviar información por WhatsApp si tiene teléfono verificado
+      if (usuario.telefono && usuario.telefonoVerificado) {
+        try {
+          const mensaje = `Hola ${usuario.nombre}, tu nombre de usuario es: ${usuario.username}`;
+          await ultramsgService.enviarMensaje(usuario.telefono, mensaje);
+          console.log('✅ WhatsApp de recuperación de usuario enviado a:', usuario.telefono);
+        } catch (whatsappError) {
+          console.error('❌ Error enviando WhatsApp de recuperación de usuario:', whatsappError);
+        }
+      }
+
+      res.json({ mensaje: mensajeGenerico });
+      
+    } catch (error) {
+      console.error('Error recuperando nombre de usuario:', error);
+      res.status(500).json({ 
+        mensaje: 'Error al procesar la solicitud' 
+      });
+    }
   }
 };
 

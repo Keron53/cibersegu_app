@@ -163,6 +163,75 @@ const emailService = {
     return info;
   },
 
+  // Enviar recuperación de nombre de usuario
+  enviarRecuperacionUsuario: async (email, nombre, username) => {
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Recuperación de Usuario</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f5f7fb; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #ffffff; padding: 20px; border-radius: 0 0 8px 8px; }
+          .footer { text-align: center; margin-top: 20px; color: #64748b; font-size: 14px; }
+          .highlight { background: #f8fafc; border: 1px solid #e5e7eb; padding: 15px; border-radius: 6px; margin: 15px 0; }
+          .username-box { background: #eef2ff; border: 1px solid #93c5fd; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0; }
+          .username { font-size: 20px; font-weight: bold; color: #1f2937; }
+          .brand { color: #ffffff; font-size: 24px; font-weight: 700; margin: 0; }
+          .subtitle { color: #ffffff; font-size: 14px; margin-top: 4px; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="brand">Digital Sign</div>
+            <div class="subtitle">Sistema de Firma Digital</div>
+          </div>
+          <div class="content">
+            <h2>Recuperación de Usuario</h2>
+            
+            <p>Hola <strong>${nombre}</strong>,</p>
+            <p>Has solicitado recuperar tu nombre de usuario. Aquí tienes la información:</p>
+            
+            <div class="username-box">
+              <p><strong>Tu nombre de usuario es:</strong></p>
+              <div class="username">${username}</div>
+            </div>
+            
+            <div class="highlight">
+              <h3>Información importante:</h3>
+              <ul>
+                <li>Usa este nombre de usuario para iniciar sesión</li>
+                <li>Si no solicitaste esta información, ignora este email</li>
+                <li>Tu contraseña no ha sido modificada</li>
+                <li>Si también olvidaste tu contraseña, usa la opción "¿Olvidaste tu contraseña?" en el login</li>
+              </ul>
+            </div>
+          </div>
+          <div class="footer">
+            <p>Este es un email automático, por favor no respondas a este mensaje.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const mailOptions = {
+      from: `"Sistema de Firmas Digitales" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: 'Recuperación de nombre de usuario',
+      html: htmlContent
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Email de recuperación de usuario enviado a:', email);
+    return info;
+  },
+
   // Enviar solicitud de firma múltiple
   enviarSolicitudFirmaMultiple: async ({
     firmanteEmail,

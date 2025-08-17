@@ -3,8 +3,8 @@ import { motion } from 'framer-motion'
 import { useNavigate, Link } from 'react-router-dom'
 import { authService } from '../../services/api'
 import LoadingSpinner from './LoadingSpinner'
-import PasswordPolicy from './PasswordPolicy'
 import ForgotPasswordModal from './ForgotPasswordModal'
+import ForgotUsernameModal from './ForgotUsernameModal'
 import PasswordErrorModal from './PasswordErrorModal'
 import { SessionContext } from '../../context/SessionContext'
 import { Eye, EyeOff } from 'lucide-react'
@@ -19,6 +19,7 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false)
+  const [showForgotUsernameModal, setShowForgotUsernameModal] = useState(false)
   const [showPasswordErrorModal, setShowPasswordErrorModal] = useState(false)
   const [passwordErrorMessage, setPasswordErrorMessage] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -168,6 +169,19 @@ function LoginForm() {
               className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoComplete="username"
             />
+            {errors.username && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.username}</p>
+            )}
+          </div>
+          
+          <div className="text-right">
+            <button
+              type="button"
+              onClick={() => setShowForgotUsernameModal(true)}
+              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+            >
+              ¿Olvidaste tu usuario?
+            </button>
           </div>
           <div className="mb-4">
             <label
@@ -233,14 +247,18 @@ function LoginForm() {
             Regístrate ahora
           </Link>
         </div>
-        
-        <PasswordPolicy className="mt-4" />
       </motion.form>
 
       {/* Modal de Recuperación de Contraseña */}
       <ForgotPasswordModal
         isOpen={showForgotPasswordModal}
         onClose={() => setShowForgotPasswordModal(false)}
+      />
+
+      {/* Modal de Recuperación de Usuario */}
+      <ForgotUsernameModal
+        isOpen={showForgotUsernameModal}
+        onClose={() => setShowForgotUsernameModal(false)}
       />
 
       {/* Modal de Error de Contraseña */}
