@@ -8,9 +8,11 @@ import SignatureConfirmationModal from './SignatureConfirmationModal.jsx'
 import NotificationContainer from '../layout/NotificationContainer.jsx'
 import AuthContext from '../../context/AuthContext.js'
 import QRCode from 'qrcode';
+import { useNavigate } from 'react-router-dom';
 
 function DocumentList({ documents, onDelete }) {
   const { user } = useContext(AuthContext)
+  const navigate = useNavigate()
   const [showSignatureViewer, setShowSignatureViewer] = useState(false)
   const [showViewer, setShowViewer] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState(null)
@@ -165,8 +167,8 @@ function DocumentList({ documents, onDelete }) {
   }
 
   const handleSignDocument = (document) => {
-    setSelectedDocument(document)
-    setShowSignatureViewer(true)
+    // Redirigir a la página dedicada para firmar
+    navigate(`/firmar-documento-directo/${document._id}`)
   }
 
   const handlePositionSelected = (signatureInfo) => {

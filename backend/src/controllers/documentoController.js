@@ -664,13 +664,13 @@ const documentoController = {
         return res.status(401).json({ error: 'Usuario no autenticado' });
       }
 
-      const doc = await Documento.findById(id);
+      const doc = await Documento.findById(id).populate('usuario', 'nombre email');
       if (!doc) {
         return res.status(404).json({ error: 'Documento no encontrado' });
       }
 
       // Verificar que el documento pertenezca al usuario autenticado O que tenga solicitudes de firma pendientes O que ya haya firmado
-      const isOwner = doc.usuario.toString() === req.usuario.id;
+      const isOwner = doc.usuario._id.toString() === req.usuario.id;
       
       if (!isOwner) {
         // Verificar si el usuario tiene solicitudes de firma pendientes para este documento
@@ -691,11 +691,72 @@ const documentoController = {
         }
       }
 
+      // Devolver el archivo PDF real
+      if (!fs.existsSync(doc.ruta)) {
+        return res.status(404).json({ error: 'Archivo PDF no encontrado en el servidor' });
+      }
+
       // Enviar el archivo PDF
-      res.sendFile(require('path').resolve(doc.ruta));
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${doc.nombre}"`);
+      res.sendFile(doc.ruta);
     } catch (error) {
       console.error('Error al obtener documento:', error);
       res.status(500).json({ error: 'Error al obtener el documento' });
+    }
+  },
+
+  obtenerInfoDocumento: async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Verificar que el usuario esté autenticado
+      if (!req.usuario || !req.usuario.id) {
+        return res.status(401).json({ error: 'Usuario no autenticado' });
+      }
+
+      const doc = await Documento.findById(id).populate('usuario', 'nombre email');
+      if (!doc) {
+        return res.status(404).json({ error: 'Documento no encontrado' });
+      }
+
+      // Verificar que el documento pertenezca al usuario autenticado O que tenga solicitudes de firma pendientes O que ya haya firmado
+      const isOwner = doc.usuario._id.toString() === req.usuario.id;
+      
+      if (!isOwner) {
+        // Verificar si el usuario tiene solicitudes de firma pendientes para este documento
+        const SolicitudFirma = require('../models/SolicitudFirma');
+        const solicitudPendiente = await SolicitudFirma.findOne({
+          documentoId: doc._id,
+          firmanteId: req.usuario.id,
+          estado: 'pendiente'
+        });
+        
+        // Verificar si el usuario ya firmó este documento
+        const yaFirmo = doc.firmantes && doc.firmantes.some(firmante => 
+          firmante.usuarioId && firmante.usuarioId.toString() === req.usuario.id
+        );
+        
+        if (!solicitudPendiente && !yaFirmo) {
+          return res.status(403).json({ error: 'No tienes permisos para acceder a este documento' });
+        }
+      }
+
+      // Devolver solo la información del documento (metadatos)
+      res.json({ 
+        documento: {
+          _id: doc._id,
+          nombre: doc.nombre,
+          ruta: doc.ruta,
+          usuario: doc.usuario,
+          firmas: doc.firmas || [],
+          createdAt: doc.createdAt,
+          updatedAt: doc.updatedAt
+        }
+      });
+    } catch (error) {
+      console.error('Error al obtener info del documento:', error);
+      res.status(500).json({ error: 'Error al obtener la información del documento' });
     }
   },
 
@@ -732,7 +793,7 @@ const documentoController = {
         );
         
         if (!solicitudPendiente && !yaFirmo) {
-          return res.status(403).json({ error: 'No tienes permisos para acceder a este documento' });
+          return res.status(404).json({ error: 'Documento no encontrado' });
         }
       }
 
@@ -794,14 +855,20 @@ const documentoController = {
 
       // Configurar headers para descarga
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="firmado_${doc.nombre}"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${doc.nombre}"`);
       
       // Enviar el archivo
       res.sendFile(require('path').resolve(doc.ruta));
       
     } catch (error) {
       console.error('Error al descargar documento:', error);
-      res.status(500).json({ error: 'Error al descargar el documento' });
+      // Si ya se configuraron headers de PDF, no podemos enviar JSON
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Error al descargar el documento' });
+      } else {
+        // Si ya se enviaron headers, terminar la respuesta
+        res.end();
+      }
     }
   }
 };

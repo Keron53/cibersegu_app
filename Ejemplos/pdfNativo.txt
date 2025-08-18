@@ -1,0 +1,256 @@
+Te explico cómo implementar un visor de PDF nativo como el que tienes en tu proyecto, para que puedas replicarlo en otro proyecto:
+
+## Implementación de Visor de PDF Nativo con PDF.js
+
+### 1. Instalación de Dependencias
+```bash
+npm install pdfjs-dist
+```
+
+### 2. Estructura HTML Básica
+```html
+<template>
+  <div class="pdf-container">
+    <!-- Controles de navegación -->
+    <div class="controls">
+      <button @click="prevPage">Anterior</button>
+      <span>{{ currentPage }} / {{ totalPages }}</span>
+      <button @click="nextPage">Siguiente</button>
+    </div>
+    
+    <!-- Contenedor del PDF -->
+    <div class="pdf-viewer" ref="pdfViewer">
+      <canvas ref="pdfCanvas" style="cursor: crosshair;"></canvas>
+    </div>
+    
+    <!-- Información de coordenadas -->
+    <div ref="coordinatesDisplay">Haz clic y arrastra para seleccionar área</div>
+  </div>
+</template>
+```
+
+### 3. Script de Implementación
+```javascript
+<script setup>
+import { onMounted, ref } from 'vue';
+import * as pdfjsLib from "pdfjs-dist/webpack";
+
+// Referencias del DOM
+const pdfViewer = ref(null);
+const pdfCanvas = ref(null);
+const coordinatesDisplay = ref(null);
+
+// Variables de estado
+let pdfDoc = null;
+let currentPage = 1;
+let viewport = null;
+let ctx = null;
+const pdfScale = 1.75;
+
+// URL del PDF a cargar
+const pdfUrl = 'ruta/a/tu/documento.pdf';
+
+onMounted(() => {
+  initPdfViewer();
+  setupMouseEvents();
+});
+
+const initPdfViewer = async () => {
+  try {
+    // Obtener contexto del canvas
+    ctx = pdfCanvas.value.getContext('2d');
+    
+    // Cargar el PDF
+    const loadingTask = pdfjsLib.getDocument(pdfUrl);
+    pdfDoc = await loadingTask.promise;
+    
+    // Renderizar primera página
+    renderPage(currentPage);
+  } catch (error) {
+    console.error('Error al cargar el PDF:', error);
+  }
+};
+
+const renderPage = async (pageNum) => {
+  try {
+    const page = await pdfDoc.getPage(pageNum);
+    
+    // Crear viewport con escala
+    viewport = page.getViewport({ scale: pdfScale });
+    
+    // Ajustar dimensiones del canvas
+    pdfCanvas.value.width = viewport.width;
+    pdfCanvas.value.height = viewport.height;
+    
+    // Ajustar contenedor
+    pdfViewer.value.style.width = `${viewport.width}px`;
+    pdfViewer.value.style.height = `${viewport.height}px`;
+    
+    // Renderizar página en canvas
+    const renderContext = {
+      canvasContext: ctx,
+      viewport: viewport
+    };
+    
+    await page.render(renderContext);
+    
+    // Actualizar información de página
+    currentPage = pageNum;
+  } catch (error) {
+    console.error('Error al renderizar página:', error);
+  }
+};
+
+const setupMouseEvents = () => {
+  let isDragging = false;
+  let startX, startY;
+  let selectionBox = null;
+
+  pdfViewer.value.addEventListener('mousedown', (event) => {
+    const rect = pdfViewer.value.getBoundingClientRect();
+    const offsetX = rect.left + window.scrollX;
+    const offsetY = rect.top + window.scrollY;
+    
+    startX = event.pageX - offsetX;
+    startY = event.pageY - offsetY;
+    
+    // Crear caja de selección
+    selectionBox = createSelectionBox(startX, startY);
+    pdfViewer.value.appendChild(selectionBox);
+    
+    isDragging = true;
+  });
+
+  pdfViewer.value.addEventListener('mousemove', (event) => {
+    if (!isDragging) return;
+    
+    const rect = pdfViewer.value.getBoundingClientRect();
+    const offsetX = rect.left + window.scrollX;
+    const offsetY = rect.top + window.scrollY;
+    
+    const currentX = event.pageX - offsetX;
+    const currentY = event.pageY - offsetY;
+    
+    updateSelectionBox(selectionBox, startX, startY, currentX, currentY);
+    updateCoordinates(startX, startY, currentX, currentY, rect);
+  });
+
+  pdfViewer.value.addEventListener('mouseup', () => {
+    isDragging = false;
+    if (selectionBox) {
+      selectionBox.style.border = '2px solid green';
+    }
+  });
+};
+
+const createSelectionBox = (x, y) => {
+  const box = document.createElement('div');
+  box.style.position = 'absolute';
+  box.style.left = `${x}px`;
+  box.style.top = `${y}px`;
+  box.style.width = '0px';
+  box.style.height = '0px';
+  box.style.border = '2px dashed blue';
+  box.style.background = 'rgba(0, 255, 0, 0.3)';
+  box.style.pointerEvents = 'none';
+  return box;
+};
+
+const updateSelectionBox = (box, startX, startY, currentX, currentY) => {
+  const left = Math.min(currentX, startX);
+  const top = Math.min(currentY, startY);
+  const width = Math.abs(currentX - startX);
+  const height = Math.abs(currentY - startY);
+  
+  box.style.left = `${left}px`;
+  box.style.top = `${top}px`;
+  box.style.width = `${width}px`;
+  box.style.height = `${height}px`;
+};
+
+const updateCoordinates = (startX, startY, currentX, currentY, rect) => {
+  // Convertir coordenadas de pantalla a coordenadas del PDF
+  const x1 = Math.min(startX, currentX) / pdfScale;
+  const y1 = (rect.height - Math.max(startY, currentY)) / pdfScale;
+  const x2 = Math.max(startX, currentX) / pdfScale;
+  const y2 = (rect.height - Math.min(startY, currentY)) / pdfScale;
+  
+  coordinatesDisplay.value.textContent = 
+    `Coordenadas: (${x1.toFixed(2)}, ${y1.toFixed(2)}) a (${x2.toFixed(2)}, ${y2.toFixed(2)})`;
+};
+
+const prevPage = () => {
+  if (currentPage > 1) {
+    renderPage(currentPage - 1);
+  }
+};
+
+const nextPage = () => {
+  if (currentPage < pdfDoc.numPages) {
+    renderPage(currentPage + 1);
+  }
+};
+</script>
+```
+
+### 4. Estilos CSS
+```css
+<style scoped>
+.pdf-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.controls {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.pdf-viewer {
+  position: relative;
+  border: 1px solid #ccc;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+canvas {
+  display: block;
+  cursor: crosshair;
+}
+
+.coordinates-display {
+  padding: 10px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  font-family: monospace;
+}
+</style>
+```
+
+### 5. Puntos Clave de la Implementación
+
+- **PDF.js**: Librería que convierte PDFs a canvas HTML
+- **Canvas**: Permite renderizado nativo y manipulación pixel por pixel
+- **Coordenadas**: Se calculan en tiempo real mientras el usuario arrastra
+- **Escala**: El `pdfScale` permite ajustar la resolución del renderizado
+- **Eventos del mouse**: Capturan la interacción del usuario para selección de áreas
+
+### 6. Configuración de PDF.js (webpack)
+```javascript
+// En tu webpack.config.js o vue.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  configureWebpack: {
+    plugins: [
+      new webpack.ProvidePlugin({
+        'pdfjs-dist': 'pdfjs-dist/webpack'
+      })
+    ]
+  }
+};
+```
+
+Esta implementación te da control total sobre el PDF y permite funcionalidades avanzadas como selección de áreas, zoom, navegación entre páginas y cálculo preciso de coordenadas.

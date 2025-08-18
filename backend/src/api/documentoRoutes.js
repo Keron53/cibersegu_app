@@ -66,7 +66,7 @@ router.get('/', auth, documentoController.listarDocumentos);
 router.get('/firmados', auth, documentoController.listarDocumentosFirmados);
 router.get('/compartidos', auth, documentoController.listarDocumentosCompartidos);
 router.get('/:id', auth, documentoController.obtenerDocumento);
-router.get('/:id/info', auth, documentoController.infoDocumento);
+router.get('/:id/info', auth, documentoController.obtenerInfoDocumento);
 router.get('/:id/download', auth, documentoController.descargarDocumento);
 router.delete('/:id', auth, documentoController.eliminarDocumento);
 

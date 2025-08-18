@@ -1,0 +1,221 @@
+Te explico la lógica completa del sistema de click y arrastre para crear el cuadrito de selección y calcular las coordenadas de la firma:
+
+## Lógica del Sistema de Selección por Click y Arrastre
+
+### 1. Flujo de Eventos del Mouse
+
+```javascript
+// Estados del sistema
+let isDragging = false;        // ¿Está el usuario arrastrando?
+let startX, startY;            // Punto inicial del click
+let selectionBox = null;       // Elemento visual del cuadrito
+
+// Eventos que se disparan en secuencia:
+// 1. mousedown → Inicia la selección
+// 2. mousemove → Actualiza el cuadrito mientras arrastra
+// 3. mouseup → Finaliza la selección
+```
+
+### 2. Evento mousedown - Inicio de la Selección
+
+```javascript
+pdfViewer.value.addEventListener('mousedown', (event) => {
+  // 1. Obtener la posición del contenedor PDF
+  const rect = pdfViewer.value.getBoundingClientRect();
+  
+  // 2. Calcular offset considerando scroll de la página
+  const offsetX = rect.left + window.scrollX;
+  const offsetY = rect.top + window.scrollY;
+  
+  // 3. Calcular coordenadas relativas al contenedor PDF
+  startX = event.pageX - offsetX;
+  startY = event.pageY - offsetY;
+  
+  // 4. Limpiar selección anterior si existe
+  const existingBox = document.getElementById('signbox');
+  if (existingBox) existingBox.remove();
+  
+  // 5. Crear nuevo cuadrito de selección
+  selectionBox = createSelectionBox(startX, startY);
+  pdfViewer.value.appendChild(selectionBox);
+  
+  // 6. Activar modo arrastre
+  isDragging = true;
+});
+```
+
+### 3. Creación del Cuadrito de Selección
+
+```javascript
+const createSelectionBox = (x, y) => {
+  const box = document.createElement('div');
+  
+  // Estilo visual del cuadrito
+  box.classList.add('selection-box');
+  box.id = 'signbox';
+  
+  // Posicionamiento inicial
+  box.style.position = 'absolute';
+  box.style.left = `${x}px`;
+  box.style.top = `${y}px`;
+  box.style.width = '0px';
+  box.style.height = '0px';
+  
+  // Apariencia visual
+  box.style.border = '2px dashed blue';
+  box.style.background = 'rgba(0, 255, 0, 0.3)';
+  box.style.pointerEvents = 'none'; // No interfiere con eventos del mouse
+  
+  return box;
+};
+```
+
+### 4. Evento mousemove - Actualización en Tiempo Real
+
+```javascript
+pdfViewer.value.addEventListener('mousemove', (event) => {
+  if (!isDragging) return; // Solo procesar si está arrastrando
+  
+  // 1. Calcular offset del contenedor
+  const rect = pdfViewer.value.getBoundingClientRect();
+  const offsetX = rect.left + window.scrollX;
+  const offsetY = rect.top + window.scrollY;
+  
+  // 2. Obtener posición actual del mouse
+  const currentX = event.pageX - offsetX;
+  const currentY = event.pageY - offsetY;
+  
+  // 3. Calcular dimensiones del rectángulo
+  const left = Math.min(currentX, startX);    // Límite izquierdo
+  const top = Math.min(currentY, startY);     // Límite superior
+  const right = Math.max(currentX, startX);   // Límite derecho
+  const bottom = Math.max(currentY, startY);  // Límite inferior
+  
+  // 4. Calcular ancho y alto
+  const width = right - left;
+  const height = bottom - top;
+  
+  // 5. Aplicar límites del canvas (evitar que se salga)
+  const maxWidth = pdfCanvas.value.width - left;
+  const maxHeight = pdfCanvas.value.height - top;
+  
+  const finalWidth = Math.min(width, maxWidth);
+  const finalHeight = Math.min(height, maxHeight);
+  
+  // 6. Actualizar posición y tamaño del cuadrito
+  updateSelectionBox(selectionBox, left, top, finalWidth, finalHeight);
+  
+  // 7. Calcular y mostrar coordenadas
+  calculateCoordinates(left, top, right, bottom, rect);
+});
+```
+
+### 5. Actualización Visual del Cuadrito
+
+```javascript
+const updateSelectionBox = (box, left, top, width, height) => {
+  box.style.left = `${left}px`;
+  box.style.top = `${top}px`;
+  box.style.width = `${width}px`;
+  box.style.height = `${height}px`;
+};
+```
+
+### 6. Cálculo de Coordenadas del PDF
+
+```javascript
+const calculateCoordinates = (left, top, right, bottom, rect) => {
+  // 1. Convertir coordenadas de pantalla a coordenadas del PDF
+  // El PDF.js usa coordenadas cartesianas (0,0 en la esquina inferior izquierda)
+  // La pantalla usa coordenadas (0,0 en la esquina superior izquierda)
+  
+  const x1 = left / pdfScale;                    // Coordenada X izquierda
+  const y1 = (rect.height - top) / pdfScale;     // Coordenada Y superior (convertida)
+  const x2 = right / pdfScale;                   // Coordenada X derecha
+  const y2 = (rect.height - bottom) / pdfScale;  // Coordenada Y inferior (convertida)
+  
+  // 2. Mostrar coordenadas en pantalla
+  coordinatesDisplay.value.textContent = 
+    `Coordenadas PDF: (${x1.toFixed(2)}, ${y1.toFixed(2)}) a (${x2.toFixed(2)}, ${y2.toFixed(2)})`;
+  
+  // 3. Guardar coordenadas para uso posterior
+  const signatureArea = {
+    x1: Math.round(x1),
+    y1: Math.round(y1),
+    x2: Math.round(x2),
+    y2: Math.round(y2),
+    width: Math.round(x2 - x1),
+    height: Math.round(y1 - y2)
+  };
+  
+  // Aquí puedes enviar las coordenadas al backend
+  console.log('Área de firma:', signatureArea);
+};
+```
+
+### 7. Evento mouseup - Finalización de la Selección
+
+```javascript
+pdfViewer.value.addEventListener('mouseup', () => {
+  // 1. Desactivar modo arrastre
+  isDragging = false;
+  
+  // 2. Cambiar estilo del cuadrito para indicar que está fijo
+  if (selectionBox) {
+    selectionBox.style.border = '2px solid green';
+    selectionBox.style.background = 'rgba(0, 255, 0, 0.5)';
+  }
+  
+  // 3. Aquí puedes enviar las coordenadas al backend
+  // o permitir al usuario confirmar la selección
+});
+```
+
+### 8. Consideraciones Importantes
+
+#### Escala del PDF
+```javascript
+const pdfScale = 1.75; // Factor de zoom/escala
+
+// Las coordenadas del PDF se calculan dividiendo por la escala
+// porque el canvas se renderiza a una resolución diferente
+const pdfCoordinate = screenCoordinate / pdfScale;
+```
+
+#### Coordenadas Cartesianas vs Pantalla
+```javascript
+// Pantalla: (0,0) en esquina superior izquierda
+// PDF: (0,0) en esquina inferior izquierda
+
+// Conversión de coordenada Y:
+const pdfY = (canvasHeight - screenY) / pdfScale;
+```
+
+#### Límites del Canvas
+```javascript
+// Evitar que el cuadrito se salga del área del PDF
+const maxWidth = pdfCanvas.value.width - left;
+const maxHeight = pdfCanvas.value.height - top;
+
+const finalWidth = Math.min(width, maxWidth);
+const finalHeight = Math.min(height, maxHeight);
+```
+
+### 9. Estilos CSS para el Cuadrito
+
+```css
+.selection-box {
+  position: absolute;
+  border: 2px dashed blue;
+  background: rgba(0, 255, 0, 0.3);
+  pointer-events: none; /* No interfiere con eventos del mouse */
+  transition: border-color 0.2s ease;
+}
+
+.selection-box.fixed {
+  border: 2px solid green;
+  background: rgba(0, 255, 0, 0.5);
+}
+```
+
+Esta lógica te permite crear un sistema de selección intuitivo donde el usuario puede ver exactamente qué área está seleccionando y obtener coordenadas precisas para posicionar la firma en el PDF.
