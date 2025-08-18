@@ -2,13 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Download, Eye, FileText, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, MousePointer, RotateCcw } from 'lucide-react';
 
-const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelection }) => {
+const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelection, firmanteSeleccionandoPosicion, onPosicionFirmanteSeleccionada }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [scale, setScale] = useState(1.0); // Default to 100% zoom
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectionBox, setSelectionBox] = useState(null);
+  const [selectionBoxes, setSelectionBoxes] = useState(new Map()); // Múltiples cajas de selección
   const [isDragging, setIsDragging] = useState(false);
   const [startCoords, setStartCoords] = useState(null);
   
@@ -50,6 +50,26 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
   useEffect(() => {
     console.log('🔄 Estado isDragging cambió a:', isDragging);
   }, [isDragging]);
+
+  // Mostrar cajas existentes cuando cambie el firmante seleccionado
+  useEffect(() => {
+    if (firmanteSeleccionandoPosicion && pdfViewerRef.current) {
+      mostrarCajasExistentes();
+    }
+  }, [firmanteSeleccionandoPosicion]);
+
+  // Configurar eventos del mouse cuando el componente se monte
+  useEffect(() => {
+    if (pdfViewerRef.current && !loading) {
+      const timer = setTimeout(() => {
+        setupMouseEvents();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [loading, pdfViewerRef.current]);
+
+
 
   const cargarPDF = async () => {
     try {
@@ -96,12 +116,18 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
       
       setTotalPages(pdf.numPages);
       setCurrentPage(1);
-      renderizarPagina(1);
       
-      // Setup mouse events after PDF is loaded
+      // Esperar a que el PDF se renderice antes de configurar eventos
+      await renderizarPagina(1);
+      
+      // Setup mouse events after PDF is loaded and rendered
       setTimeout(() => {
-        setupMouseEvents();
-      }, 100);
+        if (pdfViewerRef.current) {
+          setupMouseEvents();
+        } else {
+          console.error('❌ pdfViewerRef.current sigue siendo null después del renderizado');
+        }
+      }, 200);
     } catch (error) {
       console.error('Error cargando PDF con PDF.js:', error);
       setError('Error al procesar el PDF');
@@ -113,22 +139,34 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
 
     try {
       const page = await pdfDocRef.current.getPage(pageNum);
-      const viewport = page.getViewport({ scale: scale });
+      const viewport = page.getViewport({ scale: 1.0 }); // Escala base 1.0
       viewportRef.current = viewport;
 
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
 
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
+      // Usar escala fija para mantener proporción
+      const finalScale = scale;
+      const finalViewport = page.getViewport({ scale: finalScale });
+      
+      canvas.height = finalViewport.height;
+      canvas.width = finalViewport.width;
+      
+      // Estilos fijos para el canvas
+      canvas.style.margin = '0';
+      canvas.style.display = 'block';
+      canvas.style.width = `${finalViewport.width}px`;
+      canvas.style.height = `${finalViewport.height}px`;
+      canvas.style.maxWidth = 'none';
+      canvas.style.flexShrink = '0';
 
       const renderContext = {
         canvasContext: context,
-        viewport: viewport
+        viewport: finalViewport
       };
 
       await page.render(renderContext).promise;
-      console.log(`✅ Página ${pageNum} renderizada`);
+      console.log(`✅ Página ${pageNum} renderizada con escala ${finalScale.toFixed(2)} - Dimensiones: ${finalViewport.width}x${finalViewport.height}`);
     } catch (error) {
       console.error('Error renderizando página:', error);
     }
@@ -150,10 +188,19 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
   // LÓGICA SIMPLE Y DIRECTA PARA ARRASTRE
   const setupMouseEvents = () => {
     console.log('🔧 Configurando eventos del mouse...');
+    
+    // Verificación adicional de seguridad
     if (!pdfViewerRef.current) {
       console.error('❌ pdfViewerRef.current es null');
       return;
     }
+    
+    if (!pdfViewerRef.current.querySelector('canvas')) {
+      console.error('❌ Canvas del PDF no encontrado');
+      return;
+    }
+    
+    console.log('✅ Ref y canvas disponibles, configurando eventos...');
 
     // Variables para el arrastre
     let isDraggingNow = false;
@@ -177,15 +224,13 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
         startX = event.clientX - rect.left;
         startY = event.clientY - rect.top;
         
-        // Limpiar caja anterior
-        if (currentBox && currentBox.parentElement) {
-          currentBox.parentElement.removeChild(currentBox);
-        }
-        
-        // Crear nueva caja
-        currentBox = createSelectionBox(startX, startY);
+        // Crear nueva caja con color específico para el firmante
+        const firmanteId = firmanteSeleccionandoPosicion;
+        currentBox = createSelectionBox(startX, startY, firmanteId);
         pdfViewerRef.current.appendChild(currentBox);
-        setSelectionBox(currentBox);
+        
+        // Guardar la caja en el estado de múltiples cajas
+        setSelectionBoxes(prev => new Map(prev).set(firmanteId, currentBox));
         setStartCoords({ x: startX, y: startY });
         
         // Activar arrastre
@@ -293,7 +338,12 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
         // NO limpiar automáticamente - mantener hasta que se firme
         // La caja se mantendrá visible para que el usuario vea dónde va a firmar
         
-        console.log('✅ Selección completada:', finalCoords);
+        console.log('✅ Selección completada para firmante:', firmanteSeleccionandoPosicion, finalCoords);
+        
+        // Notificar al componente padre sobre la posición seleccionada
+        if (onPosicionFirmanteSeleccionada) {
+          onPosicionFirmanteSeleccionada(finalCoords);
+        }
       }
       
       // Resetear estado
@@ -318,13 +368,25 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
     };
   };
 
-  // Creación del cuadrito de selección (como en posicionPDF.txt)
-  const createSelectionBox = (x, y) => {
+  // Creación del cuadrito de selección con colores diferentes
+  const createSelectionBox = (x, y, firmanteId = null) => {
     const box = document.createElement('div');
+    
+    // Colores diferentes para cada firmante
+    const colors = [
+      { border: '#3B82F6', bg: 'rgba(59, 130, 246, 0.3)', shadow: 'rgba(59, 130, 246, 0.4)' }, // Azul
+      { border: '#10B981', bg: 'rgba(16, 185, 129, 0.3)', shadow: 'rgba(16, 185, 129, 0.4)' }, // Verde
+      { border: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.3)', shadow: 'rgba(139, 92, 246, 0.4)' }, // Púrpura
+      { border: '#EC4899', bg: 'rgba(236, 72, 153, 0.3)', shadow: 'rgba(236, 72, 153, 0.4)' }, // Rosa
+      { border: '#6366F1', bg: 'rgba(99, 102, 241, 0.3)', shadow: 'rgba(99, 102, 241, 0.4)' }  // Índigo
+    ];
+    
+    const colorIndex = firmanteId ? parseInt(firmanteId.slice(-1)) % colors.length : 0;
+    const color = colors[colorIndex];
     
     // Estilo visual del cuadrito
     box.classList.add('selection-box');
-    box.id = 'signbox';
+    box.dataset.firmanteId = firmanteId || 'default';
     
     // Posicionamiento inicial
     box.style.position = 'absolute';
@@ -333,16 +395,33 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
     box.style.width = '0px';
     box.style.height = '0px';
     
-    // Apariencia visual
-    box.style.border = '3px dashed #3B82F6';
-    box.style.background = 'rgba(59, 130, 246, 0.3)';
-    box.style.pointerEvents = 'none'; // No interfiere con eventos del mouse
+    // Apariencia visual con color específico
+    box.style.border = `3px solid ${color.border}`;
+    box.style.background = color.bg;
+    box.style.pointerEvents = 'none';
     box.style.borderRadius = '4px';
-    box.style.boxShadow = '0 0 8px rgba(59, 130, 246, 0.4)';
+    box.style.boxShadow = `0 0 8px ${color.shadow}`;
     box.style.zIndex = '1000';
-    box.style.transition = 'none'; // Sin transiciones para respuesta inmediata
+    box.style.transition = 'none';
     
-    console.log('🎯 Caja de selección creada en:', { x, y });
+    // Agregar indicador de posición seleccionada
+    const indicator = document.createElement('div');
+    indicator.style.position = 'absolute';
+    indicator.style.top = '-30px';
+    indicator.style.left = '50%';
+    indicator.style.transform = 'translateX(-50%)';
+    indicator.style.background = color.border;
+    indicator.style.color = 'white';
+    indicator.style.padding = '4px 8px';
+    indicator.style.borderRadius = '4px';
+    indicator.style.fontSize = '12px';
+    indicator.style.fontWeight = 'bold';
+    indicator.style.whiteSpace = 'nowrap';
+    indicator.style.zIndex = '1001';
+    indicator.textContent = '📍 Posición Seleccionada';
+    box.appendChild(indicator);
+    
+    console.log('🎯 Caja de selección creada en:', { x, y, firmanteId, color: color.border });
     return box;
   };
 
@@ -465,10 +544,13 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
 
   // Función para limpiar la selección actual
   const limpiarSeleccion = () => {
-    if (selectionBox && selectionBox.parentElement) {
-      selectionBox.parentElement.removeChild(selectionBox);
-    }
-    setSelectionBox(null);
+    // Limpiar todas las cajas de selección
+    selectionBoxes.forEach((box) => {
+      if (box && box.parentElement) {
+        box.parentElement.removeChild(box);
+      }
+    });
+    setSelectionBoxes(new Map());
     setStartCoords(null);
     
     // Notificar al componente padre que se limpió la selección
@@ -476,7 +558,16 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
       onClearSelection();
     }
     
-    console.log('🧹 Selección limpiada');
+    console.log('🧹 Todas las selecciones limpiadas');
+  };
+
+  // Función para mostrar todas las cajas de selección existentes
+  const mostrarCajasExistentes = () => {
+    selectionBoxes.forEach((box, firmanteId) => {
+      if (box && !box.parentElement) {
+        pdfViewerRef.current.appendChild(box);
+      }
+    });
   };
 
   if (loading) {
@@ -517,6 +608,11 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Página {currentPage} de {totalPages}
             </p>
+            {viewportRef.current && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                📏 {viewportRef.current.width.toFixed(0)} × {viewportRef.current.height.toFixed(0)} px
+              </p>
+            )}
           </div>
         </div>
         
@@ -526,19 +622,32 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
             className={`p-2 rounded-md transition-colors ${
               isRepositioning 
                 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' 
-                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-700'
             }`}
             title="Reposicionar firma"
           >
             <MousePointer className="w-4 h-4" />
           </button>
           
+
+          
+          {/* Botón para mostrar todas las cajas existentes */}
+          {selectionBoxes.size > 0 && (
+            <button
+              onClick={mostrarCajasExistentes}
+              className="p-2 bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-300 dark:hover:bg-green-800 transition-colors rounded-md"
+              title="Mostrar todas las posiciones"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+          )}
+          
           {/* Botón para limpiar selección */}
-          {selectionBox && (
+          {selectionBoxes.size > 0 && (
             <button
               onClick={limpiarSeleccion}
               className="p-2 bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900 dark:text-red-300 dark:hover:bg-red-800 transition-colors rounded-md"
-              title="Limpiar selección"
+              title="Limpiar todas las selecciones"
             >
               <RotateCcw className="w-4 h-4" />
             </button>
@@ -566,13 +675,28 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
       <div className="relative bg-gray-100 dark:bg-gray-900 p-4">
         <div 
           ref={pdfViewerRef}
-          className="relative mx-auto bg-white shadow-lg"
-          style={{ maxWidth: '100%', overflow: 'auto' }}
+          className="relative mx-auto bg-white shadow-lg flex justify-center items-center"
+          style={{ 
+            minHeight: '600px',
+            overflow: 'hidden',
+            width: 'fit-content',
+            maxWidth: '100%',
+            flexShrink: '0',
+            flexGrow: '0',
+            aspectRatio: 'auto'
+          }}
         >
           <canvas
             ref={canvasRef}
             className="block"
-            style={{ cursor: isRepositioning ? 'move' : 'crosshair' }}
+            style={{ 
+              cursor: isRepositioning ? 'move' : 'crosshair',
+              width: 'auto',
+              height: 'auto',
+              maxWidth: 'none',
+              flexShrink: '0',
+              flexGrow: '0'
+            }}
           />
         </div>
       </div>
@@ -616,6 +740,14 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
           </span>
           
           <button
+            onClick={() => cambiarEscala(1.0)}
+            className="p-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+            title="Tamaño natural (100%)"
+          >
+            <FileText className="w-4 h-4" />
+          </button>
+          
+          <button
             onClick={() => cambiarEscala(scale + 0.25)}
             disabled={scale >= 3.0}
             className="p-2 text-gray-600 hover:text-gray-800 disabled:text-gray-400 dark:text-gray-400 dark:hover:text-gray-200 disabled:dark:text-gray-600 transition-colors"
@@ -651,12 +783,12 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
         </div>
         
         {/* Indicador de posición en tiempo real */}
-        {selectionBox && (
+        {firmanteSeleccionandoPosicion && (
           <div className="mt-3 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <span className="text-xs text-green-700 dark:text-green-400">
-                <strong>Seleccionando área de firma...</strong> Suelta el mouse para confirmar la posición.
+                <strong>Seleccionando área de firma para firmante...</strong> Suelta el mouse para confirmar la posición.
               </span>
             </div>
           </div>
@@ -669,6 +801,18 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
               <span className="text-xs text-blue-700 dark:text-blue-400">
                 <strong>🖱️ Arrastrando...</strong> Mueve el mouse para definir el área de firma.
+              </span>
+            </div>
+          </div>
+        )}
+        
+        {/* Indicador de posiciones seleccionadas */}
+        {selectionBoxes.size > 0 && (
+          <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-md">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+              <span className="text-xs text-purple-700 dark:text-purple-400">
+                <strong>📍 {selectionBoxes.size} posición(es) seleccionada(s)</strong> - Usa el botón "Mostrar posiciones" para verlas todas
               </span>
             </div>
           </div>
