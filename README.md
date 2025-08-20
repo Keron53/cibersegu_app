@@ -181,7 +181,7 @@ Para referencia completa de todos los endpoints disponibles:
 ### 🚀 **Despliegue en Producción**
 Para guías de despliegue en Azure, Docker y configuración de producción:
 
-📖 **[Ver Guía de Despliegue →](backend/README.md#despliegue)**
+📖 **[Ver Guía de Despliegue →](deployment/README.md)**
 
 - Configuración de VM en Azure
 - Docker Compose y Nginx
