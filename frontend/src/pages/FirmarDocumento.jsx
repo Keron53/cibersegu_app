@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText, User, Calendar, FileSignature, Download, Eye, Users, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import PDFViewerFirma from '../components/documentos/PDFViewerFirma';
+import PositionSelector from '../components/documentos/PositionSelector';
 import { certificadoService } from '../services/api';
 
 const FirmarDocumento = () => {
@@ -26,11 +27,15 @@ const FirmarDocumento = () => {
   const [fechaExpiracion, setFechaExpiracion] = useState('');
   const [firmantes, setFirmantes] = useState([]); // Array de objetos: {email, nombre, posicion}
   const [nuevoFirmante, setNuevoFirmante] = useState('');
-  const [firmanteSeleccionandoPosicion, setFirmanteSeleccionandoPosicion] = useState(null); // ID del usuario seleccionando posición
+  
+  // Estado para el nuevo selector de posición
+  const [showPositionSelector, setShowPositionSelector] = useState(false);
+  const [firmanteParaPosicion, setFirmanteParaPosicion] = useState(null);
   
   // Estados para lista de usuarios
   const [usuarios, setUsuarios] = useState([]); // Lista de usuarios del sistema
   const [cargandoUsuarios, setCargandoUsuarios] = useState(false);
+  const [creandoSolicitud, setCreandoSolicitud] = useState(false);
 
   useEffect(() => {
     cargarDocumento();
@@ -135,21 +140,50 @@ const FirmarDocumento = () => {
         console.log('📋 Keys del primer usuario:', usuariosData[0] ? Object.keys(usuariosData[0]) : 'null');
         
         // Filtrar usuarios que no sean el usuario actual
-        const usuarioActual = JSON.parse(localStorage.getItem('user'));
-        console.log('🔍 Usuario actual del localStorage:', usuarioActual);
-        console.log('🔍 Tipo de usuarioActual:', typeof usuarioActual);
-        console.log('🔍 Keys de usuarioActual:', usuarioActual ? Object.keys(usuarioActual) : 'null');
-        
+        // Intentar distintas claves y estructuras en localStorage y, como respaldo, decodificar el JWT
+        const posiblesClaves = ['user', 'userData', 'usuario', 'authUser'];
+        let usuarioActual = null;
+        for (const key of posiblesClaves) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed) {
+                usuarioActual = parsed;
+                break;
+              }
+            } catch (e) {
+              // ignorar errores de parseo
+            }
+          }
+        }
+
+        // Respaldo: intentar decodificar el token JWT si existe
+        if (!usuarioActual) {
+          const tokenLS = localStorage.getItem('token');
+          if (tokenLS && tokenLS.split('.').length === 3) {
+            try {
+              const payload = JSON.parse(atob(tokenLS.split('.')[1]));
+              usuarioActual = payload || null;
+            } catch (e) {
+              // no se pudo decodificar
+            }
+          }
+        }
+
+        console.log('🔍 Usuario actual detectado:', usuarioActual);
+        console.log('🔍 Keys usuarioActual:', usuarioActual ? Object.keys(usuarioActual) : 'null');
+
         let usuarioActualId = null;
-        
-        // Intentar diferentes estructuras posibles del localStorage
         if (usuarioActual) {
-          if (usuarioActual.id) {
-            usuarioActualId = usuarioActual.id;
-          } else if (usuarioActual._id) {
-            usuarioActualId = usuarioActual._id;
-          } else if (usuarioActual.userId) {
-            usuarioActualId = usuarioActual.userId;
+          // Campos directos
+          usuarioActualId = usuarioActual.id || usuarioActual._id || usuarioActual.userId || usuarioActual.uid || usuarioActual.sub || null;
+          // Anidados
+          if (!usuarioActualId && usuarioActual.user) {
+            usuarioActualId = usuarioActual.user.id || usuarioActual.user._id || usuarioActual.user.userId || null;
+          }
+          if (!usuarioActualId && usuarioActual.usuario) {
+            usuarioActualId = usuarioActual.usuario.id || usuarioActual.usuario._id || usuarioActual.usuario.userId || null;
           }
         }
         
@@ -282,6 +316,12 @@ const FirmarDocumento = () => {
 
   // Funciones para manejar firma múltiple
   const agregarFirmante = () => {
+    // Limitar a máximo 1 firmante
+    if (firmantes.length >= 1) {
+      setError('Solo se permite un firmante en esta solicitud');
+      return;
+    }
+
     if (nuevoFirmante.trim()) {
       const usuarioId = nuevoFirmante.trim();
       const usuarioExiste = firmantes.some(f => f.usuarioId === usuarioId);
@@ -308,29 +348,47 @@ const FirmarDocumento = () => {
     setFirmantes(firmantes.filter((_, i) => i !== index));
   };
 
-  // Función para seleccionar posición para un firmante específico
-  const seleccionarPosicionParaFirmante = (index) => {
-    setFirmanteSeleccionandoPosicion(index);
-    // El PDFViewerFirma detectará esto y permitirá seleccionar posición
-  };
-
-  // Función para guardar la posición seleccionada para el firmante actual
-  const guardarPosicionParaFirmante = (posicion) => {
-    if (firmanteSeleccionandoPosicion !== null) {
-      const firmantesActualizados = firmantes.map(firmante => 
-        firmante.usuarioId === firmanteSeleccionandoPosicion 
-          ? { ...firmante, posicion: posicion }
-          : firmante
-      );
-      setFirmantes(firmantesActualizados);
-      setFirmanteSeleccionandoPosicion(null);
-      console.log('✅ Posición guardada para firmante:', firmanteSeleccionandoPosicion);
+  // Función para abrir el selector de posición para un firmante específico
+  const abrirSelectorPosicion = (usuarioId) => {
+    const firmante = firmantes.find(f => f.usuarioId === usuarioId);
+    if (firmante) {
+      setFirmanteParaPosicion(firmante);
+      setShowPositionSelector(true);
     }
   };
 
+  // Función para manejar la posición seleccionada desde el modal
+  const manejarPosicionSeleccionada = (posicion) => {
+    console.log('📍 Nueva posición recibida:', posicion);
+    
+    setFirmantes(prev => prev.map(firmante => 
+      firmante.usuarioId === posicion.firmanteId 
+        ? { ...firmante, posicion }
+        : firmante
+    ));
+    
+    // Cerrar el selector
+    setShowPositionSelector(false);
+    setFirmanteParaPosicion(null);
+    
+    console.log('✅ Posición guardada para firmante:', posicion.firmanteId);
+  };
+
+  // Función para cerrar el selector de posición
+  const cerrarSelectorPosicion = () => {
+    setShowPositionSelector(false);
+    setFirmanteParaPosicion(null);
+  };
+
   const crearSolicitudMultiple = async () => {
-    if (!tituloSolicitud.trim() || firmantes.length === 0) {
-      setError('Por favor completa el título y agrega al menos un firmante');
+    console.log('🧪 Validando creación. Firmantes actuales:', firmantes);
+    if (!tituloSolicitud.trim()) {
+      setError('Por favor completa el título de la solicitud');
+      return;
+    }
+
+    if (firmantes.length !== 1) {
+      setError('Debes seleccionar exactamente un firmante');
       return;
     }
 
@@ -343,6 +401,7 @@ const FirmarDocumento = () => {
 
     try {
       setError('');
+      setCreandoSolicitud(true);
       const token = localStorage.getItem('token');
       
       const solicitudData = {
@@ -352,13 +411,13 @@ const FirmarDocumento = () => {
         fechaExpiracion: new Date(fechaExpiracion).toISOString(),
         firmantes: firmantes.map(f => ({
           usuarioId: f.usuarioId,
-          email: f.email,
-          nombre: f.nombre,
           posicion: f.posicion
         }))
       };
 
-      const response = await fetch('/api/solicitudes-multiples', {
+      console.log('📤 Enviando solicitud (único firmante):', solicitudData);
+
+      const response = await fetch('/api/solicitudes-multiples/crear', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -388,10 +447,13 @@ const FirmarDocumento = () => {
       } else {
         const errorData = await response.json();
         setError(errorData.error || 'Error al crear la solicitud múltiple');
+        console.error('❌ Error creando solicitud:', errorData);
       }
     } catch (error) {
       console.error('Error creando solicitud múltiple:', error);
       setError('Error de conexión al crear la solicitud');
+    } finally {
+      setCreandoSolicitud(false);
     }
   };
 
@@ -466,9 +528,6 @@ const FirmarDocumento = () => {
                 documento={documento}
                 onPositionSelected={handlePosicionSeleccionada}
                 onClose={() => setShowPDF(false)}
-                // Props para firma múltiple
-                firmanteSeleccionandoPosicion={firmanteSeleccionandoPosicion}
-                onPosicionFirmanteSeleccionada={guardarPosicionParaFirmante}
               />
             ) : (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
@@ -708,20 +767,20 @@ const FirmarDocumento = () => {
               {/* Lista de firmantes */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Firmantes ({firmantes.length})
+                  Firmante (máximo 1)
                 </label>
                 
-                {/* Indicador de selección de posición */}
-                {firmanteSeleccionandoPosicion !== null && (
-                  <div className="mb-3 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md">
+                {/* Información del selector de posición */}
+                {showPositionSelector && firmanteParaPosicion && (
+                  <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
                     <div className="flex items-center space-x-2">
-                      <span className="text-orange-600 dark:text-orange-400">📍</span>
-                      <span className="text-sm text-orange-700 dark:text-orange-300">
-                        <strong>Seleccionando posición para:</strong> {firmantes.find(f => f.usuarioId === firmanteSeleccionandoPosicion)?.nombre}
+                      <span className="text-blue-600 dark:text-blue-400">📍</span>
+                      <span className="text-sm text-blue-700 dark:text-blue-300">
+                        <strong>Abriendo selector para:</strong> {firmanteParaPosicion.nombre}
                       </span>
                     </div>
-                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                      Haz clic y arrastra en el PDF para seleccionar la posición de firma
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                      Se abrirá un modal para seleccionar la posición de firma
                     </p>
                   </div>
                 )}
@@ -732,7 +791,7 @@ const FirmarDocumento = () => {
                     value={nuevoFirmante}
                     onChange={(e) => setNuevoFirmante(e.target.value)}
                     className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    disabled={cargandoUsuarios}
+                    disabled={cargandoUsuarios || firmantes.length >= 1}
                   >
                                             <option value="">Seleccionar usuario...</option>
                         {usuarios.map(usuario => (
@@ -743,9 +802,9 @@ const FirmarDocumento = () => {
                   </select>
                   <button
                     onClick={agregarFirmante}
-                    disabled={!nuevoFirmante || cargandoUsuarios}
+                    disabled={!nuevoFirmante || cargandoUsuarios || firmantes.length >= 1}
                     className={`px-3 py-2 rounded-md transition-colors ${
-                      nuevoFirmante && !cargandoUsuarios
+                      nuevoFirmante && !cargandoUsuarios && firmantes.length < 1
                         ? 'bg-blue-600 text-white hover:bg-blue-700'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
@@ -753,6 +812,11 @@ const FirmarDocumento = () => {
                     +
                   </button>
                 </div>
+                {firmantes.length >= 1 && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Ya seleccionaste el único firmante permitido.
+                  </div>
+                )}
                 
                 {/* Indicador de carga */}
                 {cargandoUsuarios && (
@@ -790,15 +854,15 @@ const FirmarDocumento = () => {
                             <div className="flex items-center space-x-2">
                               {/* Botón para seleccionar posición */}
                               <button
-                                onClick={() => seleccionarPosicionParaFirmante(firmante.usuarioId)}
+                                onClick={() => abrirSelectorPosicion(firmante.usuarioId)}
                                 className={`px-3 py-1 text-xs rounded-md transition-colors ${
                                   firmante.posicion
-                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                                    : 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
+                                    ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
                                 }`}
                                 title={firmante.posicion ? 'Cambiar posición' : 'Seleccionar posición'}
                               >
-                                {firmante.posicion ? '🔄 Cambiar' : '📍 Seleccionar'}
+                                {firmante.posicion ? '✏️ Editar' : '📍 Ubicar'}
                               </button>
                               
                               {/* Botón para remover */}
@@ -816,18 +880,25 @@ const FirmarDocumento = () => {
                     </div>
               </div>
 
+              {/* Mensajes de error dentro del panel */}
+              {error && (
+                <div className="mb-3 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300 rounded-md">
+                  {error}
+                </div>
+              )}
+
               {/* Botones de acción */}
               <div className="flex space-x-2">
                 <button
                   onClick={crearSolicitudMultiple}
-                  disabled={!tituloSolicitud || firmantes.length === 0}
+                  disabled={!tituloSolicitud || firmantes.length !== 1 || creandoSolicitud}
                   className={`flex-1 p-2 rounded-md font-medium transition-colors ${
-                    tituloSolicitud && firmantes.length > 0
+                    tituloSolicitud && firmantes.length === 1 && !creandoSolicitud
                       ? 'bg-green-600 hover:bg-green-700 text-white'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
                 >
-                  Crear Solicitud
+                  {creandoSolicitud ? 'Creando...' : 'Crear Solicitud'}
                 </button>
                 <button
                   onClick={() => setShowSolicitudMultiple(false)}
@@ -884,6 +955,15 @@ const FirmarDocumento = () => {
           </motion.div>
         )}
       </div>
+
+      {/* Modal de selección de posición */}
+      <PositionSelector
+        documento={documento}
+        firmante={firmanteParaPosicion}
+        isOpen={showPositionSelector}
+        onClose={cerrarSelectorPosicion}
+        onPositionSelected={manejarPosicionSeleccionada}
+      />
     </div>
   );
 };

@@ -349,7 +349,8 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
               qrSize: finalCoords.width || 100,
               qrData: generateQRCodeData({ x: finalCoords.x, y: finalCoords.y, page: currentPageRef.current }),
               canvasWidth: rect.width,
-              canvasHeight: rect.height
+              canvasHeight: rect.height,
+              firmanteId: firmanteIdRef.current
             });
           } else if (onPositionSelected) {
             onPositionSelected({
@@ -403,8 +404,16 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
       { border: '#6366F1', bg: 'rgba(99, 102, 241, 0.3)', shadow: 'rgba(99, 102, 241, 0.4)' }  // Índigo
     ];
     
-    const colorIndex = firmanteId ? parseInt(firmanteId.slice(-1)) % colors.length : 0;
-    const color = colors[colorIndex];
+    // Cálculo robusto del índice de color para IDs no numéricos (e.g., ObjectId de Mongo)
+    let colorIndex = 0;
+    if (firmanteId && typeof firmanteId === 'string') {
+      let hash = 0;
+      for (let i = 0; i < firmanteId.length; i++) {
+        hash = (hash * 31 + firmanteId.charCodeAt(i)) >>> 0;
+      }
+      colorIndex = hash % colors.length;
+    }
+    const color = colors[colorIndex] || colors[0];
     
     // Estilo visual del cuadrito
     box.classList.add('selection-box');
