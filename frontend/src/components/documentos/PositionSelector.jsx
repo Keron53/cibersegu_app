@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, Check, AlertCircle, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, MapPin, Check, AlertCircle, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 
 const PositionSelector = ({ 
   documento, 
@@ -15,18 +15,38 @@ const PositionSelector = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedPosition, setSelectedPosition] = useState(null);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startCoords, setStartCoords] = useState(null);
+  const [selectionBox, setSelectionBox] = useState(null);
   
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const pdfDocRef = useRef(null);
   const viewportRef = useRef(null);
+  const currentPageRef = useRef(1);
+  const isSavingRef = useRef(false);
 
   useEffect(() => {
     if (isOpen && documento && documento._id) {
       cargarPDF();
     }
   }, [isOpen, documento]);
+
+  // Mantener la página actual en una ref para usarla dentro de los handlers
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
+
+  // Configurar eventos del mouse cuando el componente se monte
+  useEffect(() => {
+    if (containerRef.current && !loading) {
+      const timer = setTimeout(() => {
+        setupMouseEvents();
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [loading, containerRef.current]);
 
   const cargarPDF = async () => {
     try {
@@ -74,6 +94,13 @@ const PositionSelector = ({
       setCurrentPage(1);
       
       await renderizarPagina(1);
+      
+      // Setup mouse events after PDF is loaded and rendered
+      setTimeout(() => {
+        if (containerRef.current) {
+          setupMouseEvents();
+        }
+      }, 200);
     } catch (error) {
       console.error('Error cargando PDF con PDF.js:', error);
       setError('Error al procesar el PDF');
@@ -100,6 +127,9 @@ const PositionSelector = ({
       canvas.style.display = 'block';
       canvas.style.width = `${finalViewport.width}px`;
       canvas.style.height = `${finalViewport.height}px`;
+      canvas.style.margin = '0';
+      canvas.style.maxWidth = 'none';
+      canvas.style.flexShrink = '0';
 
       const renderContext = {
         canvasContext: context,
@@ -107,53 +137,266 @@ const PositionSelector = ({
       };
 
       await page.render(renderContext).promise;
-      console.log(`✅ Página ${pageNum} renderizada`);
+      console.log(`✅ Página ${pageNum} renderizada con escala ${finalScale.toFixed(2)}`);
     } catch (error) {
       console.error('Error renderizando página:', error);
     }
   };
 
-  const handleCanvasClick = (event) => {
-    if (!containerRef.current || isPreviewMode) return;
+  // LÓGICA DE ARRASTRE COPIADA DE PDFViewerFirma - PRECISA Y ROBUSTA
+  const setupMouseEvents = () => {
+    console.log('🔧 Configurando eventos del mouse en PositionSelector...');
+    
+    if (!containerRef.current) {
+      console.error('❌ containerRef.current es null');
+      return;
+    }
+    
+    if (!containerRef.current.querySelector('canvas')) {
+      console.error('❌ Canvas del PDF no encontrado');
+      return;
+    }
+    
+    console.log('✅ Ref y canvas disponibles, configurando eventos...');
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    // Variables para el arrastre
+    let isDraggingNow = false;
+    let startX = 0;
+    let startY = 0;
+    let currentBox = null;
 
-    // Convertir coordenadas de pantalla a coordenadas PDF
-    const pdfX = Math.round(x / scale);
-    const pdfY = Math.round((rect.height - y) / scale);
-
-    const position = {
-      x: pdfX,
-      y: pdfY,
-      page: currentPage,
-      screenX: x,
-      screenY: y,
-      canvasWidth: rect.width,
-      canvasHeight: rect.height,
-      scale: scale
+    const handleMouseDown = (event) => {
+      console.log('🖱️ Mouse down detectado en PositionSelector');
+      
+      // Limpiar selección anterior
+      limpiarSeleccionAnterior();
+      
+      // Modo selección
+      const rect = containerRef.current.getBoundingClientRect();
+      startX = event.clientX - rect.left;
+      startY = event.clientY - rect.top;
+      
+      // Crear nueva caja con color específico para el firmante
+      currentBox = createSelectionBox(startX, startY, firmante?.usuarioId);
+      containerRef.current.appendChild(currentBox);
+      
+      setSelectionBox(currentBox);
+      setStartCoords({ x: startX, y: startY });
+      
+      // Activar arrastre
+      isDraggingNow = true;
+      setIsDragging(true);
+      
+      console.log('🎯 Iniciando selección en:', { startX, startY });
     };
 
-    setSelectedPosition(position);
-    setIsPreviewMode(true);
+    const handleMouseMove = (event) => {
+      if (!isDraggingNow || !currentBox) return;
+      
+      console.log('🖱️ Mouse move detectado, arrastrando:', isDraggingNow);
+      
+      // Selección - actualizar caja en tiempo real
+      const rect = containerRef.current.getBoundingClientRect();
+      const currentX = event.clientX - rect.left;
+      const currentY = event.clientY - rect.top;
+      
+      // Calcular dimensiones
+      const left = Math.min(currentX, startX);
+      const top = Math.min(currentY, startY);
+      const width = Math.abs(currentX - startX);
+      const height = Math.abs(currentY - startY);
+      
+      // Aplicar límites
+      const maxWidth = rect.width - left;
+      const maxHeight = rect.height - top;
+      const finalWidth = Math.min(width, maxWidth);
+      const finalHeight = Math.min(height, maxHeight);
+      
+      // Actualizar caja
+      updateSelectionBox(currentBox, left, top, finalWidth, finalHeight);
+      
+      console.log('📏 Caja actualizada:', { left, top, width: finalWidth, height: finalHeight });
+    };
+
+    const handleMouseUp = () => {
+      console.log('🖱️ Mouse up detectado en PositionSelector');
+      
+      if (currentBox && isDraggingNow) {
+        // Finalizar selección - hacer la caja más visible y atractiva
+        currentBox.style.border = '4px solid #3B82F6';
+        currentBox.style.background = 'rgba(59, 130, 246, 0.3)';
+        currentBox.style.boxShadow = '0 0 20px rgba(59, 130, 246, 0.6)';
+        
+        // Actualizar el indicador
+        const indicator = currentBox.querySelector('.position-indicator');
+        if (indicator) {
+          indicator.style.background = '#3B82F6';
+          indicator.textContent = `📍 ${firmante?.nombre}`;
+        }
+        
+        const rect = containerRef.current.getBoundingClientRect();
+        const finalCoords = calculatePDFCoordinates(currentBox, rect);
+        
+        if (isSavingRef.current) {
+          console.log('⏳ Ignorando mouseup duplicado');
+        } else {
+          isSavingRef.current = true;
+          
+          // Guardar la posición seleccionada
+          const position = {
+            x: finalCoords.x,
+            y: finalCoords.y,
+            page: currentPageRef.current,
+            qrSize: finalCoords.width || 100,
+            qrData: generateQRCodeData({ x: finalCoords.x, y: finalCoords.y, page: currentPageRef.current }),
+            canvasWidth: rect.width,
+            canvasHeight: rect.height,
+            firmanteId: firmante?.usuarioId,
+            screenX: parseFloat(currentBox.style.left) + parseFloat(currentBox.style.width) / 2,
+            screenY: parseFloat(currentBox.style.top) + parseFloat(currentBox.style.height) / 2,
+            scale: scale
+          };
+          
+          setSelectedPosition(position);
+          setTimeout(() => { isSavingRef.current = false; }, 150);
+        }
+        
+        console.log('✅ Selección completada para firmante:', firmante?.usuarioId, finalCoords);
+      }
+      
+      // Resetear estado
+      isDraggingNow = false;
+      setIsDragging(false);
+    };
+
+    // Registrar eventos
+    containerRef.current.addEventListener('mousedown', handleMouseDown);
+    containerRef.current.addEventListener('mousemove', handleMouseMove);
+    containerRef.current.addEventListener('mouseup', handleMouseUp);
     
-    console.log('📍 Posición seleccionada:', position);
+    console.log('✅ Eventos del mouse registrados en PositionSelector');
+
+    // Cleanup
+    return () => {
+      if (containerRef.current) {
+        containerRef.current.removeEventListener('mousedown', handleMouseDown);
+        containerRef.current.removeEventListener('mousemove', handleMouseMove);
+        containerRef.current.removeEventListener('mouseup', handleMouseUp);
+      }
+    };
   };
 
-  const confirmarPosicion = () => {
-    if (selectedPosition && firmante) {
-      const posicionFinal = {
-        ...selectedPosition,
-        firmanteId: firmante.usuarioId,
-        firmante: firmante.nombre,
-        qrSize: 100,
-        qrData: generateQRCodeData(selectedPosition)
-      };
+  // Creación del cuadrito de selección - COPIADO Y ADAPTADO DE PDFViewerFirma
+  const createSelectionBox = (x, y, firmanteId = null) => {
+    const box = document.createElement('div');
+    
+    // Color azul para el PositionSelector
+    const color = { border: '#3B82F6', bg: 'rgba(59, 130, 246, 0.2)', shadow: 'rgba(59, 130, 246, 0.4)' };
+    
+    // Estilo visual del cuadrito
+    box.classList.add('selection-box');
+    box.dataset.firmanteId = firmanteId || 'default';
+    
+    // Posicionamiento inicial
+    box.style.position = 'absolute';
+    box.style.left = `${x}px`;
+    box.style.top = `${y}px`;
+    box.style.width = '0px';
+    box.style.height = '0px';
+    
+    // Apariencia visual con color específico
+    box.style.border = `3px solid ${color.border}`;
+    box.style.background = color.bg;
+    box.style.pointerEvents = 'none';
+    box.style.borderRadius = '4px';
+    box.style.boxShadow = `0 0 8px ${color.shadow}`;
+    box.style.zIndex = '1000';
+    box.style.transition = 'none';
+    
+    // Agregar indicador de posición seleccionada
+    const indicator = document.createElement('div');
+    indicator.className = 'position-indicator';
+    indicator.style.position = 'absolute';
+    indicator.style.top = '-30px';
+    indicator.style.left = '50%';
+    indicator.style.transform = 'translateX(-50%)';
+    indicator.style.background = color.border;
+    indicator.style.color = 'white';
+    indicator.style.padding = '4px 8px';
+    indicator.style.borderRadius = '4px';
+    indicator.style.fontSize = '12px';
+    indicator.style.fontWeight = 'bold';
+    indicator.style.whiteSpace = 'nowrap';
+    indicator.style.zIndex = '1001';
+    indicator.textContent = '📍 Arrastrando...';
+    box.appendChild(indicator);
+    
+    console.log('🎯 Caja de selección creada en PositionSelector:', { x, y, firmanteId });
+    return box;
+  };
 
-      onPositionSelected(posicionFinal);
-      onClose();
+  // Actualización visual del cuadrito - COPIADO DE PDFViewerFirma
+  const updateSelectionBox = (box, left, top, width, height) => {
+    if (!box || !box.style) {
+      console.error('❌ Error: box o box.style es null');
+      return;
     }
+    
+    // Asegurar que las dimensiones sean válidas
+    const validWidth = Math.max(0, width);
+    const validHeight = Math.max(0, height);
+    
+    box.style.left = `${left}px`;
+    box.style.top = `${top}px`;
+    box.style.width = `${validWidth}px`;
+    box.style.height = `${validHeight}px`;
+    
+    console.log('📐 Caja actualizada en PositionSelector:', { left, top, width: validWidth, height: validHeight });
+  };
+
+  // Cálculo de coordenadas del PDF - COPIADO EXACTO DE PDFViewerFirma
+  const calculatePDFCoordinates = (selectionBox, rect) => {
+    // 1. Convertir coordenadas de pantalla a coordenadas del PDF
+    // El PDF.js usa coordenadas cartesianas (0,0 en la esquina inferior izquierda)
+    // La pantalla usa coordenadas (0,0 en la esquina superior izquierda)
+    
+    // Obtener coordenadas de la caja de selección
+    const boxLeft = parseInt(selectionBox.style.left);
+    const boxTop = parseInt(selectionBox.style.top);
+    const boxWidth = parseInt(selectionBox.style.width);
+    const boxHeight = parseInt(selectionBox.style.height);
+    
+    // Convertir a coordenadas del PDF considerando la escala
+    const x = boxLeft / scale;
+    
+    // CORRECCIÓN: Ajustar el offset Y para mayor precisión
+    // El problema era que estábamos restando rect.height completo
+    // Necesitamos considerar solo la altura del canvas del PDF
+    const canvasHeight = rect.height;
+    const y = (canvasHeight - boxTop - boxHeight) / scale; // Restar también la altura de la caja
+    
+    const width = boxWidth / scale;
+    const height = boxHeight / scale;
+    
+    console.log('🔄 Conversión de coordenadas CORREGIDA en PositionSelector:', {
+      screen: { 
+        left: boxLeft, 
+        top: boxTop, 
+        width: boxWidth, 
+        height: boxHeight 
+      },
+      canvas: { width: rect.width, height: canvasHeight },
+      pdf: { 
+        x: Math.round(x), 
+        y: Math.round(y), 
+        width: Math.round(width), 
+        height: Math.round(height) 
+      },
+      scale: scale,
+      offsetY: canvasHeight - boxTop - boxHeight
+    });
+    
+    return { x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height) };
   };
 
   const generateQRCodeData = (position) => {
@@ -176,7 +419,7 @@ const PositionSelector = ({
     if (nuevaPagina >= 1 && nuevaPagina <= totalPages) {
       setCurrentPage(nuevaPagina);
       setSelectedPosition(null);
-      setIsPreviewMode(false);
+      limpiarSeleccionAnterior();
       renderizarPagina(nuevaPagina);
     }
   };
@@ -185,13 +428,27 @@ const PositionSelector = ({
     const nuevaScale = Math.max(0.5, Math.min(3.0, nuevaEscala));
     setScale(nuevaScale);
     setSelectedPosition(null);
-    setIsPreviewMode(false);
+    limpiarSeleccionAnterior();
     setTimeout(() => renderizarPagina(currentPage), 100);
+  };
+
+  const limpiarSeleccionAnterior = () => {
+    if (selectionBox && selectionBox.parentElement) {
+      selectionBox.parentElement.removeChild(selectionBox);
+    }
+    setSelectionBox(null);
   };
 
   const reiniciarSeleccion = () => {
     setSelectedPosition(null);
-    setIsPreviewMode(false);
+    limpiarSeleccionAnterior();
+  };
+
+  const confirmarPosicion = () => {
+    if (selectedPosition && firmante) {
+      onPositionSelected(selectedPosition);
+      onClose();
+    }
   };
 
   if (!isOpen) return null;
@@ -252,29 +509,28 @@ const PositionSelector = ({
                   <div 
                     ref={containerRef}
                     className="relative bg-white shadow-lg cursor-crosshair"
-                    onClick={handleCanvasClick}
+                    style={{ 
+                      minHeight: '600px',
+                      overflow: 'hidden',
+                      width: 'fit-content',
+                      maxWidth: '100%',
+                      flexShrink: '0',
+                      flexGrow: '0',
+                      aspectRatio: 'auto'
+                    }}
                   >
                     <canvas
                       ref={canvasRef}
                       className="block"
+                      style={{ 
+                        cursor: 'crosshair',
+                        width: 'auto',
+                        height: 'auto',
+                        maxWidth: 'none',
+                        flexShrink: '0',
+                        flexGrow: '0'
+                      }}
                     />
-                    
-                    {/* Preview de la posición seleccionada */}
-                    {selectedPosition && isPreviewMode && (
-                      <div
-                        className="absolute border-4 border-blue-500 bg-blue-500 bg-opacity-30 rounded-lg pointer-events-none"
-                        style={{
-                          left: selectedPosition.screenX - 50,
-                          top: selectedPosition.screenY - 25,
-                          width: 100,
-                          height: 50,
-                        }}
-                      >
-                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-2 py-1 rounded text-xs whitespace-nowrap">
-                          📍 {firmante?.nombre}
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   {/* Controles de navegación */}
@@ -350,8 +606,8 @@ const PositionSelector = ({
                   </h4>
                   <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                     <li>1. Navega por las páginas del documento</li>
-                    <li>2. Haz clic donde quieres colocar la firma</li>
-                    <li>3. Revisa la posición en vista previa</li>
+                    <li>2. <strong>Haz clic y arrastra</strong> para crear el área de firma</li>
+                    <li>3. Revisa la posición seleccionada</li>
                     <li>4. Confirma la selección</li>
                   </ol>
                 </div>
@@ -366,7 +622,7 @@ const PositionSelector = ({
                       </span>
                     </div>
                     <p className="text-orange-600 dark:text-orange-400 text-xs mt-1">
-                      Haz clic en el documento para seleccionar la posición
+                      Haz clic y arrastra en el documento para seleccionar el área de firma
                     </p>
                   </div>
                 ) : (
@@ -374,13 +630,29 @@ const PositionSelector = ({
                     <div className="flex items-center space-x-2 mb-2">
                       <Check className="w-5 h-5 text-green-600" />
                       <span className="text-green-700 dark:text-green-300 text-sm font-medium">
-                        Posición seleccionada
+                        Área seleccionada
                       </span>
                     </div>
                     <div className="text-xs text-green-600 dark:text-green-400 space-y-1">
                       <div>📄 Página: {selectedPosition.page}</div>
                       <div>📍 Coordenadas: ({selectedPosition.x}, {selectedPosition.y})</div>
+                      <div>📏 Tamaño: {selectedPosition.qrSize}px</div>
                     </div>
+                  </div>
+                )}
+
+                {/* Indicador de arrastre activo */}
+                {isDragging && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                      <span className="text-blue-700 dark:text-blue-400 text-sm font-medium">
+                        🖱️ Arrastrando área de firma...
+                      </span>
+                    </div>
+                    <p className="text-blue-600 dark:text-blue-400 text-xs mt-1">
+                      Suelta el mouse para finalizar la selección
+                    </p>
                   </div>
                 )}
 
@@ -389,22 +661,24 @@ const PositionSelector = ({
                   {selectedPosition && (
                     <button
                       onClick={reiniciarSeleccion}
-                      className="w-full bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 transition-colors"
+                      className="w-full bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 transition-colors flex items-center justify-center"
                     >
-                      🔄 Seleccionar otra posición
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Seleccionar otra área
                     </button>
                   )}
                   
                   <button
                     onClick={confirmarPosicion}
                     disabled={!selectedPosition}
-                    className={`w-full py-2 px-4 rounded-md transition-colors ${
+                    className={`w-full py-2 px-4 rounded-md transition-colors flex items-center justify-center ${
                       selectedPosition
                         ? 'bg-blue-600 text-white hover:bg-blue-700'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
                   >
-                    ✅ Confirmar Posición
+                    <Check className="w-4 h-4 mr-2" />
+                    Confirmar Posición
                   </button>
                 </div>
               </div>
