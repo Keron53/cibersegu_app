@@ -21,6 +21,9 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
   const pdfViewerRef = useRef(null);
   const pdfDocRef = useRef(null);
   const viewportRef = useRef(null);
+  const isSavingRef = useRef(false);
+  const firmanteIdRef = useRef(null); // siempre con el último valor
+  const currentPageRef = useRef(1); // evita valores stale de página en handlers
 
   // Function to generate QR code data for the signature
   const generateQRCodeData = (position) => {
@@ -53,10 +56,17 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
 
   // Mostrar cajas existentes cuando cambie el firmante seleccionado
   useEffect(() => {
+    // mantener ref actualizado para evitar valores stale en handlers
+    firmanteIdRef.current = firmanteSeleccionandoPosicion || null;
     if (firmanteSeleccionandoPosicion && pdfViewerRef.current) {
       mostrarCajasExistentes();
     }
   }, [firmanteSeleccionandoPosicion]);
+
+  // Mantener la página actual en una ref para usarla dentro de los handlers (evitar cierres obsoletos)
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
 
   // Configurar eventos del mouse cuando el componente se monte
   useEffect(() => {
@@ -225,12 +235,12 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
         startY = event.clientY - rect.top;
         
         // Crear nueva caja con color específico para el firmante
-        const firmanteId = firmanteSeleccionandoPosicion;
+        const firmanteId = firmanteIdRef.current;
         currentBox = createSelectionBox(startX, startY, firmanteId);
         pdfViewerRef.current.appendChild(currentBox);
         
         // Guardar la caja en el estado de múltiples cajas
-        setSelectionBoxes(prev => new Map(prev).set(firmanteId, currentBox));
+        setSelectionBoxes(prev => new Map(prev).set(firmanteId || 'default', currentBox));
         setStartCoords({ x: startX, y: startY });
         
         // Activar arrastre
@@ -286,15 +296,17 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
         const pdfX = Math.round(previewPosition.x / scale);
         const pdfY = Math.round((rect.height - previewPosition.y) / scale);
         
-        onPositionSelected({
-          x: pdfX,
-          y: pdfY,
-          page: currentPage,
-          qrSize: 100,
-          qrData: generateQRCodeData({ x: pdfX, y: pdfY, page: currentPage }),
-          canvasWidth: rect.width,
-          canvasHeight: rect.height
-        });
+        if (onPositionSelected && !firmanteIdRef.current) {
+          onPositionSelected({
+            x: pdfX,
+            y: pdfY,
+            page: currentPageRef.current,
+            qrSize: 100,
+            qrData: generateQRCodeData({ x: pdfX, y: pdfY, page: currentPageRef.current }),
+            canvasWidth: rect.width,
+            canvasHeight: rect.height
+          });
+        }
         
         setPreviewPosition(null);
         setIsDragging(false);
@@ -325,25 +337,35 @@ const PDFViewerFirma = ({ documento, onPositionSelected, onClose, onClearSelecti
         const rect = pdfViewerRef.current.getBoundingClientRect();
         const finalCoords = calculatePDFCoordinates(currentBox, rect);
         
-        onPositionSelected({
-          x: finalCoords.x,
-          y: finalCoords.y,
-          page: currentPage,
-          qrSize: finalCoords.width || 100,
-          qrData: generateQRCodeData({ x: finalCoords.x, y: finalCoords.y, page: currentPage }),
-          canvasWidth: rect.width,
-          canvasHeight: rect.height
-        });
-        
-        // NO limpiar automáticamente - mantener hasta que se firme
-        // La caja se mantendrá visible para que el usuario vea dónde va a firmar
-        
-        console.log('✅ Selección completada para firmante:', firmanteSeleccionandoPosicion, finalCoords);
-        
-        // Notificar al componente padre sobre la posición seleccionada
-        if (onPosicionFirmanteSeleccionada) {
-          onPosicionFirmanteSeleccionada(finalCoords);
+        if (isSavingRef.current) {
+          console.log('⏳ Ignorando mouseup duplicado');
+        } else {
+          isSavingRef.current = true;
+          if (firmanteIdRef.current && onPosicionFirmanteSeleccionada) {
+            onPosicionFirmanteSeleccionada({
+              x: finalCoords.x,
+              y: finalCoords.y,
+              page: currentPageRef.current,
+              qrSize: finalCoords.width || 100,
+              qrData: generateQRCodeData({ x: finalCoords.x, y: finalCoords.y, page: currentPageRef.current }),
+              canvasWidth: rect.width,
+              canvasHeight: rect.height
+            });
+          } else if (onPositionSelected) {
+            onPositionSelected({
+              x: finalCoords.x,
+              y: finalCoords.y,
+              page: currentPageRef.current,
+              qrSize: finalCoords.width || 100,
+              qrData: generateQRCodeData({ x: finalCoords.x, y: finalCoords.y, page: currentPageRef.current }),
+              canvasWidth: rect.width,
+              canvasHeight: rect.height
+            });
+          }
+          setTimeout(() => { isSavingRef.current = false; }, 150);
         }
+        
+        console.log('✅ Selección completada para firmante:', firmanteIdRef.current, finalCoords);
       }
       
       // Resetear estado

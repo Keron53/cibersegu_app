@@ -17,7 +17,7 @@ const solicitudMultipleController = {
     try {
       const {
         documentoId,
-        firmantes, // Array de IDs de usuarios
+        firmantes, // Array de objetos: {usuarioId, posicion} o solo IDs
         posicionFirma,
         mensaje,
         titulo,
@@ -33,13 +33,14 @@ const solicitudMultipleController = {
         documentoId, 
         firmantesCount: firmantes?.length, 
         tipo, 
-        prioridad 
+        prioridad,
+        firmantesFormat: firmantes[0] ? (typeof firmantes[0] === 'object' ? 'objetos' : 'ids') : 'vacío'
       });
 
       // Validaciones básicas
-      if (!documentoId || !firmantes || !posicionFirma || !titulo) {
+      if (!documentoId || !firmantes || !titulo) {
         return res.status(400).json({ 
-          error: 'Faltan campos requeridos: documentoId, firmantes, posicionFirma, titulo' 
+          error: 'Faltan campos requeridos: documentoId, firmantes, titulo' 
         });
       }
 
@@ -50,6 +51,31 @@ const solicitudMultipleController = {
       if (firmantes.length > 5) {
         return res.status(400).json({ error: 'No se pueden agregar más de 5 firmantes' });
       }
+
+      // NUEVO: Procesar firmantes y extraer posiciones individuales
+      let firmantesIds = [];
+      let posicionesIndividuales = [];
+      
+      // Verificar si firmantes es array de objetos con posiciones o solo IDs
+      if (firmantes[0] && typeof firmantes[0] === 'object' && firmantes[0].usuarioId) {
+        // Formato: [{usuarioId, posicion}, ...]
+        firmantesIds = firmantes.map(f => f.usuarioId);
+        posicionesIndividuales = firmantes.map(f => ({
+          usuarioId: f.usuarioId,
+          posicion: f.posicion || posicionFirma // Usar posición individual o fallback
+        }));
+        console.log('✅ Formato de firmantes: objetos con posiciones individuales');
+      } else {
+        // Formato: [id1, id2, ...] - Compatibilidad con código anterior
+        firmantesIds = firmantes;
+        posicionesIndividuales = firmantes.map(id => ({
+          usuarioId: id,
+          posicion: posicionFirma // Usar posición base para todos
+        }));
+        console.log('✅ Formato de firmantes: solo IDs (modo compatibilidad)');
+      }
+      
+      console.log('📍 Posiciones individuales procesadas:', posicionesIndividuales.length);
 
       // Verificar que el documento existe y pertenece al usuario
       const documento = await Documento.findOne({ 
@@ -63,15 +89,15 @@ const solicitudMultipleController = {
 
       // Verificar que todos los firmantes existen
       const firmantesUsuarios = await Usuario.find({ 
-        _id: { $in: firmantes } 
+        _id: { $in: firmantesIds } 
       }).select('_id nombre email');
 
-      if (firmantesUsuarios.length !== firmantes.length) {
+      if (firmantesUsuarios.length !== firmantesIds.length) {
         return res.status(400).json({ error: 'Uno o más firmantes no existen' });
       }
 
       // Verificar que el solicitante no esté en la lista de firmantes
-      if (firmantes.includes(req.usuario.id)) {
+      if (firmantesIds.includes(req.usuario.id)) {
         return res.status(400).json({ error: 'El solicitante no puede ser firmante' });
       }
 
@@ -93,7 +119,8 @@ const solicitudMultipleController = {
         documentoId,
         solicitanteId: req.usuario.id,
         firmantes: firmantesData,
-        posicionFirma,
+        posicionFirma: posicionFirma || posicionesIndividuales[0]?.posicion, // Posición base para compatibilidad
+        posicionesIndividuales, // NUEVO: Posiciones individuales para cada firmante
         mensaje,
         titulo,
         descripcion,
@@ -110,11 +137,16 @@ const solicitudMultipleController = {
       // Crear solicitudes individuales para cada firmante
       const solicitudesIndividuales = [];
       for (const firmante of firmantesData) {
+        // Buscar la posición individual de este firmante
+        const posicionIndividual = posicionesIndividuales.find(
+          p => p.usuarioId.toString() === firmante.usuarioId.toString()
+        );
+        
         const solicitudIndividual = new SolicitudFirma({
           documentoId,
           solicitanteId: req.usuario.id,
           firmanteId: firmante.usuarioId,
-          posicionFirma,
+          posicionFirma: posicionIndividual ? posicionIndividual.posicion : posicionFirma, // Usar posición individual o fallback
           mensaje,
           estado: 'pendiente',
           fechaExpiracion: fechaExp,

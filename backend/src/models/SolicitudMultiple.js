@@ -29,13 +29,28 @@ const solicitudMultipleSchema = new mongoose.Schema({
     obligatorio: { type: Boolean, default: true }
   }],
   
-  // Posición de firma (misma para todos)
+  // Posición de firma (misma para todos) - Para compatibilidad
   posicionFirma: {
     x: { type: Number, required: true },
     y: { type: Number, required: true },
     page: { type: Number, required: true },
     qrSize: { type: Number, default: 100 }
   },
+  
+  // NUEVO: Posiciones individuales para cada firmante
+  posicionesIndividuales: [{
+    usuarioId: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'Usuario', 
+      required: true 
+    },
+    posicion: {
+      x: { type: Number, required: true },
+      y: { type: Number, required: true },
+      page: { type: Number, required: true },
+      qrSize: { type: Number, default: 100 }
+    }
+  }],
   
   // Mensaje personalizado del solicitante
   mensaje: { type: String },
