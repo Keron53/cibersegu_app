@@ -395,7 +395,7 @@ const solicitudMultipleController = {
         `Documento firmado por ${req.usuario.nombre}`
       );
 
-      // Notificar al solicitante
+      // Notificar al solicitante por email
       try {
         await emailService.enviarNotificacionFirmaCompletada({
           solicitanteEmail: solicitudMultiple.solicitanteId.email,
@@ -405,7 +405,28 @@ const solicitudMultipleController = {
           solicitudMultiple: solicitudMultiple.titulo
         });
       } catch (emailError) {
-        console.error('⚠️ Error enviando notificación:', emailError.message);
+        console.error('⚠️ Error enviando notificación por email:', emailError.message);
+      }
+
+      // Notificar al solicitante por WebSocket
+      try {
+        await enviarNotificacionWebSocket(solicitudMultiple.solicitanteId._id, {
+          tipo: 'firma_completada',
+          solicitudId: solicitudMultiple._id.toString(),
+          titulo: solicitudMultiple.titulo,
+          documentoNombre: solicitudMultiple.documentoId.nombre,
+          firmanteNombre: req.usuario.nombre,
+          firmanteEmail: req.usuario.email,
+          mensaje: `${req.usuario.nombre} ha firmado el documento "${solicitudMultiple.documentoId.nombre}"`,
+          porcentajeCompletado: solicitudMultiple.porcentajeCompletado,
+          firmasCompletadas: solicitudMultiple.firmasCompletadas,
+          totalFirmantes: solicitudMultiple.totalFirmantes,
+          fechaFirma: new Date().toISOString(),
+          timestamp: new Date().toISOString()
+        });
+        console.log('✅ Notificación WebSocket de firma completada enviada al solicitante');
+      } catch (wsError) {
+        console.error('⚠️ Error enviando notificación WebSocket:', wsError.message);
       }
 
       console.log('✅ Documento firmado exitosamente en solicitud múltiple');
@@ -424,6 +445,141 @@ const solicitudMultipleController = {
     } catch (error) {
       console.error('❌ Error firmando solicitud múltiple:', error);
       res.status(500).json({ error: 'Error al firmar el documento' });
+    }
+  },
+
+  // Rechazar solicitud múltiple (nuevo)
+  rechazarSolicitudMultiple: async (req, res) => {
+    try {
+      const { solicitudId } = req.params;
+      const { motivo } = req.body;
+
+      console.log('🔍 Rechazando solicitud múltiple:', solicitudId);
+
+      // Obtener la solicitud múltiple
+      const solicitudMultiple = await SolicitudMultiple.findById(solicitudId)
+        .populate('documentoId', 'nombre')
+        .populate('solicitanteId', 'nombre email');
+
+      if (!solicitudMultiple) {
+        return res.status(404).json({ error: 'Solicitud múltiple no encontrada' });
+      }
+
+      // Verificar que el usuario es firmante
+      const esFirmante = solicitudMultiple.firmantes.some(f => 
+        f.usuarioId.toString() === req.usuario.id
+      );
+
+      if (!esFirmante) {
+        return res.status(403).json({ error: 'No eres firmante de esta solicitud' });
+      }
+
+      // Verificar estado de la solicitud
+      if (solicitudMultiple.estado === 'completado') {
+        return res.status(400).json({ error: 'No se puede rechazar una solicitud ya completada' });
+      }
+
+      if (solicitudMultiple.estado === 'expirado') {
+        return res.status(400).json({ error: 'Esta solicitud ha expirado' });
+      }
+
+      // Buscar la solicitud individual del firmante
+      const solicitudIndividual = await SolicitudFirma.findOne({
+        solicitudMultipleId: solicitudId,
+        firmanteId: req.usuario.id
+      });
+
+      if (!solicitudIndividual) {
+        return res.status(404).json({ error: 'Solicitud individual no encontrada' });
+      }
+
+      if (solicitudIndividual.estado === 'firmado') {
+        return res.status(400).json({ error: 'No puedes rechazar una solicitud ya firmada' });
+      }
+
+      if (solicitudIndividual.estado === 'rechazado') {
+        return res.status(400).json({ error: 'Ya has rechazado esta solicitud' });
+      }
+
+      // Actualizar solicitud individual
+      solicitudIndividual.estado = 'rechazado';
+      solicitudIndividual.fechaRechazo = new Date();
+      solicitudIndividual.motivoRechazo = motivo;
+      await solicitudIndividual.save();
+
+      // Agregar al historial
+      await solicitudMultiple.agregarHistorial(
+        'rechazado',
+        req.usuario.id,
+        `Solicitud rechazada por ${req.usuario.nombre}${motivo ? `: ${motivo}` : ''}`
+      );
+
+      // Verificar si todos los firmantes han respondido (firmado o rechazado)
+      const solicitudesIndividuales = await SolicitudFirma.find({
+        solicitudMultipleId: solicitudId
+      });
+
+      const todasRespondidas = solicitudesIndividuales.every(s => 
+        s.estado === 'firmado' || s.estado === 'rechazado'
+      );
+
+      // Si hay al menos un rechazo, marcar la solicitud múltiple como rechazada
+      const hayRechazos = solicitudesIndividuales.some(s => s.estado === 'rechazado');
+      
+      if (hayRechazos && todasRespondidas) {
+        solicitudMultiple.estado = 'rechazado';
+        await solicitudMultiple.save();
+      }
+
+      // Notificar al solicitante por email
+      try {
+        await emailService.enviarNotificacionFirmaRechazada({
+          solicitanteEmail: solicitudMultiple.solicitanteId.email,
+          solicitanteNombre: solicitudMultiple.solicitanteId.nombre,
+          firmanteNombre: req.usuario.nombre,
+          documentoNombre: solicitudMultiple.documentoId.nombre,
+          motivo: motivo || 'Sin motivo especificado',
+          tituloSolicitud: solicitudMultiple.titulo
+        });
+      } catch (emailError) {
+        console.error('⚠️ Error enviando notificación por email:', emailError.message);
+      }
+
+      // Notificar al solicitante por WebSocket
+      try {
+        await enviarNotificacionWebSocket(solicitudMultiple.solicitanteId._id, {
+          tipo: 'firma_rechazada',
+          solicitudId: solicitudMultiple._id.toString(),
+          titulo: solicitudMultiple.titulo,
+          documentoNombre: solicitudMultiple.documentoId.nombre,
+          firmanteNombre: req.usuario.nombre,
+          firmanteEmail: req.usuario.email,
+          motivo: motivo || 'Sin motivo especificado',
+          mensaje: `${req.usuario.nombre} ha rechazado la solicitud de firma "${solicitudMultiple.titulo}"`,
+          fechaRechazo: new Date().toISOString(),
+          estadoSolicitud: solicitudMultiple.estado,
+          timestamp: new Date().toISOString()
+        });
+        console.log('✅ Notificación WebSocket de rechazo enviada al solicitante');
+      } catch (wsError) {
+        console.error('⚠️ Error enviando notificación WebSocket:', wsError.message);
+      }
+
+      console.log('✅ Solicitud múltiple rechazada exitosamente');
+
+      res.json({
+        message: 'Solicitud rechazada exitosamente',
+        solicitud: {
+          id: solicitudMultiple._id,
+          estado: solicitudMultiple.estado,
+          rechazadaPor: req.usuario.nombre,
+          motivo: motivo
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error rechazando solicitud múltiple:', error);
+      res.status(500).json({ error: 'Error al rechazar la solicitud' });
     }
   },
 
@@ -588,3 +744,6 @@ async function enviarNotificacionWebSocket(userId, datos) {
 }
 
 module.exports = solicitudMultipleController;
+
+// Exportar también la función de WebSocket para otros controladores
+module.exports.enviarNotificacionWebSocket = enviarNotificacionWebSocket;

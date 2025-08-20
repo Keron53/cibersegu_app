@@ -583,7 +583,7 @@ const PositionSelector = ({
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden"
+          className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-7xl w-full max-h-[95vh] overflow-hidden flex flex-col"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
@@ -604,9 +604,9 @@ const PositionSelector = ({
           </div>
 
           {/* Content */}
-          <div className="flex flex-col lg:flex-row h-[calc(90vh-140px)]">
+          <div className="flex flex-col lg:flex-row flex-1 min-h-0">
             {/* PDF Viewer */}
-            <div className="flex-1 bg-gray-100 dark:bg-gray-900 p-4 overflow-auto">
+            <div className="flex-1 bg-gray-100 dark:bg-gray-900 p-4 overflow-auto max-h-full min-h-0">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
@@ -701,7 +701,8 @@ const PositionSelector = ({
             </div>
 
             {/* Panel lateral */}
-            <div className="w-full lg:w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 p-6">
+            <div className="w-full lg:w-80 bg-white dark:bg-gray-800 border-l lg:border-l border-t lg:border-t-0 border-gray-200 dark:border-gray-700 flex flex-col min-h-0 lg:max-h-full max-h-96">
+              <div className="p-6 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
               <div className="space-y-6">
                 {/* Información del firmante */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
@@ -722,7 +723,7 @@ const PositionSelector = ({
                     <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
                       👥 Otros Firmantes ({firmantesExistentes.length})
                     </h4>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
                       {firmantesExistentes.map((firmante, index) => {
                         const colors = ['text-green-600', 'text-purple-600', 'text-pink-600', 'text-yellow-600', 'text-indigo-600'];
                         const colorClass = colors[index % colors.length];
@@ -827,6 +828,7 @@ const PositionSelector = ({
                     Confirmar Posición
                   </button>
                 </div>
+              </div>
               </div>
             </div>
           </div>

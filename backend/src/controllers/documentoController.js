@@ -418,6 +418,27 @@ const documentoController = {
         }
       });
 
+      // Notificar al propietario del documento por WebSocket (si no es el mismo que lo firmó)
+      if (documento.usuario.toString() !== req.usuario.id) {
+        try {
+          const { enviarNotificacionWebSocket } = require('./solicitudMultipleController');
+          
+          await enviarNotificacionWebSocket(documento.usuario, {
+            tipo: 'documento_firmado',
+            documentoId: documento._id.toString(),
+            documentoNombre: documento.nombre,
+            firmanteNombre: req.usuario.nombre,
+            firmanteEmail: req.usuario.email,
+            mensaje: `${req.usuario.nombre} ha firmado tu documento "${documento.nombre}"`,
+            fechaFirma: new Date().toISOString(),
+            timestamp: new Date().toISOString()
+          });
+          console.log('✅ Notificación WebSocket de documento firmado enviada al propietario');
+        } catch (wsError) {
+          console.error('⚠️ Error enviando notificación WebSocket:', wsError.message);
+        }
+      }
+
       res.json({ 
         message: 'Documento firmado correctamente',
         firmaInfo,

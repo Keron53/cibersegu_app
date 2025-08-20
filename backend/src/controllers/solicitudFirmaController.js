@@ -327,6 +327,21 @@ const solicitudFirmaController = {
       solicitud.certificadoId = certificado._id;
       await solicitud.save();
 
+      // Si es parte de una solicitud múltiple, actualizar su progreso
+      if (solicitud.solicitudMultipleId) {
+        const SolicitudMultiple = require('../models/SolicitudMultiple');
+        const solicitudMultiple = await SolicitudMultiple.findById(solicitud.solicitudMultipleId);
+        if (solicitudMultiple) {
+          await solicitudMultiple.agregarFirma();
+          await solicitudMultiple.agregarHistorial(
+            'firmado',
+            req.usuario.id,
+            `Documento firmado por ${req.usuario.nombre}`
+          );
+          console.log('✅ Solicitud múltiple actualizada con nueva firma');
+        }
+      }
+
       // Actualizar documento con información del firmante y marcar como compartido
       await Documento.findByIdAndUpdate(solicitud.documentoId._id, {
         $push: {
@@ -377,7 +392,7 @@ const solicitudFirmaController = {
 
       console.log('✅ Solicitud actualizada como firmada');
 
-      // Notificar al solicitante
+      // Notificar al solicitante por email
       try {
         const solicitante = await Usuario.findById(solicitud.solicitanteId);
         await emailService.enviarNotificacionFirmaCompletada({
@@ -389,6 +404,48 @@ const solicitudFirmaController = {
         console.log('✅ Email de notificación enviado al solicitante');
       } catch (emailError) {
         console.error('⚠️ Error enviando email de notificación:', emailError.message);
+      }
+
+      // Notificar al solicitante por WebSocket
+      try {
+        const { enviarNotificacionWebSocket } = require('./solicitudMultipleController');
+        
+        // Verificar si esta solicitud es parte de una solicitud múltiple
+        if (solicitud.solicitudMultipleId) {
+          // Es parte de una solicitud múltiple - enviar notificación de firma completada
+          const solicitudMultiple = await require('../models/SolicitudMultiple').findById(solicitud.solicitudMultipleId);
+          
+          await enviarNotificacionWebSocket(solicitud.solicitanteId, {
+            tipo: 'firma_completada',
+            solicitudId: solicitud.solicitudMultipleId.toString(),
+            titulo: solicitudMultiple ? solicitudMultiple.titulo : 'Solicitud múltiple',
+            documentoNombre: solicitud.documentoId.nombre,
+            firmanteNombre: req.usuario.nombre,
+            firmanteEmail: req.usuario.email,
+            mensaje: `${req.usuario.nombre} ha firmado el documento "${solicitud.documentoId.nombre}"`,
+            porcentajeCompletado: solicitudMultiple ? solicitudMultiple.porcentajeCompletado : 0,
+            firmasCompletadas: solicitudMultiple ? solicitudMultiple.firmasCompletadas : 1,
+            totalFirmantes: solicitudMultiple ? solicitudMultiple.totalFirmantes : 1,
+            fechaFirma: new Date().toISOString(),
+            timestamp: new Date().toISOString()
+          });
+          console.log('✅ Notificación WebSocket de firma completada (múltiple) enviada al solicitante');
+        } else {
+          // Es una solicitud individual - enviar notificación de documento firmado
+          await enviarNotificacionWebSocket(solicitud.solicitanteId, {
+            tipo: 'documento_firmado',
+            documentoId: solicitud.documentoId._id.toString(),
+            documentoNombre: solicitud.documentoId.nombre,
+            firmanteNombre: req.usuario.nombre,
+            firmanteEmail: req.usuario.email,
+            mensaje: `${req.usuario.nombre} ha firmado tu documento "${solicitud.documentoId.nombre}"`,
+            fechaFirma: new Date().toISOString(),
+            timestamp: new Date().toISOString()
+          });
+          console.log('✅ Notificación WebSocket de documento firmado (individual) enviada al solicitante');
+        }
+      } catch (wsError) {
+        console.error('⚠️ Error enviando notificación WebSocket:', wsError.message);
       }
 
       // Limpiar archivos temporales
@@ -438,7 +495,7 @@ const solicitudFirmaController = {
       solicitud.estado = 'rechazado';
       await solicitud.save();
 
-      // Notificar al solicitante
+      // Notificar al solicitante por email
       try {
         await emailService.enviarNotificacionFirmaRechazada({
           solicitanteEmail: solicitud.solicitanteId.email,
@@ -449,6 +506,27 @@ const solicitudFirmaController = {
         });
       } catch (emailError) {
         console.error('⚠️ Error enviando email de rechazo:', emailError.message);
+      }
+
+      // Notificar al solicitante por WebSocket
+      try {
+        // Importar la función si no está disponible
+        const { enviarNotificacionWebSocket } = require('./solicitudMultipleController');
+        
+        await enviarNotificacionWebSocket(solicitud.solicitanteId._id, {
+          tipo: 'firma_rechazada_individual',
+          solicitudId: solicitud._id.toString(),
+          documentoNombre: solicitud.documentoId.nombre,
+          firmanteNombre: req.usuario.nombre,
+          firmanteEmail: req.usuario.email,
+          motivo: motivo || 'Sin motivo especificado',
+          mensaje: `${req.usuario.nombre} ha rechazado la solicitud de firma para "${solicitud.documentoId.nombre}"`,
+          fechaRechazo: new Date().toISOString(),
+          timestamp: new Date().toISOString()
+        });
+        console.log('✅ Notificación WebSocket de rechazo individual enviada al solicitante');
+      } catch (wsError) {
+        console.error('⚠️ Error enviando notificación WebSocket:', wsError.message);
       }
 
       res.json({
@@ -498,7 +576,7 @@ const solicitudFirmaController = {
 
 
 async function EnviarNotificacionWS(firmanteId, solicitud) {
-  const res = await fetch('http://websocket:3000/emitir', {
+  const res = await fetch(`${process.env.WEBSOCKET_URL || 'http://localhost:3000'}/emitir`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

@@ -73,18 +73,84 @@ app.post('/emitir', (req, res) => {
 
   const tipoNormalizado = (doc && doc.tipo ? String(doc.tipo) : '').trim().toLowerCase();
 
-  // Heurística: aunque no venga tipo, detectar por campos característicos
+  // Detectar diferentes tipos de notificaciones
   const pareceSolicitudMultiple =
     tipoNormalizado === 'solicitud_multiple' ||
     (doc && typeof doc === 'object' && 'solicitudId' in doc && 'documentoNombre' in doc && 'solicitanteNombre' in doc);
 
+  const esFirmaCompletada = tipoNormalizado === 'firma_completada';
+  const esFirmaRechazada = tipoNormalizado === 'firma_rechazada' || tipoNormalizado === 'firma_rechazada_individual';
+  const esDocumentoFirmado = tipoNormalizado === 'documento_firmado';
+
   console.log(`📨 Intentando enviar notificación a usuario ${userId}:`);
   console.log('🔍 Documento normalizado:', JSON.stringify(doc, null, 2));
-  console.log('🔍 Tipo normalizado:', tipoNormalizado, '→ Parece solicitud múltiple:', pareceSolicitudMultiple);
+  console.log('🔍 Tipo normalizado:', tipoNormalizado);
+  console.log('🔍 Es firma completada:', esFirmaCompletada);
+  console.log('🔍 Es firma rechazada:', esFirmaRechazada);
+  console.log('🔍 Es documento firmado:', esDocumentoFirmado);
+  console.log('🔍 Parece solicitud múltiple:', pareceSolicitudMultiple);
 
   if (connectedUsers[userId]) {
+    // Manejar firma completada
+    if (esFirmaCompletada) {
+      io.to(connectedUsers[userId]).emit('firma_completada', {
+        tipo: 'firma_completada',
+        solicitudId: doc.solicitudId,
+        titulo: doc.titulo,
+        documentoNombre: doc.documentoNombre,
+        firmanteNombre: doc.firmanteNombre,
+        firmanteEmail: doc.firmanteEmail,
+        mensaje: doc.mensaje,
+        porcentajeCompletado: doc.porcentajeCompletado,
+        firmasCompletadas: doc.firmasCompletadas,
+        totalFirmantes: doc.totalFirmantes,
+        fechaFirma: doc.fechaFirma,
+        timestamp: doc.timestamp
+      });
+      console.log(`✅ Notificación de firma completada enviada al usuario ${userId}`);
+      res.send({ message: `Notificación de firma completada enviada al usuario ${userId}`, tipo: 'firma_completada', timestamp: new Date().toISOString() });
+      return;
+    }
+
+    // Manejar firma rechazada
+    if (esFirmaRechazada) {
+      io.to(connectedUsers[userId]).emit('firma_rechazada', {
+        tipo: doc.tipo,
+        solicitudId: doc.solicitudId,
+        titulo: doc.titulo,
+        documentoNombre: doc.documentoNombre,
+        firmanteNombre: doc.firmanteNombre,
+        firmanteEmail: doc.firmanteEmail,
+        motivo: doc.motivo,
+        mensaje: doc.mensaje,
+        fechaRechazo: doc.fechaRechazo,
+        estadoSolicitud: doc.estadoSolicitud,
+        timestamp: doc.timestamp
+      });
+      console.log(`❌ Notificación de firma rechazada enviada al usuario ${userId}`);
+      res.send({ message: `Notificación de firma rechazada enviada al usuario ${userId}`, tipo: 'firma_rechazada', timestamp: new Date().toISOString() });
+      return;
+    }
+
+    // Manejar documento firmado (individual)
+    if (esDocumentoFirmado) {
+      io.to(connectedUsers[userId]).emit('documento_firmado', {
+        tipo: 'documento_firmado',
+        documentoId: doc.documentoId,
+        documentoNombre: doc.documentoNombre,
+        firmanteNombre: doc.firmanteNombre,
+        firmanteEmail: doc.firmanteEmail,
+        mensaje: doc.mensaje,
+        fechaFirma: doc.fechaFirma,
+        timestamp: doc.timestamp
+      });
+      console.log(`📝 Notificación de documento firmado enviada al usuario ${userId}`);
+      res.send({ message: `Notificación de documento firmado enviada al usuario ${userId}`, tipo: 'documento_firmado', timestamp: new Date().toISOString() });
+      return;
+    }
+
+    // Solicitud múltiple (original)
     if (pareceSolicitudMultiple) {
-      // Emitir evento específico de solicitud múltiple
       io.to(connectedUsers[userId]).emit('solicitud_multiple', {
         tipo: 'solicitud_multiple',
         solicitudId: doc.solicitudId,

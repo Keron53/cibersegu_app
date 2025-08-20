@@ -242,6 +242,70 @@ const NotificacionesTiempoReal = () => {
       notificationService.add(nuevaNotificacion);
     });
 
+    // Escuchar notificaciones de firma completada
+    newSocket.on('firma_completada', (data) => {
+      console.log('✅ Notificación de firma completada recibida:', data);
+      
+      const nuevaNotificacion = {
+        id: Date.now(),
+        tipo: 'firma_completada',
+        titulo: '✅ Firma Completada',
+        remitente: data.firmanteNombre || 'Usuario',
+        documentoNombre: data.documentoNombre || 'Documento',
+        mensaje: data.mensaje || `${data.firmanteNombre} ha firmado el documento`,
+        solicitudId: data.solicitudId,
+        porcentajeCompletado: data.porcentajeCompletado,
+        firmasCompletadas: data.firmasCompletadas,
+        totalFirmantes: data.totalFirmantes,
+        timestamp: data.timestamp || new Date().toISOString(),
+        leida: false
+      };
+
+      notificationService.add(nuevaNotificacion);
+      setShowNotifications(true);
+    });
+
+    // Escuchar notificaciones de firma rechazada
+    newSocket.on('firma_rechazada', (data) => {
+      console.log('❌ Notificación de firma rechazada recibida:', data);
+      
+      const nuevaNotificacion = {
+        id: Date.now(),
+        tipo: 'firma_rechazada',
+        titulo: '❌ Firma Rechazada',
+        remitente: data.firmanteNombre || 'Usuario',
+        documentoNombre: data.documentoNombre || 'Documento',
+        mensaje: data.mensaje || `${data.firmanteNombre} ha rechazado la firma`,
+        motivo: data.motivo,
+        solicitudId: data.solicitudId,
+        timestamp: data.timestamp || new Date().toISOString(),
+        leida: false
+      };
+
+      notificationService.add(nuevaNotificacion);
+      setShowNotifications(true);
+    });
+
+    // Escuchar notificaciones de documento firmado (individual)
+    newSocket.on('documento_firmado', (data) => {
+      console.log('📝 Notificación de documento firmado recibida:', data);
+      
+      const nuevaNotificacion = {
+        id: Date.now(),
+        tipo: 'documento_firmado',
+        titulo: '📝 Documento Firmado',
+        remitente: data.firmanteNombre || 'Usuario',
+        documentoNombre: data.documentoNombre || 'Documento',
+        mensaje: data.mensaje || `${data.firmanteNombre} ha firmado tu documento`,
+        documentoId: data.documentoId,
+        timestamp: data.timestamp || new Date().toISOString(),
+        leida: false
+      };
+
+      notificationService.add(nuevaNotificacion);
+      setShowNotifications(true);
+    });
+
     setSocket(newSocket);
 
     return () => {
@@ -400,6 +464,18 @@ const NotificacionesTiempoReal = () => {
                             <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-full">
                               <DocumentIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                             </div>
+                          ) : notificacion.tipo === 'firma_completada' ? (
+                            <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-full">
+                              <CheckCircleIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            </div>
+                          ) : notificacion.tipo === 'firma_rechazada' ? (
+                            <div className="p-2 bg-red-100 dark:bg-red-900/50 rounded-full">
+                              <ExclamationTriangleIcon className="h-5 w-5 text-red-600 dark:text-red-400" />
+                            </div>
+                          ) : notificacion.tipo === 'documento_firmado' ? (
+                            <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-full">
+                              <DocumentIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                            </div>
                           ) : (
                             <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-full">
                               <BellIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
@@ -471,6 +547,90 @@ const NotificacionesTiempoReal = () => {
                                 >
                                   <DocumentIcon className="h-4 w-4" />
                                   <span>Firmar Ahora</span>
+                                </button>
+                              </div>
+                            </div>
+                          ) : notificacion.tipo === 'firma_completada' ? (
+                            /* Notificación de firma completada */
+                            <div className="space-y-3">
+                              <div className="text-sm text-gray-700 dark:text-gray-300">
+                                <span className="font-semibold text-green-600 dark:text-green-400">
+                                  {notificacion.remitente}
+                                </span>
+                                <span> ha firmado </span>
+                                <span className="font-semibold">
+                                  '{notificacion.documentoNombre}'
+                                </span>
+                              </div>
+                              
+                              {notificacion.porcentajeCompletado && (
+                                <div className="flex items-center space-x-2 text-sm">
+                                  <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                    <div 
+                                      className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                                      style={{ width: `${notificacion.porcentajeCompletado}%` }}
+                                    ></div>
+                                  </div>
+                                  <span className="text-green-600 dark:text-green-400 font-medium">
+                                    {notificacion.porcentajeCompletado}%
+                                  </span>
+                                </div>
+                              )}
+                              
+                              {notificacion.firmasCompletadas && notificacion.totalFirmantes && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {notificacion.firmasCompletadas} de {notificacion.totalFirmantes} firmas completadas
+                                </div>
+                              )}
+                            </div>
+                          ) : notificacion.tipo === 'firma_rechazada' ? (
+                            /* Notificación de firma rechazada */
+                            <div className="space-y-3">
+                              <div className="text-sm text-gray-700 dark:text-gray-300">
+                                <span className="font-semibold text-red-600 dark:text-red-400">
+                                  {notificacion.remitente}
+                                </span>
+                                <span> ha rechazado la firma de </span>
+                                <span className="font-semibold">
+                                  '{notificacion.documentoNombre}'
+                                </span>
+                              </div>
+                              
+                              {notificacion.motivo && (
+                                <div className="text-sm text-gray-600 dark:text-gray-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border-l-3 border-red-400">
+                                  <div className="flex items-start space-x-2">
+                                    <span className="text-red-500 mt-0.5">💭</span>
+                                    <div>
+                                      <span className="font-medium text-red-700 dark:text-red-400">Motivo:</span>
+                                      <span className="ml-1 italic">"{notificacion.motivo}"</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : notificacion.tipo === 'documento_firmado' ? (
+                            /* Notificación de documento firmado individual */
+                            <div className="space-y-3">
+                              <div className="text-sm text-gray-700 dark:text-gray-300">
+                                <span className="font-semibold text-purple-600 dark:text-purple-400">
+                                  {notificacion.remitente}
+                                </span>
+                                <span> ha firmado tu documento </span>
+                                <span className="font-semibold">
+                                  '{notificacion.documentoNombre}'
+                                </span>
+                              </div>
+                              
+                              <div className="pt-2">
+                                <button
+                                  onClick={() => {
+                                    window.location.href = '/documentos';
+                                    setShowNotifications(false);
+                                  }}
+                                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2"
+                                >
+                                  <DocumentIcon className="h-4 w-4" />
+                                  <span>Ver Documento</span>
                                 </button>
                               </div>
                             </div>

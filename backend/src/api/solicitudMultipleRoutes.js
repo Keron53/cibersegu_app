@@ -21,6 +21,9 @@ router.get('/:solicitudId', solicitudMultipleController.obtenerSolicitudMultiple
 // Firmar documento de solicitud múltiple
 router.post('/:solicitudId/firmar', solicitudMultipleController.firmarSolicitudMultiple);
 
+// Rechazar solicitud múltiple
+router.post('/:solicitudId/rechazar', solicitudMultipleController.rechazarSolicitudMultiple);
+
 // Cancelar solicitud múltiple
 router.post('/:solicitudId/cancelar', solicitudMultipleController.cancelarSolicitudMultiple);
 
