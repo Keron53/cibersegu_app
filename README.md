@@ -10,7 +10,7 @@ El sistema Cibersegu está diseñado con una arquitectura modular que incluye fr
 
 ### Diagrama de Arquitectura Completa
 
-![Arquitectura del Sistema](docs/images/arquitectura-sistema.png)
+![Arquitectura del Sistema](docs/arquitectura-sistema.png)
 
 **📋 [Ver Código PlantUML →](docs/CodigoPlantUML)**
 
