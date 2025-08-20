@@ -2,46 +2,98 @@
 top to bottom direction
 skinparam packageStyle rectangle
 skinparam componentStyle rectangle
-
-title Arquitectura Centralizada de Firma y Verificación de PDFs
-
-actor Usuario
-
-rectangle "Frontend (React)\n• Login\n• Subir/Validar PDF\n• Ver Estado\n• Descargar PDF" as FE
-
-package "Backend (Node.js + Express)" {
-  component AuthController       as AuthCtl
-  component DocumentController   as DocCtl
-  component DuplicateCheckerSvc  as DupSvc
-  component CertificateService   as CertSvc
-  component PDFSignerService     as SignSvc
-  component MetadataService      as MetaSvc
+skinparam backgroundColor #FFFFFF
+skinparam component {
+  BackgroundColor #E8F4FD
+  BorderColor #2E86AB
+}
+skinparam database {
+  BackgroundColor #F0F8FF
+  BorderColor #4682B4
 }
 
-database "MongoDB\n• users\n• certificates\n• documentMetadata" as DB
-artifact "Key Store\n(HSM / env vars)" as KEY
+title Flujo Principal del Usuario - Sistema Cibersegu
 
-Usuario --> FE           : Usa la interfaz
-FE --> AuthCtl           : POST /login
-AuthCtl --> DB           : validar credenciales
-FE --> DocCtl           : solicitudes PDF + JWT
+actor "Usuario" as User
 
-DocCtl --> DupSvc        : computeHash(buffer)
-DupSvc --> DB            : findOne(documentMetadata)
-DupSvc --> DocCtl        : metadata (match/no-match)
+rectangle "Frontend (React)" as FE {
+  component "Registro/Login" as Auth
+  component "Dashboard" as Dashboard
+  component "Subir Documento" as Upload
+  component "Visor PDF" as PDFViewer
+  component "Solicitar Firma" as Request
+  component "Notificaciones" as Notifications
+}
 
-DocCtl --> CertSvc       : getCert(certId)
-CertSvc --> DB           : findOne(certificates)
-CertSvc --> DocCtl       : cert data
+package "Backend (Node.js)" {
+  component "Autenticación" as AuthAPI
+  component "Documentos" as DocAPI
+  component "Firmas" as SignAPI
+  component "Email" as EmailAPI
+}
 
-DocCtl --> SignSvc       : signPDF(buffer, cert data)
-SignSvc --> KEY          : load private key
-KEY --> SignSvc          : private key
-SignSvc --> DocCtl       : signedBuffer
+package "Servicios" {
+  component "Firma Digital\n(pyHanko)" as PyHanko
+  component "Base de Datos" as DB
+  component "Gmail" as Gmail
+}
 
-DocCtl --> MetaSvc       : saveMeta({userId, fileHash, status, certId, timestamps})
-MetaSvc --> DB           : insertOne(documentMetadata)
+' === FLUJO PRINCIPAL DEL USUARIO ===
 
-DocCtl --> FE           : {id, status} / PDF firmado
+' 1. REGISTRO E INICIO DE SESIÓN
+User --> Auth : 1. Registro/Login
+Auth --> AuthAPI : POST /api/usuarios/registro
+AuthAPI --> EmailAPI : Enviar código verificación
+EmailAPI --> Gmail : Email de verificación
+AuthAPI --> DB : Guardar usuario
+AuthAPI --> Auth : Token JWT
+Auth --> Dashboard : 2. Ir al Dashboard
+
+' 2. SUBIR DOCUMENTO
+User --> Dashboard : 3. Subir documento
+Dashboard --> Upload : Abrir formulario
+Upload --> DocAPI : POST /api/documentos/subir
+DocAPI --> DB : Guardar documento
+DocAPI --> Upload : Confirmación
+Upload --> PDFViewer : 4. Abrir visor PDF
+
+' 3. POSICIONAR Y FIRMAR
+User --> PDFViewer : 5. Seleccionar posición
+PDFViewer --> SignAPI : POST /api/documentos/:id/firmar
+SignAPI --> PyHanko : Procesar firma digital
+PyHanko --> SignAPI : PDF firmado
+SignAPI --> PDFViewer : Descargar PDF
+PDFViewer --> Dashboard : 6. Volver al Dashboard
+
+' 4. SOLICITAR FIRMA A OTROS
+User --> Dashboard : 7. Solicitar firma
+Dashboard --> Request : Abrir formulario
+Request --> SignAPI : POST /api/solicitudes-multiples/crear
+SignAPI --> EmailAPI : Notificar firmantes
+EmailAPI --> Gmail : Emails con enlaces
+SignAPI --> DB : Guardar solicitud
+Request --> Notifications : 8. Esperar notificaciones
+
+' 5. NOTIFICACIONES EN TIEMPO REAL
+Notifications --> User : 9. Actualizaciones en tiempo real
+User --> Dashboard : Ver progreso de firmas
+
+' === ESTADOS DEL DOCUMENTO ===
+note right of Dashboard
+  Estados del Documento:
+  📄 Sin firmar
+  ✍️ Firmado por mí
+  👥 Con solicitudes pendientes
+  ✅ Completamente firmado
+end note
+
+' === TIPOS DE FIRMA ===
+note left of PDFViewer
+  Tipos de Firma:
+  🔐 Firma individual
+  👥 Solicitud múltiple (hasta 5)
+  📧 Notificaciones por email
+  🔔 Actualizaciones en tiempo real
+end note
 
 @enduml
