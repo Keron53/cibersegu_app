@@ -5,6 +5,7 @@ import { X, MapPin, Check, AlertCircle, ZoomIn, ZoomOut, ChevronLeft, ChevronRig
 const PositionSelector = ({ 
   documento, 
   firmante, 
+  firmantesExistentes = [], // Lista de firmantes ya agregados con sus posiciones
   isOpen, 
   onClose, 
   onPositionSelected 
@@ -18,6 +19,7 @@ const PositionSelector = ({
   const [isDragging, setIsDragging] = useState(false);
   const [startCoords, setStartCoords] = useState(null);
   const [selectionBox, setSelectionBox] = useState(null);
+  const [existingPositionBoxes, setExistingPositionBoxes] = useState([]);
   
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -36,6 +38,13 @@ const PositionSelector = ({
   useEffect(() => {
     currentPageRef.current = currentPage;
   }, [currentPage]);
+
+  // Mostrar posiciones existentes cuando cambie la página o escala
+  useEffect(() => {
+    if (!loading && containerRef.current) {
+      mostrarPosicionesExistentes();
+    }
+  }, [currentPage, scale, loading, firmantesExistentes]);
 
   // Configurar eventos del mouse cuando el componente se monte
   useEffect(() => {
@@ -420,6 +429,7 @@ const PositionSelector = ({
       setCurrentPage(nuevaPagina);
       setSelectedPosition(null);
       limpiarSeleccionAnterior();
+      limpiarPosicionesExistentes();
       renderizarPagina(nuevaPagina);
     }
   };
@@ -429,6 +439,7 @@ const PositionSelector = ({
     setScale(nuevaScale);
     setSelectedPosition(null);
     limpiarSeleccionAnterior();
+    limpiarPosicionesExistentes();
     setTimeout(() => renderizarPagina(currentPage), 100);
   };
 
@@ -437,6 +448,112 @@ const PositionSelector = ({
       selectionBox.parentElement.removeChild(selectionBox);
     }
     setSelectionBox(null);
+  };
+
+  // Función para mostrar las posiciones existentes de otros firmantes
+  const mostrarPosicionesExistentes = () => {
+    // Limpiar posiciones existentes primero
+    limpiarPosicionesExistentes();
+
+    if (!containerRef.current || !firmantesExistentes.length) return;
+
+    const nuevasPosicionesBoxes = [];
+    
+    firmantesExistentes.forEach((firmante, index) => {
+      if (firmante.posicion && firmante.posicion.page === currentPage) {
+        const box = crearCajaExistente(firmante, index);
+        containerRef.current.appendChild(box);
+        nuevasPosicionesBoxes.push(box);
+      }
+    });
+
+    setExistingPositionBoxes(nuevasPosicionesBoxes);
+  };
+
+  // Función para crear cajas de posiciones existentes
+  const crearCajaExistente = (firmante, index) => {
+    const { posicion } = firmante;
+    
+    // Convertir coordenadas PDF a coordenadas de pantalla
+    const screenX = posicion.x * scale;
+    const screenY = (containerRef.current.getBoundingClientRect().height - (posicion.y * scale)) - (posicion.qrSize || 100);
+    
+    const box = document.createElement('div');
+    
+    // Colores diferentes para cada firmante existente
+    const colors = [
+      { border: '#10B981', bg: 'rgba(16, 185, 129, 0.2)', shadow: 'rgba(16, 185, 129, 0.4)' }, // Verde
+      { border: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.2)', shadow: 'rgba(139, 92, 246, 0.4)' }, // Púrpura
+      { border: '#EC4899', bg: 'rgba(236, 72, 153, 0.2)', shadow: 'rgba(236, 72, 153, 0.4)' }, // Rosa
+      { border: '#F59E0B', bg: 'rgba(245, 158, 11, 0.2)', shadow: 'rgba(245, 158, 11, 0.4)' }, // Amarillo
+      { border: '#6366F1', bg: 'rgba(99, 102, 241, 0.2)', shadow: 'rgba(99, 102, 241, 0.4)' }  // Índigo
+    ];
+    
+    const color = colors[index % colors.length];
+    
+    // Estilo visual del cuadrito existente
+    box.classList.add('existing-position-box');
+    box.dataset.firmanteId = firmante.usuarioId;
+    
+    // Posicionamiento
+    box.style.position = 'absolute';
+    box.style.left = `${screenX}px`;
+    box.style.top = `${screenY}px`;
+    box.style.width = `${(posicion.qrSize || 100) * scale}px`;
+    box.style.height = `${50 * scale}px`; // Altura estándar
+    
+    // Apariencia visual
+    box.style.border = `3px solid ${color.border}`;
+    box.style.background = color.bg;
+    box.style.pointerEvents = 'none';
+    box.style.borderRadius = '6px';
+    box.style.boxShadow = `0 0 10px ${color.shadow}`;
+    box.style.zIndex = '999'; // Menor que la nueva selección
+    box.style.transition = 'none';
+    
+    // Agregar indicador de firmante existente
+    const indicator = document.createElement('div');
+    indicator.className = 'existing-position-indicator';
+    indicator.style.position = 'absolute';
+    indicator.style.top = '-35px';
+    indicator.style.left = '50%';
+    indicator.style.transform = 'translateX(-50%)';
+    indicator.style.background = color.border;
+    indicator.style.color = 'white';
+    indicator.style.padding = '4px 8px';
+    indicator.style.borderRadius = '4px';
+    indicator.style.fontSize = '11px';
+    indicator.style.fontWeight = 'bold';
+    indicator.style.whiteSpace = 'nowrap';
+    indicator.style.zIndex = '1000';
+    indicator.textContent = `✅ ${firmante.nombre}`;
+    box.appendChild(indicator);
+    
+    // Agregar texto interior
+    const texto = document.createElement('div');
+    texto.style.position = 'absolute';
+    texto.style.top = '50%';
+    texto.style.left = '50%';
+    texto.style.transform = 'translate(-50%, -50%)';
+    texto.style.color = color.border;
+    texto.style.fontSize = '10px';
+    texto.style.fontWeight = 'bold';
+    texto.style.textAlign = 'center';
+    texto.textContent = 'OCUPADO';
+    box.appendChild(texto);
+    
+    console.log('👥 Posición existente mostrada para:', firmante.nombre, { screenX, screenY });
+    return box;
+  };
+
+  // Función para limpiar posiciones existentes
+  const limpiarPosicionesExistentes = () => {
+    existingPositionBoxes.forEach(box => {
+      if (box && box.parentElement) {
+        box.parentElement.removeChild(box);
+      }
+    });
+    setExistingPositionBoxes([]);
   };
 
   const reiniciarSeleccion = () => {
@@ -589,7 +706,7 @@ const PositionSelector = ({
                 {/* Información del firmante */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
                   <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
-                    👤 Firmante
+                    👤 Firmante Actual
                   </h4>
                   <p className="text-blue-700 dark:text-blue-300 text-sm">
                     {firmante?.nombre}
@@ -598,6 +715,35 @@ const PositionSelector = ({
                     {firmante?.email}
                   </p>
                 </div>
+
+                {/* Información de firmantes existentes */}
+                {firmantesExistentes.length > 0 && (
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+                      👥 Otros Firmantes ({firmantesExistentes.length})
+                    </h4>
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {firmantesExistentes.map((firmante, index) => {
+                        const colors = ['text-green-600', 'text-purple-600', 'text-pink-600', 'text-yellow-600', 'text-indigo-600'];
+                        const colorClass = colors[index % colors.length];
+                        
+                        return (
+                          <div key={firmante.usuarioId} className="flex items-center justify-between text-xs">
+                            <span className={`${colorClass} font-medium`}>
+                              {firmante.nombre}
+                            </span>
+                            <span className="text-gray-500">
+                              {firmante.posicion ? `Pág. ${firmante.posicion.page}` : 'Sin posición'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      💡 Las posiciones ocupadas se muestran en el PDF
+                    </p>
+                  </div>
+                )}
 
                 {/* Instrucciones */}
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">

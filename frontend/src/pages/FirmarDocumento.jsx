@@ -316,9 +316,9 @@ const FirmarDocumento = () => {
 
   // Funciones para manejar firma múltiple
   const agregarFirmante = () => {
-    // Limitar a máximo 1 firmante
-    if (firmantes.length >= 1) {
-      setError('Solo se permite un firmante en esta solicitud');
+    // Limitar a máximo 5 firmantes
+    if (firmantes.length >= 5) {
+      setError('Solo se permiten hasta 5 firmantes en esta solicitud');
       return;
     }
 
@@ -387,8 +387,13 @@ const FirmarDocumento = () => {
       return;
     }
 
-    if (firmantes.length !== 1) {
-      setError('Debes seleccionar exactamente un firmante');
+    if (firmantes.length === 0) {
+      setError('Debes seleccionar al menos un firmante');
+      return;
+    }
+
+    if (firmantes.length > 5) {
+      setError('No puedes agregar más de 5 firmantes');
       return;
     }
 
@@ -723,6 +728,34 @@ const FirmarDocumento = () => {
                 </button>
               </div>
 
+              {/* Progreso de configuración */}
+              {firmantes.length > 0 && (
+                <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-green-700 dark:text-green-300 text-sm font-medium">
+                      📊 Progreso de Configuración
+                    </span>
+                    <span className="text-green-600 dark:text-green-400 text-xs">
+                      {firmantes.filter(f => f.posicion).length} / {firmantes.length} ubicados
+                    </span>
+                  </div>
+                  <div className="w-full bg-green-200 dark:bg-green-800 rounded-full h-2">
+                    <div 
+                      className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                      style={{ 
+                        width: `${firmantes.length > 0 ? (firmantes.filter(f => f.posicion).length / firmantes.length) * 100 : 0}%` 
+                      }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    {firmantes.filter(f => f.posicion).length === firmantes.length 
+                      ? '✅ Todos los firmantes tienen posición asignada'
+                      : `⏳ Faltan ${firmantes.filter(f => !f.posicion).length} posiciones por asignar`
+                    }
+                  </p>
+                </div>
+              )}
+
               {/* Título de la solicitud */}
               <div className="mb-3">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -767,7 +800,7 @@ const FirmarDocumento = () => {
               {/* Lista de firmantes */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Firmante (máximo 1)
+                  Firmantes (máximo 5)
                 </label>
                 
                 {/* Información del selector de posición */}
@@ -791,7 +824,7 @@ const FirmarDocumento = () => {
                     value={nuevoFirmante}
                     onChange={(e) => setNuevoFirmante(e.target.value)}
                     className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    disabled={cargandoUsuarios || firmantes.length >= 1}
+                    disabled={cargandoUsuarios || firmantes.length >= 5}
                   >
                                             <option value="">Seleccionar usuario...</option>
                         {usuarios.map(usuario => (
@@ -802,9 +835,9 @@ const FirmarDocumento = () => {
                   </select>
                   <button
                     onClick={agregarFirmante}
-                    disabled={!nuevoFirmante || cargandoUsuarios || firmantes.length >= 1}
+                    disabled={!nuevoFirmante || cargandoUsuarios || firmantes.length >= 5}
                     className={`px-3 py-2 rounded-md transition-colors ${
-                      nuevoFirmante && !cargandoUsuarios && firmantes.length < 1
+                      nuevoFirmante && !cargandoUsuarios && firmantes.length < 5
                         ? 'bg-blue-600 text-white hover:bg-blue-700'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
@@ -812,9 +845,14 @@ const FirmarDocumento = () => {
                     +
                   </button>
                 </div>
-                {firmantes.length >= 1 && (
+                {firmantes.length >= 5 && (
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                    Ya seleccionaste el único firmante permitido.
+                    Máximo de 5 firmantes alcanzado.
+                  </div>
+                )}
+                {firmantes.length > 0 && firmantes.length < 5 && (
+                  <div className="text-xs text-green-600 dark:text-green-400 mb-2">
+                    📊 {firmantes.length}/5 firmantes agregados. Puedes agregar {5 - firmantes.length} más.
                   </div>
                 )}
                 
@@ -826,7 +864,7 @@ const FirmarDocumento = () => {
                 )}
 
                                     {/* Lista de firmantes */}
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
                       {firmantes.map((firmante, index) => {
                         // Colores diferentes para cada usuario
                         const colors = [
@@ -891,9 +929,9 @@ const FirmarDocumento = () => {
               <div className="flex space-x-2">
                 <button
                   onClick={crearSolicitudMultiple}
-                  disabled={!tituloSolicitud || firmantes.length !== 1 || creandoSolicitud}
+                  disabled={!tituloSolicitud || firmantes.length === 0 || firmantes.filter(f => !f.posicion).length > 0 || creandoSolicitud}
                   className={`flex-1 p-2 rounded-md font-medium transition-colors ${
-                    tituloSolicitud && firmantes.length === 1 && !creandoSolicitud
+                    tituloSolicitud && firmantes.length > 0 && firmantes.filter(f => !f.posicion).length === 0 && !creandoSolicitud
                       ? 'bg-green-600 hover:bg-green-700 text-white'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
@@ -960,6 +998,7 @@ const FirmarDocumento = () => {
       <PositionSelector
         documento={documento}
         firmante={firmanteParaPosicion}
+        firmantesExistentes={firmantes.filter(f => f.usuarioId !== firmanteParaPosicion?.usuarioId)}
         isOpen={showPositionSelector}
         onClose={cerrarSelectorPosicion}
         onPositionSelected={manejarPosicionSeleccionada}
